@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.components.TikoBottomBar
 import com.example.ui.screens.AddEditTaskScreen
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
         setContent {
             MyApplicationTheme {
                 TikoApp()
@@ -58,12 +61,15 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     }
 
     val isMainScreen = currentScreen is Screen.Main
+    val currentTab = (currentScreen as? Screen.Main)?.tab
+    val hasCustomFloatingNav = currentTab == NavigationTab.HOME || currentTab == NavigationTab.LISTS
+    val creamBackground = Color(0xFFEFEBDD)
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
-        containerColor = TikoBackground,
+        containerColor = if (hasCustomFloatingNav) creamBackground else TikoBackground,
         bottomBar = {
-            if (isMainScreen) {
+            if (isMainScreen && !hasCustomFloatingNav) {
                 TikoBottomBar(
                     currentTab = selectedTab,
                     onTabSelected = { viewModel.selectTab(it) }
@@ -74,7 +80,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(TikoBackground)
+                .background(if (hasCustomFloatingNav) creamBackground else TikoBackground)
                 .padding(innerPadding)
         ) {
             when (val screen = currentScreen) {

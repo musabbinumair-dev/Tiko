@@ -21,6 +21,13 @@ val DMSans = FontFamily(
     Font(R.font.dm_sans_bold, FontWeight.Bold)
 )
 
+val OutfitFontFamily = FontFamily(
+    Font(R.font.outfit_regular, FontWeight.Normal),
+    Font(R.font.outfit_medium, FontWeight.Medium),
+    Font(R.font.outfit_bold, FontWeight.Bold),
+    Font(R.font.outfit_black, FontWeight.Black)
+)
+
 val Typography = Typography(
     // Large heavy brand header ("Tiko", "Today")
     displayLarge = TextStyle(

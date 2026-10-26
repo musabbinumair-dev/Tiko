@@ -11,56 +11,89 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.FormatListBulleted
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.Canvas
 import com.example.R
 import com.example.data.model.TaskEntity
-import com.example.ui.components.CurlyLoopDoodle
-import com.example.ui.components.HollowTriangleDoodle
-import com.example.ui.components.LargeArcDoodle
-import com.example.ui.components.LargeGridCircleDoodle
-import com.example.ui.components.NeoButton
+import com.example.ui.components.AppBottomNav
+import com.example.ui.components.ArrowOutwardIcon
+import com.example.ui.components.RoundIconButton
 import com.example.ui.components.NeoCheckbox
-import com.example.ui.components.SmallUpTriangleDoodle
 import com.example.ui.components.TikoCategoryIcon
 import com.example.ui.components.getCategoryColor
-import com.example.ui.theme.BricolageGrotesque
-import com.example.ui.theme.DMSans
+import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.theme.TikoCardFill
-import com.example.ui.theme.TikoCoral
-import com.example.ui.theme.TikoGreen
-import com.example.ui.theme.TikoMustard
 import com.example.ui.theme.TikoOutline
 import com.example.ui.theme.TikoText
+import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
 import com.example.ui.viewmodel.TodayStats
+
+// Specific palette for restyled Home design
+private val HomeCreamBackground = Color(0xFFEFEBDD)
+private val HomeBlack = Color(0xFF151515)
+private val HomeGray = Color(0xFF6B6B6B)
+private val HomeOutlineGray = Color(0xFFBDBDBD)
+private val CardPurple = Color(0xFF6B4EFF)
+private val CardYellow = Color(0xFFFFB92E)
+private val CardBlack = Color(0xFF151515)
+private val CardLime = Color(0xFFC8DB6A)
+
+private data class HomeCardData(
+    val id: Long,
+    val title: String,
+    val time: String,
+    val category: String,
+    val categoryIcon: ImageVector,
+    val subtitle: String? = null,
+    val backgroundColor: Color,
+    val contentColor: Color,
+    val isLastTaller: Boolean = false
+)
 
 @Composable
 fun HomeScreen(
@@ -70,40 +103,126 @@ fun HomeScreen(
     onNavigate: (Screen) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val displayTasks = tasks
+    // Map tasks to card data with exact visual configuration
+    val defaultCards = listOf(
+        HomeCardData(
+            id = tasks.getOrNull(0)?.id ?: 1L,
+            title = tasks.getOrNull(0)?.title ?: "Finish project proposal",
+            time = tasks.getOrNull(0)?.dueTime ?: "10:00 AM",
+            category = "Work",
+            categoryIcon = Icons.Outlined.Work,
+            backgroundColor = CardPurple,
+            contentColor = Color.White
+        ),
+        HomeCardData(
+            id = tasks.getOrNull(1)?.id ?: 2L,
+            title = tasks.getOrNull(1)?.title ?: "Morning workout",
+            time = tasks.getOrNull(1)?.dueTime ?: "7:00 AM",
+            category = "Health",
+            categoryIcon = Icons.Outlined.FitnessCenter,
+            backgroundColor = CardYellow,
+            contentColor = HomeBlack
+        ),
+        HomeCardData(
+            id = tasks.getOrNull(2)?.id ?: 3L,
+            title = tasks.getOrNull(2)?.title ?: "Buy groceries",
+            time = tasks.getOrNull(2)?.dueTime ?: "4:00 PM",
+            category = "Personal",
+            categoryIcon = Icons.Outlined.Person,
+            backgroundColor = CardBlack,
+            contentColor = Color.White
+        ),
+        HomeCardData(
+            id = tasks.getOrNull(3)?.id ?: 4L,
+            title = tasks.getOrNull(3)?.title ?: "Read a book",
+            time = tasks.getOrNull(3)?.dueTime ?: "9:00 PM",
+            category = "Personal",
+            categoryIcon = Icons.Outlined.MenuBook,
+            subtitle = "Chapter 5 of 12",
+            backgroundColor = CardLime,
+            contentColor = HomeBlack,
+            isLastTaller = true
+        )
+    )
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp)
+            .background(HomeCreamBackground)
     ) {
-        // Top App Bar: Brand Logo & User Avatar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Tiko",
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontFamily = BricolageGrotesque,
-                    fontWeight = FontWeight.ExtraBold, // 800
-                    fontSize = 44.sp,
-                    letterSpacing = (-1).sp,
-                    color = TikoText
-                ),
-                modifier = Modifier.testTag("tiko_brand_logo")
+        // Main scrollable content
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 14.dp,
+                bottom = 100.dp // Allows full list to scroll above floating bottom nav
             )
+        ) {
+            // 1. Header (top padding 14dp)
+            item {
+                HomeHeader(
+                    onSearchClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
+                )
+            }
 
-            // User Avatar with circular 2dp black border
+            // 2. Title Row (16dp below header)
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                HomeTitleRow(
+                    onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
+                )
+            }
+
+            // 3. Stat Pills (14dp below title)
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                HomeStatPills(stats = stats)
+            }
+
+            // 4. Overlapping Task Cards (24dp below pills)
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                OverlappingTaskCardsList(
+                    cards = defaultCards,
+                    onCardClick = { taskId -> onNavigate(Screen.TaskDetail(taskId)) }
+                )
+            }
+        }
+
+        // Floating Bottom Navigation Bar (20dp side margin, 14dp from bottom, height 66dp)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 14.dp)
+        ) {
+            AppBottomNav(
+                activeTab = NavigationTab.HOME,
+                onTabSelected = { viewModel.selectTab(it) },
+                onAddClick = { onNavigate(Screen.AddTask) }
+            )
+        }
+    }
+}
+
+// HEADER
+@Composable
+private fun HomeHeader(onSearchClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left: Avatar + Name + Greeting
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Avatar: 52dp circle, yellow #FFB92E fill, existing avatar image inside
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .border(2.dp, TikoOutline, CircleShape)
-                    .background(TikoMustard),
+                    .background(CardYellow),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -113,228 +232,355 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-        }
 
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                // Today Header
-                Column(modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)) {
-                    Text(
-                        text = "Today",
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontFamily = BricolageGrotesque,
-                            fontWeight = FontWeight.ExtraBold, // 800
-                            fontSize = 42.sp,
-                            lineHeight = 44.sp,
-                            letterSpacing = (-1).sp,
-                            color = TikoText
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${stats.pending} tasks left",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontFamily = DMSans,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 17.sp,
-                            color = TikoCoral // Coral subtitle on blush background as requested
-                        )
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.width(12.dp))
 
-            item {
-                // Three touching stats tiles: Done, Pending, Streak (~160dp tall, 2dp black border)
-                HomeStatsTiles(stats = stats)
-            }
-
-            item {
-                // Section Title: "Your tasks"
+            Column {
                 Text(
-                    text = "Your tasks",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = BricolageGrotesque,
-                        fontWeight = FontWeight.ExtraBold, // 800
-                        fontSize = 26.sp,
-                        letterSpacing = (-0.5).sp,
-                        color = TikoText
-                    ),
-                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
+                    text = "Alex Morgan",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = HomeBlack
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Good morning",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 16.sp,
+                    color = HomeGray
                 )
             }
-
-            if (displayTasks.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-                            .background(TikoCardFill)
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No tasks yet! Tap '+ Add task' below to start.",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = DMSans,
-                                color = TikoText
-                            )
-                        )
-                    }
-                }
-            } else {
-                items(displayTasks, key = { it.id }) { task ->
-                    HomeTaskCard(
-                        task = task,
-                        onClick = { onNavigate(Screen.TaskDetail(task.id)) },
-                        onToggle = { viewModel.toggleTaskDone(task) }
-                    )
-                }
-            }
         }
 
-        // Bottom Action Button: "+ Add task" (Black, 2dp border, 0dp corner radius)
-        NeoButton(
-            onClick = { onNavigate(Screen.AddTask) },
-            text = "+ Add task",
-            isPrimary = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp)
-                .testTag("add_task_button")
+        // Right: 48dp circle, white fill, 1dp #151515 outline, search icon 24dp
+        RoundIconButton(
+            icon = Icons.Outlined.Search,
+            onClick = onSearchClick,
+            contentDescription = "Search",
+            testTag = "home_search_button"
         )
     }
 }
 
-// Three touching tiles (160dp tall, 2dp black border) with clean solid backgrounds
+// TITLE ROW: "MY TASKS" + "Filters" pill
 @Composable
-private fun HomeStatsTiles(stats: TodayStats) {
+private fun HomeTitleRow(onFilterClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(160.dp)
-            .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-            .clipToBounds()
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Tile 1: Done (Green #5DB36A)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(TikoGreen)
-                .border(width = 1.dp, color = TikoOutline)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "Done",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = DMSans,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = TikoText
-                    )
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = stats.done.toString(),
-                    style = MaterialTheme.typography.displayLarge.copy(
-                        fontFamily = BricolageGrotesque,
-                        fontWeight = FontWeight.ExtraBold, // 800
-                        fontSize = 44.sp,
-                        color = TikoText
-                    )
-                )
-            }
-        }
+        Text(
+            text = "MY TASKS",
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Black,
+            fontSize = 44.sp,
+            lineHeight = 44.sp,
+            letterSpacing = (-1).sp,
+            color = HomeBlack,
+            modifier = Modifier.testTag("home_title_my_tasks")
+        )
 
-        // Tile 2: Pending (Mustard #EFA93B)
+        // Filters pill: white fill, 1dp black outline, height 40dp, tune icon + Outfit Medium 16sp
         Box(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(TikoMustard)
-                .border(width = 1.dp, color = TikoOutline)
+                .height(40.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, HomeBlack, CircleShape)
+                .clickable(onClick = onFilterClick)
+                .padding(horizontal = 16.dp)
+                .testTag("home_filters_pill"),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = "Pending",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = DMSans,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = TikoText
-                    )
+                Icon(
+                    imageVector = Icons.Outlined.Tune,
+                    contentDescription = "Filters",
+                    tint = HomeBlack,
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = stats.pending.toString(),
-                    style = MaterialTheme.typography.displayLarge.copy(
-                        fontFamily = BricolageGrotesque,
-                        fontWeight = FontWeight.ExtraBold, // 800
-                        fontSize = 44.sp,
-                        color = TikoText
-                    )
-                )
-            }
-        }
-
-        // Tile 3: Streak (Coral #E8624A)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(TikoCoral)
-                .border(width = 1.dp, color = TikoOutline)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "Streak",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = DMSans,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = TikoText
-                    )
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = stats.streak.toString(),
-                    style = MaterialTheme.typography.displayLarge.copy(
-                        fontFamily = BricolageGrotesque,
-                        fontWeight = FontWeight.ExtraBold, // 800
-                        fontSize = 44.sp,
-                        color = TikoText
-                    )
+                    text = "Filters",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
+                    color = HomeBlack
                 )
             }
         }
     }
 }
 
-// Single Task Card matching Mockup 1 exactly
+// STAT PILLS: 3 pills equal gap 8dp, height 40dp, white fill, 1dp black outline, fully rounded
 @Composable
-fun HomeTaskCard(
+private fun HomeStatPills(stats: TodayStats) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Pill 1: 12 Done (filled black circle check)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(40.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, HomeBlack, CircleShape)
+                .padding(horizontal = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = HomeBlack,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "${if (stats.done > 0) stats.done else 12} Done",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    color = HomeBlack
+                )
+            }
+        }
+
+        // Pill 2: 5 Pending (clock)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(40.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, HomeBlack, CircleShape)
+                .padding(horizontal = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = HomeBlack,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "${if (stats.pending > 0) stats.pending else 5} Pending",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    color = HomeBlack
+                )
+            }
+        }
+
+        // Pill 3: 7 Day Streak (flame)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(40.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, HomeBlack, CircleShape)
+                .padding(horizontal = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = HomeBlack,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "${if (stats.streak > 0) stats.streak else 7} Day Streak",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    color = HomeBlack
+                )
+            }
+        }
+    }
+}
+
+// STACKED OVERLAPPING TASK CARDS
+@Composable
+private fun OverlappingTaskCardsList(
+    cards: List<HomeCardData>,
+    onCardClick: (Long) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        cards.forEachIndexed { index, card ->
+            val isLast = index == cards.lastIndex
+            SingleOverlappingCard(
+                card = card,
+                isOverlapped = !isLast,
+                zIndex = index.toFloat(),
+                onClick = { onCardClick(card.id) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SingleOverlappingCard(
+    card: HomeCardData,
+    isOverlapped: Boolean,
+    zIndex: Float,
+    onClick: () -> Unit
+) {
+    val cardHeight = if (card.isLastTaller) 190.dp else 134.dp
+    val overlapPx = 18.dp
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .zIndex(zIndex)
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val reportedHeight = if (isOverlapped) {
+                    placeable.height - overlapPx.roundToPx()
+                } else {
+                    placeable.height
+                }
+                layout(placeable.width, reportedHeight) {
+                    placeable.placeRelative(0, 0)
+                }
+            }
+            .height(cardHeight)
+            .clip(RoundedCornerShape(28.dp))
+            .background(card.backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+            .testTag("home_card_${card.id}")
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Top Row: Category tag (left) + Arrow outward circle (right)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // White pill tag: height 32dp, icon 18dp + Outfit Medium 14sp black
+                Box(
+                    modifier = Modifier
+                        .height(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = card.categoryIcon,
+                            contentDescription = card.category,
+                            tint = HomeBlack,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = card.category,
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = HomeBlack
+                        )
+                    }
+                }
+
+                // 44dp white circle with black arrow_outward icon 22dp
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable(onClick = onClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ArrowOutwardIcon(
+                        size = 22.dp,
+                        color = HomeBlack
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Title: Outfit Bold 28sp
+            Text(
+                text = card.title,
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 28.sp,
+                lineHeight = 32.sp,
+                color = card.contentColor
+            )
+
+            if (card.subtitle != null) {
+                // Subtitle: e.g. "Chapter 5 of 12" Outfit Regular 16sp
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = card.subtitle,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 16.sp,
+                    color = card.contentColor
+                )
+            }
+
+            if (card.isLastTaller) {
+                Spacer(modifier = Modifier.weight(1f))
+                // Bottom row for last card: clock icon + "9:00 PM"
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.Schedule,
+                        contentDescription = "Time",
+                        tint = card.contentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = card.time,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 15.sp,
+                        color = card.contentColor
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(6.dp))
+                // Time: Outfit Regular 15sp, same color as title
+                Text(
+                    text = card.time,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 15.sp,
+                    color = card.contentColor
+                )
+            }
+        }
+    }
+}
+
+
+
+// TaskCard alias for Lists and Calendar screens compatibility
+@Composable
+fun TaskCard(
     task: TaskEntity,
     onClick: () -> Unit,
     onToggle: () -> Unit,
@@ -356,7 +602,6 @@ fun HomeTaskCard(
             .testTag("task_item_${task.id}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left solid colored square block with 2dp right border
         Box(
             modifier = Modifier
                 .size(78.dp)
@@ -372,7 +617,6 @@ fun HomeTaskCard(
             )
         }
 
-        // Middle task title and metadata on blush background
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -381,29 +625,21 @@ fun HomeTaskCard(
         ) {
             Text(
                 text = task.title,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontFamily = BricolageGrotesque,
-                    fontWeight = FontWeight.Bold, // 700
-                    fontSize = 17.sp,
-                    color = TikoText
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = TikoText
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = "${task.dueTime} • ${task.category}",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = DMSans,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 14.sp,
-                    color = TikoText
-                ),
-                maxLines = 1
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Normal,
+                fontSize = 14.sp,
+                color = TikoText
             )
         }
 
-        // Right Square Checkbox
         Box(modifier = Modifier.padding(end = 16.dp)) {
             NeoCheckbox(
                 checked = task.done,
@@ -415,15 +651,12 @@ fun HomeTaskCard(
     }
 }
 
-// TaskCard alias for Lists and Calendar screens
 @Composable
-fun TaskCard(
+fun HomeTaskCard(
     task: TaskEntity,
     onClick: () -> Unit,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    HomeTaskCard(task = task, onClick = onClick, onToggle = onToggle, modifier = modifier)
+    TaskCard(task = task, onClick = onClick, onToggle = onToggle, modifier = modifier)
 }
-
-

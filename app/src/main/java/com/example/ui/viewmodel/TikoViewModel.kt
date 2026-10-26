@@ -167,6 +167,24 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun createQuickTask(title: String, category: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            val task = TaskEntity(
+                title = title.trim(),
+                notes = "",
+                category = category,
+                priority = "Medium",
+                dueDate = TikoDatabase.getTodayDateString(),
+                dueTime = "12:00 PM",
+                reminder = "None",
+                done = false,
+                subtasksJson = "[]"
+            )
+            repository.insertTask(task)
+        }
+    }
+
     fun updateTask(
         id: Long,
         title: String,

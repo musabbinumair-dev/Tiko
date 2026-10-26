@@ -1,0 +1,6 @@
+{
+  "name": "Tiko",
+  "description": "Neo-brutalist native Android task manager with Room storage, today stats, lists, calendar, and task details.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

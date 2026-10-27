@@ -32,8 +32,6 @@ import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
 import androidx.compose.foundation.layout.WindowInsets
-import com.kyant.backdrop.rememberLayerBackdrop
-import com.kyant.backdrop.layerBackdrop
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,9 +69,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         currentTab == NavigationTab.SETTINGS
     val creamBackground = Color(0xFFEFEBDD)
 
-    // Create backdrop at the app root
-    val backdrop = rememberLayerBackdrop()
-
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         containerColor = if (hasCustomFloatingNav) creamBackground else TikoBackground
@@ -83,13 +78,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 .fillMaxSize()
                 .background(if (hasCustomFloatingNav) creamBackground else TikoBackground)
         ) {
-            // Apply backdrop to content
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .layerBackdrop(backdrop)
-            ) {
-                when (val screen = currentScreen) {
+            when (val screen = currentScreen) {
                     is Screen.Welcome -> {
                         WelcomeScreen(
                             onNavigateHome = {

@@ -62,7 +62,10 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
 
     val isMainScreen = currentScreen is Screen.Main
     val currentTab = (currentScreen as? Screen.Main)?.tab
-    val hasCustomFloatingNav = currentTab == NavigationTab.HOME || currentTab == NavigationTab.LISTS
+    val hasCustomFloatingNav = currentTab == NavigationTab.HOME ||
+        currentTab == NavigationTab.LISTS ||
+        currentTab == NavigationTab.CALENDAR ||
+        currentTab == NavigationTab.SETTINGS
     val creamBackground = Color(0xFFEFEBDD)
 
     Scaffold(
@@ -101,7 +104,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             onNavigate = { viewModel.navigateTo(it) }
                         )
                         NavigationTab.SETTINGS -> SettingsScreen(
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            onNavigate = { viewModel.navigateTo(it) }
                         )
                     }
                 }

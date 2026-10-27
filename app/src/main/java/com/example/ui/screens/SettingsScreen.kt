@@ -104,19 +104,20 @@ fun SettingsScreen(
     var selectedLanguage by remember { mutableStateOf("English") }
 
     var showEditProfileDialog by remember { mutableStateOf(false) }
-    var editNameInput by remember { mutableStateOf(userName.ifBlank { "Alex Morgan" }) }
-    var editEmailInput by remember { mutableStateOf(userEmail.ifBlank { "alex@example.com" }) }
+    var editNameInput by remember { mutableStateOf(userName) }
+    var editEmailInput by remember { mutableStateOf(userEmail) }
 
     var showRemindersDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // Dynamic stats calculation with mockup fidelity fallbacks
-    val doneCount = remember(tasks) {
-        val completed = tasks.count { it.done }
-        if (completed > 0) completed.toString() else "124"
+    // Dynamic stats calculation from real data only
+    val completedCount = remember(tasks) { tasks.count { it.done } }
+    val doneCount = completedCount.toString()
+    val streakText = remember(tasks) {
+        val completedDates = tasks.filter { it.done && it.dueDate.isNotBlank() }.map { it.dueDate }.distinct()
+        completedDates.size.toString()
     }
-    val streakText = remember(tasks) { "7" }
     val onTimeText = remember(tasks) {
         val total = tasks.size
         if (total > 0) {
@@ -124,27 +125,24 @@ fun SettingsScreen(
             val pct = ((completed.toFloat() / total) * 100).toInt()
             "$pct%"
         } else {
-            "86%"
+            "0%"
         }
     }
 
-    // Weekly completion distribution matching mockup visual values
+    // Weekly completion distribution from real data
     val weeklyData = remember(tasks) {
-        listOf(
-            WeeklyBarData("Mon", 5),
-            WeeklyBarData("Tue", 8),
-            WeeklyBarData("Wed", 6, isHighlight = true),
-            WeeklyBarData("Thu", 9),
-            WeeklyBarData("Fri", 7),
-            WeeklyBarData("Sat", 4),
-            WeeklyBarData("Sun", 6)
-        )
+        val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        days.map { day ->
+            WeeklyBarData(day, 0)
+        }
     }
 
+    val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppCreamBackground)
+            .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
     ) {
         // Header Gradient #FFCF4D to cream
         Box(
@@ -188,8 +186,8 @@ fun SettingsScreen(
                     RoundIconButton(
                         icon = Icons.Outlined.Edit,
                         onClick = {
-                            editNameInput = userName.ifBlank { "Alex Morgan" }
-                            editEmailInput = userEmail.ifBlank { "alex@example.com" }
+                            editNameInput = userName
+                            editEmailInput = userEmail
                             showEditProfileDialog = true
                         },
                         contentDescription = "Edit Profile",
@@ -212,20 +210,13 @@ fun SettingsScreen(
                             .testTag("profile_avatar_container"),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Avatar image inside yellow circle
-                        Box(
-                            modifier = Modifier
-                                .size(110.dp)
-                                .clip(CircleShape)
-                                .background(CardYellow)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.tiko_avatar),
-                                contentDescription = "User Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
+                        com.example.ui.components.UserInitialsAvatar(
+                            name = userName,
+                            size = 110.dp,
+                            backgroundColor = CardYellow,
+                            textColor = AppBlack,
+                            fontSize = 40.sp
+                        )
 
                         // 36dp purple #6B4EFF camera badge at bottom-right
                         Box(
@@ -252,9 +243,9 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Name: "Alex Morgan" Outfit ExtraBold 34sp
+                    // Name: Outfit ExtraBold 34sp
                     Text(
-                        text = userName.ifBlank { "Alex Morgan" },
+                        text = if (userName.isNotBlank()) userName else "User",
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 34.sp,
@@ -276,7 +267,7 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = userEmail.ifBlank { "alex@example.com" },
+                            text = if (userEmail.isNotBlank()) userEmail else "user@example.com",
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 15.sp,
@@ -582,7 +573,8 @@ fun SettingsScreen(
             AppBottomNav(
                 activeTab = NavigationTab.SETTINGS,
                 onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) }
+                onAddClick = { onNavigate(Screen.AddTask) },
+                backdrop = backdrop
             )
         }
     }
@@ -753,6 +745,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
+                        viewModel.logout()
                         Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
                     }
                 ) {

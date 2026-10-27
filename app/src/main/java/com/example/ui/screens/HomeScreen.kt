@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +53,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,113 +106,53 @@ fun HomeScreen(
     onNavigate: (Screen) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Map tasks to card data with exact visual configuration
-    val defaultCards = listOf(
-        HomeCardData(
-            id = tasks.getOrNull(0)?.id ?: 1L,
-            title = tasks.getOrNull(0)?.title ?: "Finish project proposal",
-            time = tasks.getOrNull(0)?.dueTime ?: "10:00 AM",
-            category = "Work",
-            categoryIcon = Icons.Outlined.Work,
-            backgroundColor = CardPurple,
-            contentColor = Color.White
-        ),
-        HomeCardData(
-            id = tasks.getOrNull(1)?.id ?: 2L,
-            title = tasks.getOrNull(1)?.title ?: "Morning workout",
-            time = tasks.getOrNull(1)?.dueTime ?: "7:00 AM",
-            category = "Health",
-            categoryIcon = Icons.Outlined.FitnessCenter,
-            backgroundColor = CardYellow,
-            contentColor = HomeBlack
-        ),
-        HomeCardData(
-            id = tasks.getOrNull(2)?.id ?: 3L,
-            title = tasks.getOrNull(2)?.title ?: "Buy groceries",
-            time = tasks.getOrNull(2)?.dueTime ?: "4:00 PM",
-            category = "Personal",
-            categoryIcon = Icons.Outlined.Person,
-            backgroundColor = CardBlack,
-            contentColor = Color.White
-        ),
-        HomeCardData(
-            id = tasks.getOrNull(3)?.id ?: 4L,
-            title = tasks.getOrNull(3)?.title ?: "Read a book",
-            time = tasks.getOrNull(3)?.dueTime ?: "9:00 PM",
-            category = "Personal",
-            categoryIcon = Icons.Outlined.MenuBook,
-            subtitle = "Chapter 5 of 12",
-            backgroundColor = CardLime,
-            contentColor = HomeBlack,
-            isLastTaller = true
+    // Map real tasks to card data without mock fallbacks
+    val cardModels = remember(tasks) {
+        val palette = listOf(
+            CardPurple to Color.White,
+            CardYellow to HomeBlack,
+            CardBlack to Color.White,
+            CardLime to HomeBlack
         )
-    )
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(HomeCreamBackground)
-    ) {
-        // Main scrollable content
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = 14.dp,
-                bottom = 100.dp // Allows full list to scroll above floating bottom nav
+        tasks.mapIndexed { index, task ->
+            val (bg, content) = palette[index % palette.size]
+            val icon = when (task.category.lowercase()) {
+                "work" -> Icons.Outlined.Work
+                "health" -> Icons.Outlined.FitnessCenter
+                "study" -> Icons.Outlined.MenuBook
+                else -> Icons.Outlined.Person
+            }
+            HomeCardData(
+                id = task.id,
+                title = task.title,
+                time = if (task.dueTime.isNotBlank()) task.dueTime else "10:00 AM",
+                category = task.category.ifBlank { "Personal" },
+                categoryIcon = icon,
+                backgroundColor = bg,
+                contentColor = content,
+                isLastTaller = (index == tasks.lastIndex)
             )
-        ) {
-            // 1. Header (top padding 14dp)
-            item {
-                HomeHeader(
-                    onSearchClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
-                )
-            }
-
-            // 2. Title Row (16dp below header)
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                HomeTitleRow(
-                    onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
-                )
-            }
-
-            // 3. Stat Pills (14dp below title)
-            item {
-                Spacer(modifier = Modifier.height(14.dp))
-                HomeStatPills(stats = stats)
-            }
-
-            // 4. Overlapping Task Cards (24dp below pills)
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                OverlappingTaskCardsList(
-                    cards = defaultCards,
-                    onCardClick = { taskId -> onNavigate(Screen.TaskDetail(taskId)) }
-                )
-            }
         }
+    }
 
-        // Floating Bottom Navigation Bar (20dp side margin, 14dp from bottom, height 66dp)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 14.dp)
-        ) {
             AppBottomNav(
                 activeTab = NavigationTab.HOME,
                 onTabSelected = { viewModel.selectTab(it) },
                 onAddClick = { onNavigate(Screen.AddTask) }
             )
-        }
     }
 }
 
 // HEADER
 @Composable
-private fun HomeHeader(onSearchClick: () -> Unit) {
+private fun HomeHeader(
+    viewModel: TikoViewModel,
+    onSearchClick: () -> Unit
+) {
+    val preferences = viewModel.preferences
+    val userName by preferences.userName.collectAsState()
+    val displayName = if (userName.isNotBlank()) userName else "User"
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -217,27 +160,18 @@ private fun HomeHeader(onSearchClick: () -> Unit) {
     ) {
         // Left: Avatar + Name + Greeting
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Avatar: 52dp circle, yellow #FFB92E fill, existing avatar image inside
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(CardYellow),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.tiko_avatar),
-                    contentDescription = "User Avatar",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            com.example.ui.components.UserInitialsAvatar(
+                name = userName,
+                size = 52.dp,
+                backgroundColor = CardYellow,
+                textColor = HomeBlack
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column {
                 Text(
-                    text = "Alex Morgan",
+                    text = displayName,
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
@@ -341,20 +275,22 @@ private fun HomeStatPills(stats: TodayStats) {
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = null,
                     tint = HomeBlack,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(5.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "${if (stats.done > 0) stats.done else 12} Done",
+                    text = "${stats.done} Done",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    softWrap = false,
                     color = HomeBlack
                 )
             }
         }
 
-        // Pill 2: 5 Pending (clock)
+        // Pill 2: Pending (clock)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -370,23 +306,25 @@ private fun HomeStatPills(stats: TodayStats) {
                     imageVector = Icons.Outlined.Schedule,
                     contentDescription = null,
                     tint = HomeBlack,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(5.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "${if (stats.pending > 0) stats.pending else 5} Pending",
+                    text = "${stats.pending} Pending",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    softWrap = false,
                     color = HomeBlack
                 )
             }
         }
 
-        // Pill 3: 7 Day Streak (flame)
+        // Pill 3: Day Streak (flame) - one line
         Box(
             modifier = Modifier
-                .weight(1f)
+                .weight(1.15f)
                 .height(40.dp)
                 .clip(CircleShape)
                 .background(Color.White)
@@ -399,14 +337,16 @@ private fun HomeStatPills(stats: TodayStats) {
                     imageVector = Icons.Outlined.LocalFireDepartment,
                     contentDescription = null,
                     tint = HomeBlack,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(5.dp))
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
-                    text = "${if (stats.streak > 0) stats.streak else 7} Day Streak",
+                    text = "${stats.streak} day streak",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
+                    fontSize = 12.5.sp,
+                    maxLines = 1,
+                    softWrap = false,
                     color = HomeBlack
                 )
             }
@@ -420,15 +360,77 @@ private fun OverlappingTaskCardsList(
     cards: List<HomeCardData>,
     onCardClick: (Long) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        cards.forEachIndexed { index, card ->
-            val isLast = index == cards.lastIndex
-            SingleOverlappingCard(
-                card = card,
-                isOverlapped = !isLast,
-                zIndex = index.toFloat(),
-                onClick = { onCardClick(card.id) }
-            )
+    if (cards.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .background(CardLime)
+                .padding(16.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Start here",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = HomeBlack
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ArrowOutwardIcon(size = 22.dp, color = HomeBlack)
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "No tasks yet",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp,
+                    lineHeight = 32.sp,
+                    color = HomeBlack
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Tap + to add your first task",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 15.sp,
+                    color = HomeBlack
+                )
+            }
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            cards.forEachIndexed { index, card ->
+                val isLast = index == cards.lastIndex
+                SingleOverlappingCard(
+                    card = card,
+                    isOverlapped = !isLast,
+                    zIndex = index.toFloat(),
+                    onClick = { onCardClick(card.id) }
+                )
+            }
         }
     }
 }

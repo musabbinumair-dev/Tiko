@@ -117,61 +117,28 @@ fun CalendarScreen(
 
     // Default cards to match the mockup 100% when selected date matches mockup demo
     val displayCards = remember(dayTasks, selectedDate) {
-        if (dayTasks.isNotEmpty()) {
-            val palette = listOf(
-                CardPurple to Color.White,
-                CardYellow to AppBlack,
-                CardBlack to Color.White,
-                CardLime to AppBlack
-            )
-            dayTasks.mapIndexed { index, task ->
-                val (bg, content) = palette[index % palette.size]
-                val icon = when (task.category.lowercase()) {
-                    "work" -> Icons.Outlined.Work
-                    "health" -> Icons.Outlined.FitnessCenter
-                    "study" -> Icons.Outlined.MenuBook
-                    else -> Icons.Outlined.Person
-                }
-                CalendarTaskCardData(
-                    id = task.id,
-                    title = task.title,
-                    time = if (task.dueTime.isNotBlank()) task.dueTime else "10:00 AM",
-                    category = task.category.ifBlank { "Personal" },
-                    categoryIcon = icon,
-                    backgroundColor = bg,
-                    contentColor = content
-                )
+        val palette = listOf(
+            CardPurple to Color.White,
+            CardYellow to AppBlack,
+            CardBlack to Color.White,
+            CardLime to AppBlack
+        )
+        dayTasks.mapIndexed { index, task ->
+            val (bg, content) = palette[index % palette.size]
+            val icon = when (task.category.lowercase()) {
+                "work" -> Icons.Outlined.Work
+                "health" -> Icons.Outlined.FitnessCenter
+                "study" -> Icons.Outlined.MenuBook
+                else -> Icons.Outlined.Person
             }
-        } else {
-            // High fidelity mockup fallback cards matching image
-            listOf(
-                CalendarTaskCardData(
-                    id = 101L,
-                    title = "Finish project proposal",
-                    time = "10:00 AM",
-                    category = "Work",
-                    categoryIcon = Icons.Outlined.Work,
-                    backgroundColor = CardPurple,
-                    contentColor = Color.White
-                ),
-                CalendarTaskCardData(
-                    id = 102L,
-                    title = "Morning workout",
-                    time = "7:00 AM",
-                    category = "Health",
-                    categoryIcon = Icons.Outlined.FitnessCenter,
-                    backgroundColor = CardYellow,
-                    contentColor = AppBlack
-                ),
-                CalendarTaskCardData(
-                    id = 103L,
-                    title = "Buy groceries",
-                    time = "4:00 PM",
-                    category = "Personal",
-                    categoryIcon = Icons.Outlined.Person,
-                    backgroundColor = CardBlack,
-                    contentColor = Color.White
-                )
+            CalendarTaskCardData(
+                id = task.id,
+                title = task.title,
+                time = if (task.dueTime.isNotBlank()) task.dueTime else "10:00 AM",
+                category = task.category.ifBlank { "Personal" },
+                categoryIcon = icon,
+                backgroundColor = bg,
+                contentColor = content
             )
         }
     }
@@ -250,10 +217,12 @@ fun CalendarScreen(
         weeks
     }
 
+    val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppCreamBackground)
+            .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
     ) {
         // Header warm gradient #FFCF4D fading to cream behind the top area
         Box(
@@ -567,7 +536,8 @@ fun CalendarScreen(
             AppBottomNav(
                 activeTab = NavigationTab.CALENDAR,
                 onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) }
+                onAddClick = { onNavigate(Screen.AddTask) },
+                backdrop = backdrop
             )
         }
     }
@@ -657,15 +627,35 @@ private fun CalendarOverlappingCardsList(
     cards: List<CalendarTaskCardData>,
     onCardClick: (Long) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        cards.forEachIndexed { index, card ->
-            val isLast = index == cards.lastIndex
-            SingleCalendarOverlappingCard(
-                card = card,
-                isOverlapped = !isLast,
-                zIndex = index.toFloat(),
-                onClick = { onCardClick(card.id) }
+    if (cards.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.White)
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Nothing planned for this day",
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 16.sp,
+                color = Color(0xFF6B6B6B),
+                textAlign = TextAlign.Center
             )
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            cards.forEachIndexed { index, card ->
+                val isLast = index == cards.lastIndex
+                SingleCalendarOverlappingCard(
+                    card = card,
+                    isOverlapped = !isLast,
+                    zIndex = index.toFloat(),
+                    onClick = { onCardClick(card.id) }
+                )
+            }
         }
     }
 }

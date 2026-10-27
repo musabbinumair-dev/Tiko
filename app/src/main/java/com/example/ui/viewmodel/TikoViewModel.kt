@@ -19,6 +19,9 @@ import java.util.Date
 import java.util.Locale
 
 sealed class Screen {
+    object Welcome : Screen()
+    object Login : Screen()
+    object SignUp : Screen()
     data class Main(val tab: NavigationTab = NavigationTab.HOME) : Screen()
     data class TaskDetail(val taskId: Long) : Screen()
     object AddTask : Screen()
@@ -30,9 +33,9 @@ enum class NavigationTab {
 }
 
 data class TodayStats(
-    val done: Int = 12,
-    val pending: Int = 5,
-    val streak: Int = 7
+    val done: Int = 0,
+    val pending: Int = 0,
+    val streak: Int = 0
 )
 
 class TikoViewModel(application: Application) : AndroidViewModel(application) {
@@ -43,10 +46,10 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     val allTasks: StateFlow<List<TaskEntity>> = repository.allTasks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Main(NavigationTab.HOME)))
+    private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Welcome))
     val currentScreen: StateFlow<Screen> = _screenStack
-        .combine(MutableStateFlow(Unit)) { stack, _ -> stack.lastOrNull() ?: Screen.Main(NavigationTab.HOME) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Screen.Main(NavigationTab.HOME))
+        .combine(MutableStateFlow(Unit)) { stack, _ -> stack.lastOrNull() ?: Screen.Welcome }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Screen.Welcome)
 
     private val _selectedTab = MutableStateFlow(NavigationTab.HOME)
     val selectedTab: StateFlow<NavigationTab> = _selectedTab.asStateFlow()
@@ -63,20 +66,16 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     val todayStats: StateFlow<TodayStats> = allTasks.combine(MutableStateFlow(Unit)) { tasks, _ ->
         val doneCount = tasks.count { it.done }
         val pendingCount = tasks.count { !it.done }
-        // Base streak starts at 7 (matching mockup) and reflects completed consistency
-        val streak = if (doneCount > 0) 7 else 0
+        val completedDates = tasks.filter { it.done && it.dueDate.isNotBlank() }
+            .map { it.dueDate }
+            .distinct()
+        val streak = if (doneCount > 0) completedDates.size.coerceAtLeast(1) else 0
         TodayStats(
             done = doneCount,
             pending = pendingCount,
             streak = streak
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayStats())
-
-    init {
-        viewModelScope.launch {
-            repository.ensureSeeded()
-        }
-    }
 
     fun selectTab(tab: NavigationTab) {
         _selectedTab.value = tab
@@ -138,6 +137,17 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
             goBack()
         }
     }
+
+    fun logout() {
+        preferences.clearUser()
+        _screenStack.value = listOf(Screen.Welcome)
+    }
+
+    fun saveUserProfile(name: String, email: String) {
+        preferences.setUserName(name.trim())
+        preferences.setUserEmail(email.trim())
+    }
+
 
     fun saveTask(
         title: String,
@@ -218,7 +228,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetToDefaults() {
         viewModelScope.launch {
-            repository.resetDefaults()
+            repository.clearAllTasks()
         }
     }
 

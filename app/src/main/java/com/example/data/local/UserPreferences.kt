@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.asStateFlow
 class UserPreferences(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("tiko_settings_prefs", Context.MODE_PRIVATE)
 
-    private val _userName = MutableStateFlow(prefs.getString("user_name", "Musab") ?: "Musab")
+    private val _userName = MutableStateFlow(prefs.getString("user_name", "") ?: "")
     val userName: StateFlow<String> = _userName.asStateFlow()
 
-    private val _userEmail = MutableStateFlow(prefs.getString("user_email", "musab.jsx@gmail.com") ?: "musab.jsx@gmail.com")
+    private val _userEmail = MutableStateFlow(prefs.getString("user_email", "") ?: "")
     val userEmail: StateFlow<String> = _userEmail.asStateFlow()
 
     private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean("notif_enabled", true))
@@ -79,5 +79,11 @@ class UserPreferences(context: Context) {
     fun setFirstDayOfWeek(day: String) {
         prefs.edit().putString("first_day_of_week", day).apply()
         _firstDayOfWeek.value = day
+    }
+
+    fun clearUser() {
+        prefs.edit().remove("user_name").remove("user_email").apply()
+        _userName.value = ""
+        _userEmail.value = ""
     }
 }

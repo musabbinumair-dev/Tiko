@@ -68,15 +68,4 @@ class TaskRepository(private val taskDao: TaskDao) {
     suspend fun clearAllTasks() = withContext(Dispatchers.IO) {
         taskDao.clearAll()
     }
-
-    suspend fun resetDefaults() = withContext(Dispatchers.IO) {
-        taskDao.clearAll()
-        TikoDatabase.seedDefaultTasks(taskDao)
-    }
-
-    suspend fun ensureSeeded() = withContext(Dispatchers.IO) {
-        if (taskDao.count() == 0) {
-            TikoDatabase.seedDefaultTasks(taskDao)
-        }
-    }
 }

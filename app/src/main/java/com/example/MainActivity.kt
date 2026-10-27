@@ -22,6 +22,9 @@ import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ListsScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TaskDetailScreen
+import com.example.ui.screens.LoginScreen
+import com.example.ui.screens.SignUpScreen
+import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.TikoBackground
 import com.example.ui.viewmodel.NavigationTab
@@ -75,6 +78,48 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 .background(if (hasCustomFloatingNav) creamBackground else TikoBackground)
         ) {
             when (val screen = currentScreen) {
+                is Screen.Welcome -> {
+                    WelcomeScreen(
+                        onNavigateHome = {
+                            viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                        },
+                        onNavigateLogin = {
+                            viewModel.navigateTo(Screen.Login)
+                        },
+                        onNavigateSignUp = {
+                            viewModel.navigateTo(Screen.SignUp)
+                        }
+                    )
+                }
+                is Screen.Login -> {
+                    LoginScreen(
+                        onBack = {
+                            viewModel.goBack()
+                        },
+                        onLoginSuccess = { email ->
+                            val name = email.substringBefore("@").replaceFirstChar { it.uppercase() }
+                            viewModel.saveUserProfile(name, email)
+                            viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                        },
+                        onSignUp = {
+                            viewModel.navigateTo(Screen.SignUp)
+                        }
+                    )
+                }
+                is Screen.SignUp -> {
+                    SignUpScreen(
+                        onBack = {
+                            viewModel.goBack()
+                        },
+                        onCreateAccountSuccess = { name, email ->
+                            viewModel.saveUserProfile(name, email)
+                            viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                        },
+                        onNavigateLogin = {
+                            viewModel.navigateTo(Screen.Login)
+                        }
+                    )
+                }
                 is Screen.Main -> {
                     when (screen.tab) {
                         NavigationTab.HOME -> HomeScreen(

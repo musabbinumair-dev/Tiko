@@ -77,14 +77,7 @@ fun TaskDetailScreen(
 
     var isBookmarked by remember { mutableStateOf(false) }
 
-    // Fallback sample subtasks state when task has no subtasks yet
-    val sampleSubtasksState = remember {
-        mutableStateMapOf(
-            "sample_1" to true,
-            "sample_2" to false,
-            "sample_3" to false
-        )
-    }
+    // No sample subtasks
 
     if (task == null) {
         Box(
@@ -139,23 +132,6 @@ fun TaskDetailScreen(
     }
     val timeDisplay = if (task.dueTime.isNotBlank()) task.dueTime else "10:00 AM"
     val priorityDisplay = if (task.priority.isNotBlank()) task.priority else "High"
-    val notesDisplay = if (task.notes.isNotBlank()) {
-        task.notes
-    } else {
-        "Make sure to include the latest updates from the client call."
-    }
-
-    // Subtasks to display
-    val hasRealSubtasks = task.subtasks.isNotEmpty()
-    val subtasksList = if (hasRealSubtasks) {
-        task.subtasks
-    } else {
-        listOf(
-            SubtaskItem(id = "sample_1", title = "Draft initial proposal", done = sampleSubtasksState["sample_1"] ?: true),
-            SubtaskItem(id = "sample_2", title = "Review with team", done = sampleSubtasksState["sample_2"] ?: false),
-            SubtaskItem(id = "sample_3", title = "Finalize and send", done = sampleSubtasksState["sample_3"] ?: false)
-        )
-    }
 
     Box(
         modifier = modifier
@@ -454,74 +430,75 @@ fun TaskDetailScreen(
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(Color.White)
+                        .padding(horizontal = 20.dp, vertical = 20.dp)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        subtasksList.forEachIndexed { index, subtask ->
-                            val isChecked = if (hasRealSubtasks) {
-                                subtask.done
-                            } else {
-                                sampleSubtasksState[subtask.id] ?: false
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        if (hasRealSubtasks) {
-                                            viewModel.toggleSubtask(task.id, subtask.id)
-                                        } else {
-                                            sampleSubtasksState[subtask.id] = !isChecked
-                                        }
-                                    }
-                                    .padding(horizontal = 18.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // 28dp circle checkbox: checked = black fill with white check
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .then(
-                                            if (isChecked) {
-                                                Modifier.background(DetailBlack)
-                                            } else {
-                                                Modifier
-                                                    .background(Color.White)
-                                                    .border(2.dp, DetailBlack, CircleShape)
-                                            }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isChecked) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Check,
-                                            contentDescription = "Completed",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(14.dp))
-
-                                // Text: Outfit Regular 17sp
-                                Text(
-                                    text = subtask.title,
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 17.sp,
-                                    color = DetailBlack,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-
-                            if (index < subtasksList.size - 1) {
-                                Box(
+                    if (task.subtasks.isEmpty()) {
+                        Text(
+                            text = "No subtasks yet",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 16.sp,
+                            color = Color(0xFF8E8E8E)
+                        )
+                    } else {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            task.subtasks.forEachIndexed { index, subtask ->
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(1.dp)
-                                        .background(Color(0xFFE8E8E8))
-                                )
+                                        .clickable {
+                                            viewModel.toggleSubtask(task.id, subtask.id)
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .then(
+                                                if (subtask.done) {
+                                                    Modifier.background(DetailBlack)
+                                                } else {
+                                                    Modifier
+                                                        .background(Color.White)
+                                                        .border(2.dp, DetailBlack, CircleShape)
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (subtask.done) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Check,
+                                                contentDescription = "Completed",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(14.dp))
+
+                                    Text(
+                                        text = subtask.title,
+                                        fontFamily = OutfitFontFamily,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 17.sp,
+                                        color = DetailBlack,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+
+                                if (index < task.subtasks.size - 1) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(1.dp)
+                                            .background(Color(0xFFE8E8E8))
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
                             }
                         }
                     }
@@ -558,7 +535,7 @@ fun TaskDetailScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // White card, 28dp radius, with notes text in gray, Outfit Regular 16sp
+                // White card, 28dp radius, with notes text or gray hint
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -568,11 +545,11 @@ fun TaskDetailScreen(
                         .padding(horizontal = 20.dp, vertical = 20.dp)
                 ) {
                     Text(
-                        text = notesDisplay,
+                        text = if (task.notes.isNotBlank()) task.notes else "No notes",
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Normal,
                         fontSize = 16.sp,
-                        color = Color(0xFF3A3A3A),
+                        color = if (task.notes.isNotBlank()) Color(0xFF3A3A3A) else Color(0xFF8E8E8E),
                         lineHeight = 24.sp
                     )
                 }

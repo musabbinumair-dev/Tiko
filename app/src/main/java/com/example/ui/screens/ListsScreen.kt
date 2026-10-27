@@ -115,20 +115,20 @@ fun ListsScreen(
         it.category.equals("Study", ignoreCase = true) || it.category.equals("Education", ignoreCase = true)
     }
 
-    val workTotal = if (workTasks.isNotEmpty()) workTasks.size else 12
-    val workDone = if (workTasks.isNotEmpty()) workTasks.count { it.done } else 8
+    val workTotal = workTasks.size
+    val workDone = workTasks.count { it.done }
 
-    val healthTotal = if (healthTasks.isNotEmpty()) healthTasks.size else 6
-    val healthDone = if (healthTasks.isNotEmpty()) healthTasks.count { it.done } else 4
+    val healthTotal = healthTasks.size
+    val healthDone = healthTasks.count { it.done }
 
-    val personalTotal = if (personalTasks.isNotEmpty()) personalTasks.size else 9
-    val personalDone = if (personalTasks.isNotEmpty()) personalTasks.count { it.done } else 3
+    val personalTotal = personalTasks.size
+    val personalDone = personalTasks.count { it.done }
 
-    val studyTotal = if (studyTasks.isNotEmpty()) studyTasks.size else 5
-    val studyDone = if (studyTasks.isNotEmpty()) studyTasks.count { it.done } else 2
+    val studyTotal = studyTasks.size
+    val studyDone = studyTasks.count { it.done }
 
     // Next pending task title for Study card
-    val studyNextPending = studyTasks.firstOrNull { !it.done }?.title ?: "Read chapter 5"
+    val studyNextPending = studyTasks.firstOrNull { !it.done }?.title
 
     val allCardModels = listOf(
         ListCardUiModel(
@@ -176,10 +176,12 @@ fun ListsScreen(
         }
     }
 
+    val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppCreamBackground)
+            .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
     ) {
         // Main scrollable content
         LazyColumn(
@@ -244,7 +246,8 @@ fun ListsScreen(
                         viewModel.selectTab(tab)
                     }
                 },
-                onAddClick = { onNavigate(Screen.AddTask) }
+                onAddClick = { onNavigate(Screen.AddTask) },
+                backdrop = backdrop
             )
         }
 

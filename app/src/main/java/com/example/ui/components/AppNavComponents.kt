@@ -31,7 +31,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
+import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 
 val AppCreamBackground = Color(0xFFEFEBDD)
 val AppBlack = Color(0xFF151515)
@@ -85,19 +95,56 @@ fun AppBottomNav(
     activeTab: NavigationTab,
     onTabSelected: (NavigationTab) -> Unit,
     onAddClick: () -> Unit,
+    backdrop: LayerBackdrop? = null,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(66.dp)
+    val sdkInt = android.os.Build.VERSION.SDK_INT
+    val navModifier = if (sdkInt >= 33 && backdrop != null) {
+        Modifier
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { CircleShape },
+                effects = {
+                    vibrancy()
+                    blur(16.dp.toPx())
+                    lens(16.dp.toPx(), 32.dp.toPx())
+                }
+            )
+            .background(Color.White.copy(alpha = 0.25f), CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+            .shadow(
+                elevation = 12.dp,
+                shape = CircleShape,
+                spotColor = Color(0x35000000),
+                ambientColor = Color(0x20000000)
+            )
+    } else if (sdkInt >= 31) {
+        Modifier
+            .background(Color.White.copy(alpha = 0.5f), CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape)
             .shadow(
                 elevation = 10.dp,
                 shape = CircleShape,
                 spotColor = Color(0x30000000),
                 ambientColor = Color(0x18000000)
             )
-            .background(Color.White, CircleShape)
+    } else {
+        Modifier
+            .background(Color.White.copy(alpha = 0.85f), CircleShape)
+            .border(1.dp, AppOutlineGray, CircleShape)
+            .shadow(
+                elevation = 10.dp,
+                shape = CircleShape,
+                spotColor = Color(0x30000000),
+                ambientColor = Color(0x18000000)
+            )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(66.dp)
+            .then(navModifier)
             .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -233,5 +280,44 @@ fun ArrowOutwardIcon(
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
+    }
+}
+
+/**
+ * Clean initials avatar or fallback icon in a colored circle
+ */
+@Composable
+fun UserInitialsAvatar(
+    name: String,
+    size: Dp = 52.dp,
+    backgroundColor: Color = CardYellow,
+    textColor: Color = AppBlack,
+    fontSize: TextUnit = (size.value * 0.40f).sp,
+    modifier: Modifier = Modifier
+) {
+    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: ""
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center
+    ) {
+        if (initial.isNotBlank()) {
+            Text(
+                text = initial,
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSize,
+                color = textColor
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Person,
+                contentDescription = "User Avatar",
+                tint = textColor,
+                modifier = Modifier.size(size * 0.52f)
+            )
+        }
     }
 }

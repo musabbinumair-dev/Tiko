@@ -32,6 +32,8 @@ import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
 import androidx.compose.foundation.layout.WindowInsets
+import com.kyant.backdrop.rememberLayerBackdrop
+import com.kyant.backdrop.layerBackdrop
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +71,9 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         currentTab == NavigationTab.SETTINGS
     val creamBackground = Color(0xFFEFEBDD)
 
+    // Create backdrop at the app root
+    val backdrop = rememberLayerBackdrop()
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         containerColor = if (hasCustomFloatingNav) creamBackground else TikoBackground
@@ -78,92 +83,99 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 .fillMaxSize()
                 .background(if (hasCustomFloatingNav) creamBackground else TikoBackground)
         ) {
-            when (val screen = currentScreen) {
-                is Screen.Welcome -> {
-                    WelcomeScreen(
-                        onNavigateHome = {
-                            viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
-                        },
-                        onNavigateLogin = {
-                            viewModel.navigateTo(Screen.Login)
-                        },
-                        onNavigateSignUp = {
-                            viewModel.navigateTo(Screen.SignUp)
-                        }
-                    )
-                }
-                is Screen.Login -> {
-                    LoginScreen(
-                        onBack = {
-                            viewModel.goBack()
-                        },
-                        onLoginSuccess = { email ->
-                            val name = email.substringBefore("@").replaceFirstChar { it.uppercase() }
-                            viewModel.saveUserProfile(name, email)
-                            viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
-                        },
-                        onSignUp = {
-                            viewModel.navigateTo(Screen.SignUp)
-                        }
-                    )
-                }
-                is Screen.SignUp -> {
-                    SignUpScreen(
-                        onBack = {
-                            viewModel.goBack()
-                        },
-                        onCreateAccountSuccess = { name, email ->
-                            viewModel.saveUserProfile(name, email)
-                            viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
-                        },
-                        onNavigateLogin = {
-                            viewModel.navigateTo(Screen.Login)
-                        }
-                    )
-                }
-                is Screen.Main -> {
-                    when (screen.tab) {
-                        NavigationTab.HOME -> HomeScreen(
-                            viewModel = viewModel,
-                            tasks = allTasks,
-                            stats = stats,
-                            onNavigate = { viewModel.navigateTo(it) }
-                        )
-                        NavigationTab.LISTS -> ListsScreen(
-                            viewModel = viewModel,
-                            onNavigate = { viewModel.navigateTo(it) }
-                        )
-                        NavigationTab.CALENDAR -> CalendarScreen(
-                            viewModel = viewModel,
-                            onNavigate = { viewModel.navigateTo(it) }
-                        )
-                        NavigationTab.SETTINGS -> SettingsScreen(
-                            viewModel = viewModel,
-                            onNavigate = { viewModel.navigateTo(it) }
+            // Apply backdrop to content
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(backdrop)
+            ) {
+                when (val screen = currentScreen) {
+                    is Screen.Welcome -> {
+                        WelcomeScreen(
+                            onNavigateHome = {
+                                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                            },
+                            onNavigateLogin = {
+                                viewModel.navigateTo(Screen.Login)
+                            },
+                            onNavigateSignUp = {
+                                viewModel.navigateTo(Screen.SignUp)
+                            }
                         )
                     }
-                }
-                is Screen.TaskDetail -> {
-                    TaskDetailScreen(
-                        taskId = screen.taskId,
-                        viewModel = viewModel,
-                        onNavigate = { viewModel.navigateTo(it) },
-                        onBack = { viewModel.goBack() }
-                    )
-                }
-                is Screen.AddTask -> {
-                    AddEditTaskScreen(
-                        taskId = null,
-                        viewModel = viewModel,
-                        onBack = { viewModel.goBack() }
-                    )
-                }
-                is Screen.EditTask -> {
-                    AddEditTaskScreen(
-                        taskId = screen.taskId,
-                        viewModel = viewModel,
-                        onBack = { viewModel.goBack() }
-                    )
+                    is Screen.Login -> {
+                        LoginScreen(
+                            onBack = {
+                                viewModel.goBack()
+                            },
+                            onLoginSuccess = { email ->
+                                val name = email.substringBefore("@").replaceFirstChar { it.uppercase() }
+                                viewModel.saveUserProfile(name, email)
+                                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                            },
+                            onSignUp = {
+                                viewModel.navigateTo(Screen.SignUp)
+                            }
+                        )
+                    }
+                    is Screen.SignUp -> {
+                        SignUpScreen(
+                            onBack = {
+                                viewModel.goBack()
+                            },
+                            onCreateAccountSuccess = { name, email ->
+                                viewModel.saveUserProfile(name, email)
+                                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                            },
+                            onNavigateLogin = {
+                                viewModel.navigateTo(Screen.Login)
+                            }
+                        )
+                    }
+                    is Screen.Main -> {
+                        when (screen.tab) {
+                            NavigationTab.HOME -> HomeScreen(
+                                viewModel = viewModel,
+                                tasks = allTasks,
+                                stats = stats,
+                                onNavigate = { viewModel.navigateTo(it) }
+                            )
+                            NavigationTab.LISTS -> ListsScreen(
+                                viewModel = viewModel,
+                                onNavigate = { viewModel.navigateTo(it) }
+                            )
+                            NavigationTab.CALENDAR -> CalendarScreen(
+                                viewModel = viewModel,
+                                onNavigate = { viewModel.navigateTo(it) }
+                            )
+                            NavigationTab.SETTINGS -> SettingsScreen(
+                                viewModel = viewModel,
+                                onNavigate = { viewModel.navigateTo(it) }
+                            )
+                        }
+                    }
+                    is Screen.TaskDetail -> {
+                        TaskDetailScreen(
+                            taskId = screen.taskId,
+                            viewModel = viewModel,
+                            onNavigate = { viewModel.navigateTo(it) },
+                            onBack = { viewModel.goBack() }
+                        )
+                    }
+                    is Screen.AddTask -> {
+                        AddEditTaskScreen(
+                            taskId = null,
+                            viewModel = viewModel,
+                            onBack = { viewModel.goBack() }
+                        )
+                    }
+                    is Screen.EditTask -> {
+                        AddEditTaskScreen(
+                            taskId = screen.taskId,
+                            viewModel = viewModel,
+                            onBack = { viewModel.goBack() }
+                        )
+                    }
                 }
             }
 

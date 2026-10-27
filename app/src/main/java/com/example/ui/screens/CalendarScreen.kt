@@ -516,12 +516,28 @@ fun CalendarScreen(
             }
         }
 
+        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(90.dp)
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                        )
+                    )
+                )
+        )
+
         // FLOATING BOTTOM NAV: Reusing AppBottomNav with Calendar (4th tab) active
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 14.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp)
         ) {
             AppBottomNav(
                 activeTab = NavigationTab.CALENDAR,

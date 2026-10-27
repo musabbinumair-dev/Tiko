@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -147,7 +148,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
-                bottom = 100.dp // Allows full list to scroll above floating bottom nav
+                bottom = 120.dp // Allows full list to scroll above floating bottom nav
             )
         ) {
             // 1. Header (status bar + top spacing handled by screenTopPadding)
@@ -182,12 +183,28 @@ fun HomeScreen(
             }
         }
 
-        // Floating Bottom Navigation Bar (20dp side margin, 14dp from bottom, height 66dp)
+        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 14.dp)
+                .fillMaxWidth()
+                .height(90.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                        )
+                    )
+                )
+        )
+
+        // Floating Bottom Navigation Bar (16dp side margin, 12dp from bottom above system inset)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp)
         ) {
             AppBottomNav(
                 activeTab = NavigationTab.HOME,

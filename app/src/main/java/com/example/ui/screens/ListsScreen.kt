@@ -190,7 +190,7 @@ fun ListsScreen(
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
-                bottom = 140.dp // Clears floating bottom nav (66dp + 14dp margin + breathing room)
+                bottom = 120.dp // Clears floating bottom nav
             )
         ) {
             // 1. Top Area: Back button (RoundIconButton) at left, Search button at right
@@ -231,13 +231,29 @@ fun ListsScreen(
             }
         }
 
-        // Shared Floating Bottom Navigation Bar (20dp side margin, 14dp from bottom, height 66dp)
+        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(90.dp)
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                        )
+                    )
+                )
+        )
+
+        // Shared Floating Bottom Navigation Bar (16dp side margin, 12dp from bottom above system inset)
         // Active tab is LISTS (second icon black fill, white icon)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 14.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp)
         ) {
             AppBottomNav(
                 activeTab = NavigationTab.LISTS,

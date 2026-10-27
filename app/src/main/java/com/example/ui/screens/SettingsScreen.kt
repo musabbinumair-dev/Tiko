@@ -162,7 +162,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("profile_screen_scroll"),
-            contentPadding = PaddingValues(bottom = 140.dp)
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             // TOP ROW: Back button (left), Edit pencil button (right)
             item {
@@ -583,12 +583,28 @@ fun SettingsScreen(
             }
         }
 
+        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(90.dp)
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                        )
+                    )
+                )
+        )
+
         // FLOATING BOTTOM NAV: Reusing AppBottomNav with Profile (5th tab) active
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 14.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp)
         ) {
             AppBottomNav(
                 activeTab = NavigationTab.SETTINGS,

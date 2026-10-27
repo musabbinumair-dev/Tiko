@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.Refraction
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -114,11 +116,12 @@ fun RoundIconButton(
 
 /**
  * Shared AppBottomNav:
- * Glassmorphic floating capsule, 72dp high, fully rounded, soft shadow.
+ * Liquid glass floating capsule with backdrop blur, 72dp high, fully rounded, soft shadow.
  * 5 equal tabs with 24dp icons and Outfit SemiBold 12sp labels: Home, Lists, Add, Calendar, Profile.
  * Inactive: outlined icon, gray #5B5F66. Active: filled icon, black #111111.
  * Active tab capsule: 56dp high, tab width minus 6dp, black at 12% alpha.
  * Animated with spring (dampingRatio 0.72, stiffness 380) with 12% horizontal stretch.
+ * Content must scroll UNDER the bar with proper backdrop blur effect.
  */
 @Composable
 fun AppBottomNav(
@@ -143,13 +146,10 @@ fun AppBottomNav(
         label = "active_tab_capsule_slide"
     )
 
+    // SDK-based fallback for blur support
     val sdkInt = android.os.Build.VERSION.SDK_INT
-    val glassBgColor = if (sdkInt >= 31) {
-        Color.White.copy(alpha = 0.55f)
-    } else {
-        Color.White.copy(alpha = 0.85f)
-    }
-
+    
+    // Border gradient: brighter top-left, white-to-transparent
     val borderGradient = Brush.verticalGradient(
         colors = listOf(
             Color.White.copy(alpha = 0.70f),
@@ -157,6 +157,7 @@ fun AppBottomNav(
         )
     )
 
+    // Glass bar with backdrop blur using drawBackdrop modifier
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -168,92 +169,104 @@ fun AppBottomNav(
                 ambientColor = Color.Black.copy(alpha = 0.08f)
             )
             .clip(CircleShape)
-            .background(glassBgColor)
+            .drawBackdrop(
+                blur = if (sdkInt >= 31) 20f else if (sdkInt >= 12) 20f else 0f,
+                tint = Color.White.copy(alpha = if (sdkInt >= 31) 0.40f else 0.85f),
+                vibrancy = if (sdkInt >= 31) 0.25f else 0f,
+                saturation = if (sdkInt >= 31) 1.15f else 1f,
+                refraction = if (sdkInt >= 31) {
+                    Refraction(
+                        height = 14f,
+                        amount = 28f
+                    )
+                } else null
+            )
             .border(1.dp, borderGradient, CircleShape)
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        val totalWidth = maxWidth
-        val tabWidth = totalWidth / 5
-        val diff = abs(animatedIndex - activeIndex)
-        val stretchFactor = 1.0f + (diff.coerceAtMost(1f) * 0.12f)
-        val baseCapsuleWidth = (tabWidth - 6.dp).coerceAtLeast(0.dp)
-        val capsuleWidth = baseCapsuleWidth * stretchFactor
-        val capsuleHeight = 56.dp
-        val centerX = (animatedIndex + 0.5f) * tabWidth.value
-        val capsuleLeft = (centerX - (capsuleWidth.value / 2f)).dp
+                val totalWidth = maxWidth
+                val tabWidth = totalWidth / 5
+                val diff = abs(animatedIndex - activeIndex)
+                val stretchFactor = 1.0f + (diff.coerceAtMost(1f) * 0.12f)
+                val baseCapsuleWidth = (tabWidth - 6.dp).coerceAtLeast(0.dp)
+                val capsuleWidth = baseCapsuleWidth * stretchFactor
+                val capsuleHeight = 56.dp
+                val centerX = (animatedIndex + 0.5f) * tabWidth.value
+                val capsuleLeft = (centerX - (capsuleWidth.value / 2f)).dp
 
-        // Active tab pill capsule indicator
-        Box(
-            modifier = Modifier
-                .offset(x = capsuleLeft)
-                .width(capsuleWidth)
-                .height(capsuleHeight)
-                .align(Alignment.CenterStart)
-                .clip(CircleShape)
-                .background(Color(0xFF111111).copy(alpha = 0.12f))
-        )
+                // Active tab pill capsule indicator
+                Box(
+                    modifier = Modifier
+                        .offset(x = capsuleLeft)
+                        .width(capsuleWidth)
+                        .height(capsuleHeight)
+                        .align(Alignment.CenterStart)
+                        .clip(CircleShape)
+                        .background(Color(0xFF111111).copy(alpha = 0.12f))
+                )
 
-        // 5 Equal Tab Items
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 1. Home
-            GlassNavTab(
-                isActive = activeTab == NavigationTab.HOME,
-                label = "Home",
-                filledIcon = Icons.Filled.Home,
-                outlinedIcon = Icons.Outlined.Home,
-                onClick = { onTabSelected(NavigationTab.HOME) },
-                testTag = "nav_home_button",
-                modifier = Modifier.weight(1f)
-            )
+                // 5 Equal Tab Items
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 1. Home
+                    GlassNavTab(
+                        isActive = activeTab == NavigationTab.HOME,
+                        label = "Home",
+                        filledIcon = Icons.Filled.Home,
+                        outlinedIcon = Icons.Outlined.Home,
+                        onClick = { onTabSelected(NavigationTab.HOME) },
+                        testTag = "nav_home_button",
+                        modifier = Modifier.weight(1f)
+                    )
 
-            // 2. Lists
-            GlassNavTab(
-                isActive = activeTab == NavigationTab.LISTS,
-                label = "Lists",
-                filledIcon = Icons.Filled.FormatListBulleted,
-                outlinedIcon = Icons.Outlined.FormatListBulleted,
-                onClick = { onTabSelected(NavigationTab.LISTS) },
-                testTag = "nav_list_button",
-                modifier = Modifier.weight(1f)
-            )
+                    // 2. Lists
+                    GlassNavTab(
+                        isActive = activeTab == NavigationTab.LISTS,
+                        label = "Lists",
+                        filledIcon = Icons.Filled.FormatListBulleted,
+                        outlinedIcon = Icons.Outlined.FormatListBulleted,
+                        onClick = { onTabSelected(NavigationTab.LISTS) },
+                        testTag = "nav_list_button",
+                        modifier = Modifier.weight(1f)
+                    )
 
-            // 3. Add (never stays active, opens Add task)
-            GlassNavTab(
-                isActive = false,
-                label = "Add",
-                filledIcon = Icons.Filled.Add,
-                outlinedIcon = Icons.Outlined.Add,
-                onClick = onAddClick,
-                testTag = "nav_add_button",
-                modifier = Modifier.weight(1f)
-            )
+                    // 3. Add (never stays active, opens Add task)
+                    GlassNavTab(
+                        isActive = false,
+                        label = "Add",
+                        filledIcon = Icons.Filled.Add,
+                        outlinedIcon = Icons.Outlined.Add,
+                        onClick = onAddClick,
+                        testTag = "nav_add_button",
+                        modifier = Modifier.weight(1f)
+                    )
 
-            // 4. Calendar
-            GlassNavTab(
-                isActive = activeTab == NavigationTab.CALENDAR,
-                label = "Calendar",
-                filledIcon = Icons.Filled.CalendarToday,
-                outlinedIcon = Icons.Outlined.CalendarToday,
-                onClick = { onTabSelected(NavigationTab.CALENDAR) },
-                testTag = "nav_calendar_button",
-                modifier = Modifier.weight(1f)
-            )
+                    // 4. Calendar
+                    GlassNavTab(
+                        isActive = activeTab == NavigationTab.CALENDAR,
+                        label = "Calendar",
+                        filledIcon = Icons.Filled.CalendarToday,
+                        outlinedIcon = Icons.Outlined.CalendarToday,
+                        onClick = { onTabSelected(NavigationTab.CALENDAR) },
+                        testTag = "nav_calendar_button",
+                        modifier = Modifier.weight(1f)
+                    )
 
-            // 5. Profile
-            GlassNavTab(
-                isActive = activeTab == NavigationTab.SETTINGS,
-                label = "Profile",
-                filledIcon = Icons.Filled.Person,
-                outlinedIcon = Icons.Outlined.Person,
-                onClick = { onTabSelected(NavigationTab.SETTINGS) },
-                testTag = "nav_profile_button",
-                modifier = Modifier.weight(1f)
-            )
-        }
+                    // 5. Profile
+                    GlassNavTab(
+                        isActive = activeTab == NavigationTab.SETTINGS,
+                        label = "Profile",
+                        filledIcon = Icons.Filled.Person,
+                        outlinedIcon = Icons.Outlined.Person,
+                        onClick = { onTabSelected(NavigationTab.SETTINGS) },
+                        testTag = "nav_profile_button",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
     }
 }
 

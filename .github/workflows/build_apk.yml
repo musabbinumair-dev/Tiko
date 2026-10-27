@@ -7,6 +7,9 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Debug APK
@@ -54,3 +57,14 @@ jobs:
           name: Tiko-APK
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk tiko.apk
+
+      - name: Publish APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Tiko v${{ github.run_number }}
+          files: tiko.apk
+          make_latest: "true"

@@ -166,7 +166,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         )
                     }
                 }
-            }
 
             AppOverlayHost()
         }

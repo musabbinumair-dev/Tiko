@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -32,6 +33,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -173,8 +180,8 @@ fun AppBottomNav(
         val baseCapsuleWidth = (tabWidth - 6.dp).coerceAtLeast(0.dp)
         val capsuleWidth = baseCapsuleWidth * stretchFactor
         val capsuleHeight = 56.dp
-        val centerX = (animatedIndex + 0.5f) * tabWidth
-        val capsuleLeft = centerX - (capsuleWidth / 2f)
+        val centerX = (animatedIndex + 0.5f) * tabWidth.value
+        val capsuleLeft = (centerX - (capsuleWidth.value / 2f)).dp
 
         // Active tab pill capsule indicator
         Box(

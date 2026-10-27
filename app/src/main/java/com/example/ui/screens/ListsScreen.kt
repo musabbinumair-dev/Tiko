@@ -65,10 +65,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.R
 import com.example.data.model.TaskEntity
 import com.example.ui.components.AppToastController
 import com.example.ui.components.ToastType
 import com.example.ui.components.AppBlack
+import com.example.ui.components.EmptyState
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.AppCreamBackground
 import com.example.ui.components.ArrowOutwardIcon
@@ -186,12 +188,22 @@ fun ListsScreen(
             // 4. Overlapping List Cards (24dp below)
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                OverlappingListCards(
-                    cards = displayedCards,
-                    onCardClick = { categoryName ->
-                        selectedCategoryForSheet = categoryName
-                    }
-                )
+                if (displayedCards.isEmpty()) {
+                    EmptyState(
+                        image = R.drawable.illus_no_results,
+                        title = "No matches",
+                        caption = "Try a different word or clear the filters.",
+                        buttonText = "Clear filters",
+                        onButton = { selectedFilter = "All" }
+                    )
+                } else {
+                    OverlappingListCards(
+                        cards = displayedCards,
+                        onCardClick = { categoryName ->
+                            selectedCategoryForSheet = categoryName
+                        }
+                    )
+                }
             }
         }
 
@@ -225,6 +237,7 @@ fun ListsScreen(
                 },
                 onAddTask = {
                     selectedCategoryForSheet = null
+                    viewModel.preselectedCategoryForNewTask = categoryName
                     onNavigate(Screen.AddTask)
                 }
             )
@@ -697,33 +710,13 @@ private fun CategoryTasksBottomSheet(
             Spacer(modifier = Modifier.height(18.dp))
 
             if (tasks.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White)
-                        .border(1.dp, AppBlack.copy(alpha = 0.2f), RoundedCornerShape(20.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "No tasks yet in $categoryName",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 16.sp,
-                            color = AppBlack
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Tap 'Add task' to add one!",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 14.sp,
-                            color = AppBlack.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                EmptyState(
+                    image = R.drawable.illus_empty_list,
+                    title = "Nothing in here yet",
+                    caption = "Add a task to this list.",
+                    buttonText = "Add task",
+                    onButton = onAddTask
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
@@ -1062,13 +1055,12 @@ private fun ListsSearchModalOverlay(
                         }
                     }
                 } else if (searchQuery.isNotBlank()) {
-                    Text(
-                        text = "No matching tasks found",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 14.sp,
-                        color = AppBlack.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(vertical = 12.dp)
+                    EmptyState(
+                        image = R.drawable.illus_no_results,
+                        title = "No matches",
+                        caption = "Try a different word or clear the filters.",
+                        buttonText = "Clear filters",
+                        onButton = { onQueryChange("") }
                     )
                 }
             }

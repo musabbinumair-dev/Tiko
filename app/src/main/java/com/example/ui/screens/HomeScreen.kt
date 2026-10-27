@@ -64,6 +64,7 @@ import com.example.R
 import com.example.data.model.TaskEntity
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.ArrowOutwardIcon
+import com.example.ui.components.EmptyState
 import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.screenTopPadding
@@ -177,10 +178,27 @@ fun HomeScreen(
             // 4. Overlapping Task Cards (24dp below pills)
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                OverlappingTaskCardsList(
-                    cards = cardModels,
-                    onCardClick = { taskId -> onNavigate(Screen.TaskDetail(taskId)) }
-                )
+                val pendingTasksExist = tasks.any { !it.done }
+                if (tasks.isEmpty()) {
+                    EmptyState(
+                        image = R.drawable.illus_no_tasks,
+                        title = "No tasks yet",
+                        caption = "Tap below to add your first task.",
+                        buttonText = "Add your first task",
+                        onButton = { onNavigate(Screen.AddTask) }
+                    )
+                } else if (!pendingTasksExist) {
+                    EmptyState(
+                        image = R.drawable.illus_all_done,
+                        title = "All done!",
+                        caption = "You finished everything. Enjoy the rest of your day."
+                    )
+                } else {
+                    OverlappingTaskCardsList(
+                        cards = cardModels,
+                        onCardClick = { taskId -> onNavigate(Screen.TaskDetail(taskId)) }
+                    )
+                }
             }
         }
 
@@ -410,77 +428,17 @@ private fun OverlappingTaskCardsList(
     cards: List<HomeCardData>,
     onCardClick: (Long) -> Unit
 ) {
-    if (cards.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(CardLime)
-                .padding(16.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(32.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .padding(horizontal = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Start here",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = HomeBlack
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        ArrowOutwardIcon(size = 22.dp, color = HomeBlack)
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "No tasks yet",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                    lineHeight = 32.sp,
-                    color = HomeBlack
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Tap + to add your first task",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 15.sp,
-                    color = HomeBlack
-                )
-            }
-        }
-    } else {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            cards.forEachIndexed { index, card ->
-                val isLast = index == cards.lastIndex
-                SingleOverlappingCard(
-                    card = card,
-                    isOverlapped = !isLast,
-                    zIndex = index.toFloat(),
-                    onClick = { onCardClick(card.id) }
-                )
-            }
+    if (cards.isEmpty()) return
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        cards.forEachIndexed { index, card ->
+            val isLast = index == cards.lastIndex
+            SingleOverlappingCard(
+                card = card,
+                isOverlapped = !isLast,
+                zIndex = index.toFloat(),
+                onClick = { onCardClick(card.id) }
+            )
         }
     }
 }

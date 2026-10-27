@@ -1,9 +1,11 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
@@ -54,12 +56,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.ui.viewmodel.Screen
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -130,7 +134,7 @@ fun AddEditTaskScreen(
 
     var title by remember(existingTask) { mutableStateOf(existingTask?.title ?: "") }
     var notes by remember(existingTask) { mutableStateOf(existingTask?.notes ?: "") }
-    var category by remember(existingTask) { mutableStateOf(existingTask?.category ?: "Work") }
+    var category by remember(existingTask) { mutableStateOf(existingTask?.category ?: viewModel.preselectedCategoryForNewTask ?: "Work") }
     var priority by remember(existingTask) { mutableStateOf(existingTask?.priority ?: "Medium") }
     var dueDate by remember(existingTask) { mutableStateOf(existingTask?.dueDate ?: TikoDatabase.getTodayDateString()) }
     var dueTime by remember(existingTask) { mutableStateOf(existingTask?.dueTime ?: "9:00 AM") }
@@ -181,6 +185,62 @@ fun AddEditTaskScreen(
     }
 
     BackHandler(onBack = handleBack)
+
+    val performSave = {
+        if (title.isBlank()) {
+            titleError = true
+            AppToastController.show("Please enter a task title", ToastType.Error)
+        } else {
+            try {
+                if (existingTask != null) {
+                    viewModel.updateTask(
+                        id = existingTask.id,
+                        title = title,
+                        notes = notes,
+                        category = category,
+                        priority = priority,
+                        dueDate = dueDate,
+                        dueTime = dueTime,
+                        reminder = reminder,
+                        subtasks = subtasks.toList(),
+                        done = existingTask.done,
+                        onSuccess = {
+                            AppToastController.show("Task updated successfully", ToastType.Success)
+                        },
+                        onError = {
+                            viewModel.navigateTo(Screen.ErrorSaveFailed)
+                        }
+                    )
+                } else {
+                    viewModel.saveTask(
+                        title = title,
+                        notes = notes,
+                        category = category,
+                        priority = priority,
+                        dueDate = dueDate,
+                        dueTime = dueTime,
+                        reminder = reminder,
+                        subtasks = subtasks.toList(),
+                        onSuccess = {
+                            AppToastController.show("Task saved successfully", ToastType.Success)
+                        },
+                        onError = {
+                            viewModel.navigateTo(Screen.ErrorSaveFailed)
+                        }
+                    )
+                }
+            } catch (e: Throwable) {
+                viewModel.navigateTo(Screen.ErrorSaveFailed)
+            }
+        }
+    }
+
+    LaunchedEffect(viewModel.retrySaveRequested) {
+        if (viewModel.retrySaveRequested) {
+            viewModel.retrySaveRequested = false
+            performSave()
+        }
+    }
 
     val backgroundGradient = Brush.verticalGradient(
         0.0f to AddTaskYellow,
@@ -883,47 +943,20 @@ fun AddEditTaskScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             // 9. Full-width black pill button "Save task" / "Update task", 56dp high, Outfit Bold 18sp, white text
+            @OptIn(ExperimentalFoundationApi::class)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
                     .background(AddTaskBlack)
-                    .clickable {
-                        if (title.isBlank()) {
-                            titleError = true
-                            AppToastController.show("Please enter a task title", ToastType.Error)
-                        } else {
-                            if (existingTask != null) {
-                                viewModel.updateTask(
-                                    id = existingTask.id,
-                                    title = title,
-                                    notes = notes,
-                                    category = category,
-                                    priority = priority,
-                                    dueDate = dueDate,
-                                    dueTime = dueTime,
-                                    reminder = reminder,
-                                    subtasks = subtasks.toList(),
-                                    done = existingTask.done
-                                )
-                                AppToastController.show("Task updated successfully", ToastType.Success)
-                            } else {
-                                viewModel.saveTask(
-                                    title = title,
-                                    notes = notes,
-                                    category = category,
-                                    priority = priority,
-                                    dueDate = dueDate,
-                                    dueTime = dueTime,
-                                    reminder = reminder,
-                                    subtasks = subtasks.toList()
-                                )
-                                AppToastController.show("Task saved successfully", ToastType.Success)
-                            }
-                            onBack()
+                    .combinedClickable(
+                        onClick = { performSave() },
+                        onLongClick = {
+                            // DEBUG: Testing only - long-press the "Save task" button opens this screen
+                            viewModel.navigateTo(Screen.ErrorSaveFailed)
                         }
-                    }
+                    )
                     .testTag("save_task_button"),
                 contentAlignment = Alignment.Center
             ) {

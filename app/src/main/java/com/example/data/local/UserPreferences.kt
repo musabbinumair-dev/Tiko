@@ -18,7 +18,7 @@ class UserPreferences(context: Context) {
     private val _userEmail = MutableStateFlow(prefs.getString("user_email", "") ?: "")
     val userEmail: StateFlow<String> = _userEmail.asStateFlow()
 
-    private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean("notif_enabled", true))
+    private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean("notif_enabled", false))
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
 
     private val _soundHapticsEnabled = MutableStateFlow(prefs.getBoolean("sound_haptics_enabled", true))

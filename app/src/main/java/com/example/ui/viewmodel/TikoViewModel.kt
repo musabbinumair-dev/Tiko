@@ -28,6 +28,9 @@ sealed class Screen {
     data class TaskDetail(val taskId: Long) : Screen()
     object AddTask : Screen()
     data class EditTask(val taskId: Long) : Screen()
+    object ErrorSaveFailed : Screen() {
+        const val ROUTE = "error_save_failed"
+    }
 }
 
 enum class NavigationTab {
@@ -61,6 +64,9 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedCategory = MutableStateFlow<String?>("All")
     val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
+
+    var preselectedCategoryForNewTask: String? = null
+    var retrySaveRequested: Boolean = false
 
     val categories: StateFlow<List<CategoryModel>> = preferences.customCategories
         .combine(allTasks) { custom, tasks ->
@@ -185,23 +191,30 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         dueDate: String,
         dueTime: String,
         reminder: String,
-        subtasks: List<SubtaskItem>
+        subtasks: List<SubtaskItem>,
+        onSuccess: () -> Unit = {},
+        onError: (Throwable) -> Unit = {}
     ) {
         if (title.isBlank()) return
         viewModelScope.launch {
-            val task = TaskEntity(
-                title = title.trim(),
-                notes = notes.trim(),
-                category = category,
-                priority = priority,
-                dueDate = if (dueDate.isBlank()) TikoDatabase.getTodayDateString() else dueDate,
-                dueTime = if (dueTime.isBlank()) "10:00 AM" else dueTime,
-                reminder = reminder,
-                done = false,
-                subtasksJson = TaskEntity.serializeSubtasks(subtasks)
-            )
-            repository.insertTask(task)
-            goBack()
+            try {
+                val task = TaskEntity(
+                    title = title.trim(),
+                    notes = notes.trim(),
+                    category = category,
+                    priority = priority,
+                    dueDate = if (dueDate.isBlank()) TikoDatabase.getTodayDateString() else dueDate,
+                    dueTime = if (dueTime.isBlank()) "10:00 AM" else dueTime,
+                    reminder = reminder,
+                    done = false,
+                    subtasksJson = TaskEntity.serializeSubtasks(subtasks)
+                )
+                repository.insertTask(task)
+                onSuccess()
+                goBack()
+            } catch (t: Throwable) {
+                onError(t)
+            }
         }
     }
 
@@ -233,24 +246,31 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         dueTime: String,
         reminder: String,
         subtasks: List<SubtaskItem>,
-        done: Boolean
+        done: Boolean,
+        onSuccess: () -> Unit = {},
+        onError: (Throwable) -> Unit = {}
     ) {
         if (title.isBlank()) return
         viewModelScope.launch {
-            val task = TaskEntity(
-                id = id,
-                title = title.trim(),
-                notes = notes.trim(),
-                category = category,
-                priority = priority,
-                dueDate = if (dueDate.isBlank()) TikoDatabase.getTodayDateString() else dueDate,
-                dueTime = if (dueTime.isBlank()) "10:00 AM" else dueTime,
-                reminder = reminder,
-                done = done,
-                subtasksJson = TaskEntity.serializeSubtasks(subtasks)
-            )
-            repository.updateTask(task)
-            goBack()
+            try {
+                val task = TaskEntity(
+                    id = id,
+                    title = title.trim(),
+                    notes = notes.trim(),
+                    category = category,
+                    priority = priority,
+                    dueDate = if (dueDate.isBlank()) TikoDatabase.getTodayDateString() else dueDate,
+                    dueTime = if (dueTime.isBlank()) "10:00 AM" else dueTime,
+                    reminder = reminder,
+                    done = done,
+                    subtasksJson = TaskEntity.serializeSubtasks(subtasks)
+                )
+                repository.updateTask(task)
+                onSuccess()
+                goBack()
+            } catch (t: Throwable) {
+                onError(t)
+            }
         }
     }
 

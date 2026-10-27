@@ -48,10 +48,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.R
 import com.example.data.local.TikoDatabase
 import com.example.data.model.TaskEntity
 import com.example.ui.components.AppBlack
 import com.example.ui.components.AppBottomNav
+import com.example.ui.components.EmptyState
 import com.example.ui.components.AppCreamBackground
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.components.CardBlack
@@ -598,23 +600,11 @@ private fun CalendarOverlappingCardsList(
     onCardClick: (Long) -> Unit
 ) {
     if (cards.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color.White)
-                .padding(20.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Nothing planned for this day",
-                fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 16.sp,
-                color = Color(0xFF6B6B6B),
-                textAlign = TextAlign.Center
-            )
-        }
+        EmptyState(
+            image = R.drawable.illus_no_events,
+            title = "Nothing planned",
+            caption = "A free day. Tap + to add something."
+        )
     } else {
         Column(modifier = Modifier.fillMaxWidth()) {
             cards.forEachIndexed { index, card ->

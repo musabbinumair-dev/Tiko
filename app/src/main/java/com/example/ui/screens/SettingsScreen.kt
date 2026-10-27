@@ -454,23 +454,12 @@ fun SettingsScreen(
                                 ProfileSwitch(
                                     checked = notificationsOn,
                                     onCheckedChange = { checked ->
-                                        if (checked) {
-                                            AppDialogController.confirm(
-                                                title = "Allow reminders?",
-                                                message = "Tiko can send you notifications 15 minutes before your tasks are due.",
-                                                confirmText = "Allow",
-                                                cancelText = "Not now",
-                                                onConfirm = {
-                                                    notificationsOn = true
-                                                    preferences.setNotificationsEnabled(true)
-                                                    AppToastController.show("Notifications enabled", ToastType.Success)
-                                                }
-                                            )
-                                        } else {
-                                            notificationsOn = false
-                                            preferences.setNotificationsEnabled(false)
-                                            AppToastController.show("Notifications disabled", ToastType.Info)
-                                        }
+                                        notificationsOn = checked
+                                        preferences.setNotificationsEnabled(checked)
+                                        AppToastController.show(
+                                            if (checked) "Notifications enabled" else "Notifications disabled",
+                                            if (checked) ToastType.Success else ToastType.Info
+                                        )
                                     },
                                     testTag = "switch_notifications"
                                 )

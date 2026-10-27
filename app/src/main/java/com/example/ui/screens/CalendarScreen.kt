@@ -581,7 +581,7 @@ private fun CalendarDayItem(
     cell: CalendarDayCell,
     isSelected: Boolean,
     isToday: Boolean,
-    dotColor: Color,
+    dotColor: Color?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -636,7 +636,7 @@ private fun CalendarDayItem(
                 }
             }
 
-            if (!isSelected) {
+            if (!isSelected && dotColor != null) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Box(
                     modifier = Modifier

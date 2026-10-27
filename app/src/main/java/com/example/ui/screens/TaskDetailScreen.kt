@@ -1,16 +1,15 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,51 +20,45 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.NeoButton
-import com.example.ui.components.NeoCheckbox
-import com.example.ui.components.NeoDoodleGrid
-import com.example.ui.components.NeoDoodleQuarterCircle
-import com.example.ui.components.NeoDoodleSquiggle
-import com.example.ui.components.NeoDoodleTriangle
-import com.example.ui.components.getCategoryColor
-import com.example.ui.components.getCategoryIcon
-import com.example.ui.theme.BricolageGrotesque
-import com.example.ui.theme.DMSans
-import com.example.ui.theme.TikoCoral
-import com.example.ui.theme.TikoMint
-import com.example.ui.theme.TikoMustard
-import com.example.ui.theme.TikoOutline
-import com.example.ui.theme.TikoPeach
-import com.example.ui.theme.TikoSurface
-import com.example.ui.theme.TikoText
+import com.example.data.model.SubtaskItem
+import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
+
+private val DetailCreamBg = Color(0xFFEFEBDD)
+private val DetailBlack = Color(0xFF151515)
+private val DetailPurple = Color(0xFF6B4EFF)
 
 @Composable
 fun TaskDetailScreen(
@@ -75,483 +68,539 @@ fun TaskDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler {
+        onBack()
+    }
+
     val tasks by viewModel.allTasks.collectAsState()
     val task = tasks.find { it.id == taskId }
 
-    var showMenu by remember { mutableStateOf(false) }
-    var newSubtaskText by remember { mutableStateOf("") }
-    var isAddingSubtask by remember { mutableStateOf(false) }
+    var isBookmarked by remember { mutableStateOf(false) }
+
+    // Fallback sample subtasks state when task has no subtasks yet
+    val sampleSubtasksState = remember {
+        mutableStateMapOf(
+            "sample_1" to true,
+            "sample_2" to false,
+            "sample_3" to false
+        )
+    }
 
     if (task == null) {
         Box(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .background(DetailCreamBg),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Task not found", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(12.dp))
-                NeoButton(onClick = onBack, text = "Go back", isPrimary = true)
+                Text(
+                    text = "Task not found",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = DetailBlack
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier = Modifier
+                        .height(48.dp)
+                        .clip(CircleShape)
+                        .background(DetailBlack)
+                        .clickable(onClick = onBack)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Go back",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 16.sp
+                    )
+                }
             }
         }
         return
     }
 
-    val categoryColor = getCategoryColor(task.category)
-    val categoryIcon = getCategoryIcon(task.category)
+    // Category icon
+    val categoryIcon: ImageVector = when (task.category.lowercase()) {
+        "work" -> Icons.Outlined.Work
+        "health" -> Icons.Outlined.FitnessCenter
+        "study" -> Icons.Outlined.MenuBook
+        else -> Icons.Outlined.Person
+    }
 
-    Column(
+    // Date display
+    val dateDisplay = when {
+        task.dueDate.isBlank() || task.dueDate.lowercase().contains("today") -> "Due today"
+        else -> task.dueDate
+    }
+    val timeDisplay = if (task.dueTime.isNotBlank()) task.dueTime else "10:00 AM"
+    val priorityDisplay = if (task.priority.isNotBlank()) task.priority else "High"
+    val notesDisplay = if (task.notes.isNotBlank()) {
+        task.notes
+    } else {
+        "Make sure to include the latest updates from the client call."
+    }
+
+    // Subtasks to display
+    val hasRealSubtasks = task.subtasks.isNotEmpty()
+    val subtasksList = if (hasRealSubtasks) {
+        task.subtasks
+    } else {
+        listOf(
+            SubtaskItem(id = "sample_1", title = "Draft initial proposal", done = sampleSubtasksState["sample_1"] ?: true),
+            SubtaskItem(id = "sample_2", title = "Review with team", done = sampleSubtasksState["sample_2"] ?: false),
+            SubtaskItem(id = "sample_3", title = "Finalize and send", done = sampleSubtasksState["sample_3"] ?: false)
+        )
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp)
+            .background(DetailCreamBg)
     ) {
-        // Top App Bar: Back Button & Overflow Menu
-        Row(
+        // Background gradient: #FFCF4D at the top fading to cream #EFEBDD
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(48.dp)
-                    .testTag("back_button")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = TikoText,
-                    modifier = Modifier.size(28.dp)
+                .height(290.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFFFCF4D).copy(alpha = 0.90f),
+                            DetailCreamBg
+                        )
+                    )
                 )
-            }
-
-            Box {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(TikoOutline, CircleShape)
-                        .clickable { showMenu = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreHoriz,
-                        contentDescription = "Options",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier
-                        .background(TikoSurface)
-                        .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit Task", style = MaterialTheme.typography.titleSmall) },
-                        onClick = {
-                            showMenu = false
-                            onNavigate(Screen.EditTask(task.id))
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "Delete Task",
-                                style = MaterialTheme.typography.titleSmall.copy(color = TikoCoral)
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            viewModel.deleteTask(task.id)
-                        }
-                    )
-                }
-            }
-        }
+        )
 
         LazyColumn(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .fillMaxSize()
+                .testTag("task_detail_scroll"),
+            contentPadding = PaddingValues(bottom = 36.dp)
         ) {
+            // TOP ROW: Back button (left) and Bookmark button (right)
             item {
-                // Hero Task Banner Card (Mustard Yellow in Mockup)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-                        .background(categoryColor)
-                        .padding(18.dp)
-                ) {
-                    // Decorative neo-brutalist doodles
-                    NeoDoodleGrid(
-                        modifier = Modifier
-                            .size(70.dp)
-                            .align(Alignment.TopEnd)
-                    )
-                    NeoDoodleTriangle(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.BottomEnd)
-                    )
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth(0.85f)
-                    ) {
-                        // Category Icon box
-                        Icon(
-                            imageVector = categoryIcon,
-                            contentDescription = task.category,
-                            tint = TikoText,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Large Title
-                        Text(
-                            text = task.title,
-                            style = MaterialTheme.typography.displaySmall.copy(
-                                fontFamily = BricolageGrotesque,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 28.sp,
-                                lineHeight = 32.sp,
-                                color = TikoText
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Subtitle
-                        Text(
-                            text = "${task.category} • Due today, ${task.dueTime}",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = DMSans,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = Color(0xFFC7432D) // Accent dark coral text matching mockup
-                            )
-                        )
-                    }
-                }
-            }
-
-            item {
-                // Three Metric Boxes in a row (Priority, Reminder, Status)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                        .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-                ) {
-                    // Priority Box (Coral)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .background(TikoCoral)
-                            .border(1.dp, TikoOutline)
-                            .padding(12.dp)
-                    ) {
-                        NeoDoodleTriangle(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .align(Alignment.BottomEnd)
-                        )
-                        Column {
-                            Text(
-                                text = "Priority",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = DMSans,
-                                    fontSize = 13.sp,
-                                    color = TikoText
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = task.priority,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = BricolageGrotesque,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 18.sp,
-                                    color = TikoText
-                                )
-                            )
-                        }
-                    }
-
-                    // Reminder Box (Mint)
-                    Box(
-                        modifier = Modifier
-                            .weight(1.1f)
-                            .fillMaxHeight()
-                            .background(TikoMint)
-                            .border(1.dp, TikoOutline)
-                            .padding(12.dp)
-                    ) {
-                        NeoDoodleSquiggle(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .align(Alignment.BottomEnd)
-                        )
-                        Column {
-                            Text(
-                                text = "Reminder",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = DMSans,
-                                    fontSize = 13.sp,
-                                    color = TikoText
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = task.reminder,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = BricolageGrotesque,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 16.sp,
-                                    color = TikoText
-                                )
-                            )
-                        }
-                    }
-
-                    // Status Box (Peach)
-                    Box(
-                        modifier = Modifier
-                            .weight(1.1f)
-                            .fillMaxHeight()
-                            .background(TikoPeach)
-                            .border(1.dp, TikoOutline)
-                            .padding(12.dp)
-                    ) {
-                        NeoDoodleQuarterCircle(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .align(Alignment.BottomEnd)
-                        )
-                        Column {
-                            Text(
-                                text = "Status",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = DMSans,
-                                    fontSize = 13.sp,
-                                    color = TikoText
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (task.done) "Completed" else "In progress",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = BricolageGrotesque,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 16.sp,
-                                    color = TikoText
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                // Notes Section
-                Text(
-                    text = "Notes",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = BricolageGrotesque,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 22.sp,
-                        color = TikoText
-                    ),
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-                        .background(TikoSurface)
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = if (task.notes.isNotBlank()) task.notes else "No notes added for this task.",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontFamily = DMSans,
-                            lineHeight = 22.sp,
-                            color = TikoText
-                        )
-                    )
-                }
-            }
-
-            item {
-                // Subtasks Section
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp, bottom = 4.dp),
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Subtasks",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontFamily = BricolageGrotesque,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 22.sp,
-                            color = TikoText
-                        )
-                    )
-
-                    Text(
-                        text = "+ Add",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = DMSans,
-                            fontWeight = FontWeight.Bold,
-                            color = TikoText
-                        ),
-                        modifier = Modifier
-                            .clickable { isAddingSubtask = true }
-                            .padding(4.dp)
-                    )
-                }
-
-                // Add Subtask Input Field (if active)
-                if (isAddingSubtask) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = newSubtaskText,
-                            onValueChange = { newSubtaskText = it },
-                            placeholder = { Text("Subtask description...", style = MaterialTheme.typography.bodyMedium) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(0.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = TikoOutline,
-                                unfocusedBorderColor = TikoOutline,
-                                focusedContainerColor = TikoSurface,
-                                unfocusedContainerColor = TikoSurface
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(
-                            onClick = {
-                                if (newSubtaskText.isNotBlank()) {
-                                    viewModel.addSubtask(task.id, newSubtaskText)
-                                    newSubtaskText = ""
-                                    isAddingSubtask = false
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add subtask", tint = TikoText)
-                        }
-                        IconButton(
-                            onClick = { isAddingSubtask = false }
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Cancel", tint = TikoCoral)
-                        }
-                    }
-                }
-
-                // Subtask Items List Box
-                if (task.subtasks.isEmpty()) {
+                    // 48dp white circle, 1dp #151515 outline, back icon
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
-                            .background(TikoSurface)
-                            .padding(16.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .clickable(onClick = onBack)
+                            .testTag("task_detail_back_button"),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "No subtasks yet. Tap '+ Add' to break this task down.",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = DMSans)
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronLeft,
+                            contentDescription = "Back",
+                            tint = DetailBlack,
+                            modifier = Modifier.size(26.dp)
                         )
                     }
-                } else {
-                    Column(
+
+                    // 48dp white circle, 1dp #151515 outline, bookmark button
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .border(2.dp, TikoOutline, RoundedCornerShape(0.dp))
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .clickable { isBookmarked = !isBookmarked }
+                            .testTag("task_detail_bookmark_button"),
+                        contentAlignment = Alignment.Center
                     ) {
-                        task.subtasks.forEachIndexed { index, subtask ->
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = "Bookmark",
+                            tint = DetailBlack,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+
+            // CENTERED 64dp PURPLE CIRCLE WITH WHITE BRIEFCASE ICON
+            item {
+                Spacer(modifier = Modifier.height(18.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(DetailPurple)
+                            .testTag("task_detail_icon"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = categoryIcon,
+                            contentDescription = task.category,
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Task title: Outfit ExtraBold 34sp, centered, black
+                    Text(
+                        text = task.title,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 34.sp,
+                        color = DetailBlack,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 38.sp,
+                        letterSpacing = (-0.5).sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // White pill with category icon + name, Outfit Medium 16sp
+                    Box(
+                        modifier = Modifier
+                            .height(42.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, Color(0xFFD6D2C4), CircleShape)
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = categoryIcon,
+                                contentDescription = null,
+                                tint = DetailBlack,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = task.category.ifBlank { "Work" },
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 16.sp,
+                                color = DetailBlack
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ROW OF 3 WHITE PILLS: Due date, time, priority
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Due Date Pill
+                    Box(
+                        modifier = Modifier
+                            .weight(1.15f)
+                            .height(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CalendarToday,
+                                contentDescription = null,
+                                tint = DetailBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = dateDisplay,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                color = DetailBlack,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    // Time Pill
+                    Box(
+                        modifier = Modifier
+                            .weight(1.1f)
+                            .height(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Schedule,
+                                contentDescription = null,
+                                tint = DetailBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = timeDisplay,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                color = DetailBlack,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    // Priority Pill
+                    Box(
+                        modifier = Modifier
+                            .weight(0.85f)
+                            .height(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocalFireDepartment,
+                                contentDescription = null,
+                                tint = DetailBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = priorityDisplay,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                color = DetailBlack,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // SUBTASKS SECTION
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+                // White pill label "Subtasks" (1dp black outline, Outfit Bold 18sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .height(38.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .padding(horizontal = 18.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Subtasks",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = DetailBlack
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // White card, 28dp radius, rows separated by thin #E8E8E8 lines
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        subtasksList.forEachIndexed { index, subtask ->
+                            val isChecked = if (hasRealSubtasks) {
+                                subtask.done
+                            } else {
+                                sampleSubtasksState[subtask.id] ?: false
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(TikoSurface)
-                                    .border(
-                                        width = if (index > 0) 1.dp else 0.dp,
-                                        color = TikoOutline
-                                    )
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    .clickable {
+                                        if (hasRealSubtasks) {
+                                            viewModel.toggleSubtask(task.id, subtask.id)
+                                        } else {
+                                            sampleSubtasksState[subtask.id] = !isChecked
+                                        }
+                                    }
+                                    .padding(horizontal = 18.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                NeoCheckbox(
-                                    checked = subtask.done,
-                                    onCheckedChange = { viewModel.toggleSubtask(task.id, subtask.id) }
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
+                                // 28dp circle checkbox: checked = black fill with white check
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .then(
+                                            if (isChecked) {
+                                                Modifier.background(DetailBlack)
+                                            } else {
+                                                Modifier
+                                                    .background(Color.White)
+                                                    .border(2.dp, DetailBlack, CircleShape)
+                                            }
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isChecked) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Check,
+                                            contentDescription = "Completed",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(14.dp))
+
+                                // Text: Outfit Regular 17sp
                                 Text(
                                     text = subtask.title,
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontFamily = DMSans,
-                                        fontWeight = FontWeight.Medium,
-                                        color = if (subtask.done) TikoText.copy(alpha = 0.5f) else TikoText,
-                                        textDecoration = if (subtask.done) TextDecoration.LineThrough else TextDecoration.None
-                                    ),
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 17.sp,
+                                    color = DetailBlack,
                                     modifier = Modifier.weight(1f)
                                 )
-                                IconButton(
-                                    onClick = { viewModel.removeSubtask(task.id, subtask.id) },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Remove subtask",
-                                        tint = TikoText.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                            }
+
+                            if (index < subtasksList.size - 1) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(Color(0xFFE8E8E8))
+                                )
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Bottom Action Buttons: Edit (white) and Mark done / Mark in progress (black)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            NeoButton(
-                onClick = { onNavigate(Screen.EditTask(task.id)) },
-                text = "Edit",
-                isPrimary = false,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("edit_task_button")
-            )
+            // NOTES SECTION
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+                // White pill label "Notes"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .height(38.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, DetailBlack, CircleShape)
+                            .padding(horizontal = 18.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Notes",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = DetailBlack
+                        )
+                    }
+                }
 
-            NeoButton(
-                onClick = { viewModel.toggleTaskDone(task) },
-                text = if (task.done) "Mark pending" else "Mark done",
-                isPrimary = true,
-                modifier = Modifier
-                    .weight(1.3f)
-                    .testTag("toggle_done_button")
-            )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // White card, 28dp radius, with notes text in gray, Outfit Regular 16sp
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White)
+                        .padding(horizontal = 20.dp, vertical = 20.dp)
+                ) {
+                    Text(
+                        text = notesDisplay,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 16.sp,
+                        color = Color(0xFF3A3A3A),
+                        lineHeight = 24.sp
+                    )
+                }
+            }
+
+            // FULL-WIDTH BLACK PILL BUTTON "Mark as done"
+            item {
+                Spacer(modifier = Modifier.height(26.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .height(56.dp)
+                        .clip(CircleShape)
+                        .background(DetailBlack)
+                        .clickable { viewModel.toggleTaskDone(task) }
+                        .testTag("task_detail_toggle_done"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (task.done) "Mark as pending" else "Mark as done",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color.White
+                    )
+                }
+            }
         }
     }
 }

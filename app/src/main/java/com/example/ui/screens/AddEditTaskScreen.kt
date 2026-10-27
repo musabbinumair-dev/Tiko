@@ -33,14 +33,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.WorkOutline
@@ -69,8 +74,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.TikoDatabase
+import com.example.data.model.CategoryColors
+import com.example.data.model.CategoryIcons
+import com.example.data.model.CategoryModel
 import com.example.data.model.SubtaskItem
 import com.example.ui.components.ArrowOutwardIcon
+import com.example.ui.components.CreateCategoryDialog
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
@@ -87,20 +96,6 @@ private val CardPurple = Color(0xFF6B4EFF)
 private val CardYellow = Color(0xFFFFB92E)
 private val CardLime = Color(0xFFC8DB6A)
 private val CardRed = Color(0xFFD9534A)
-
-private data class TaskCategoryItem(
-    val name: String,
-    val color: Color,
-    val textColor: Color,
-    val icon: ImageVector
-)
-
-private val TaskCategoriesList = listOf(
-    TaskCategoryItem("Work", CardPurple, Color.White, Icons.Outlined.WorkOutline),
-    TaskCategoryItem("Health", CardYellow, AddTaskBlack, Icons.Outlined.FitnessCenter),
-    TaskCategoryItem("Personal", CardLime, AddTaskBlack, Icons.Outlined.Person),
-    TaskCategoryItem("Study", CardRed, Color.White, Icons.AutoMirrored.Outlined.MenuBook)
-)
 
 private fun formatDateForDisplay(dateStr: String): String {
     return try {
@@ -128,6 +123,7 @@ fun AddEditTaskScreen(
 ) {
     val context = LocalContext.current
     val tasks by viewModel.allTasks.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val existingTask = remember(taskId, tasks) {
         if (taskId != null) tasks.find { it.id == taskId } else null
     }
@@ -146,6 +142,8 @@ fun AddEditTaskScreen(
             }
         }
     }
+    var newSubtaskText by remember { mutableStateOf("") }
+    var showNewCategoryDialog by remember { mutableStateOf(false) }
     var titleError by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
@@ -226,38 +224,65 @@ fun AddEditTaskScreen(
                     color = AddTaskBlack
                 )
 
-                // Menu button (three dots): 48dp white circle with 1dp #151515 outline
-                Box {
-                    RoundIconButton(
-                        icon = Icons.Default.MoreVert,
-                        onClick = { showMenu = !showMenu },
-                        contentDescription = "Menu",
-                        testTag = "add_task_menu_button"
-                    )
-
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     if (existingTask != null) {
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Delete task", color = CardRed) },
-                                onClick = {
-                                    showMenu = false
-                                    AppDialogController.confirm(
-                                        title = "Delete task?",
-                                        message = "Are you sure you want to delete this task? This cannot be undone.",
-                                        confirmText = "Delete",
-                                        cancelText = "Cancel",
-                                        destructive = true,
-                                        onConfirm = {
-                                            viewModel.deleteTask(existingTask.id)
-                                            AppToastController.show("Task deleted", ToastType.Success)
-                                            onBack()
-                                        }
-                                    )
-                                }
-                            )
+                        RoundIconButton(
+                            icon = Icons.Outlined.DeleteOutline,
+                            onClick = {
+                                AppDialogController.confirm(
+                                    title = "Delete task?",
+                                    message = "Are you sure you want to delete this task? This cannot be undone.",
+                                    confirmText = "Delete",
+                                    cancelText = "Cancel",
+                                    destructive = true,
+                                    onConfirm = {
+                                        viewModel.deleteTask(existingTask.id)
+                                        AppToastController.show("Task deleted", ToastType.Success)
+                                        onBack()
+                                    }
+                                )
+                            },
+                            contentDescription = "Delete task",
+                            testTag = "add_task_top_delete_button"
+                        )
+                    }
+
+                    // Menu button (three dots): 48dp white circle with 1dp #151515 outline
+                    Box {
+                        RoundIconButton(
+                            icon = Icons.Default.MoreVert,
+                            onClick = { showMenu = !showMenu },
+                            contentDescription = "Menu",
+                            testTag = "add_task_menu_button"
+                        )
+
+                        if (existingTask != null) {
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete task", color = CardRed) },
+                                    onClick = {
+                                        showMenu = false
+                                        AppDialogController.confirm(
+                                            title = "Delete task?",
+                                            message = "Are you sure you want to delete this task? This cannot be undone.",
+                                            confirmText = "Delete",
+                                            cancelText = "Cancel",
+                                            destructive = true,
+                                            onConfirm = {
+                                                viewModel.deleteTask(existingTask.id)
+                                                AppToastController.show("Task deleted", ToastType.Success)
+                                                onBack()
+                                            }
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -383,28 +408,34 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 4 equal cards in a row with 8dp gaps, 28dp radius, icon + name centered
+            // Scrollable row of category cards + "+ New" category button
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TaskCategoriesList.forEach { cat ->
+                categories.forEach { cat ->
                     val isSelected = category.equals(cat.name, ignoreCase = true)
+                    val catColor = Color(cat.colorHex)
+                    val textColor = CategoryColors.getContentColor(cat.colorHex)
+                    val catIcon = CategoryIcons.getIcon(cat.iconKey)
+
                     Box(
                         modifier = Modifier
-                            .weight(1f)
+                            .width(88.dp)
                             .height(104.dp)
                             .then(
                                 if (isSelected) {
                                     Modifier
-                                        .border(3.dp, cat.color, RoundedCornerShape(28.dp))
+                                        .border(3.dp, catColor, RoundedCornerShape(28.dp))
                                         .padding(4.dp)
                                 } else {
                                     Modifier
                                 }
                             )
                             .clip(RoundedCornerShape(if (isSelected) 22.dp else 28.dp))
-                            .background(cat.color)
+                            .background(catColor)
                             .clickable { category = cat.name }
                             .testTag("category_${cat.name.lowercase()}"),
                         contentAlignment = Alignment.Center
@@ -414,9 +445,9 @@ fun AddEditTaskScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = cat.icon,
+                                imageVector = catIcon,
                                 contentDescription = cat.name,
-                                tint = cat.textColor,
+                                tint = textColor,
                                 modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -425,9 +456,43 @@ fun AddEditTaskScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = cat.textColor
+                                color = textColor,
+                                maxLines = 1
                             )
                         }
+                    }
+                }
+
+                // "+ New" category card
+                Box(
+                    modifier = Modifier
+                        .width(88.dp)
+                        .height(104.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White)
+                        .border(1.5.dp, AddTaskBlack.copy(alpha = 0.3f), RoundedCornerShape(28.dp))
+                        .clickable { showNewCategoryDialog = true }
+                        .testTag("category_add_new"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = "New Category",
+                            tint = AddTaskBlack,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "New",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = AddTaskBlack
+                        )
                     }
                 }
             }
@@ -645,9 +710,179 @@ fun AddEditTaskScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 8. White pill label "Subtasks"
+            PillLabel(text = "Subtasks (${subtasks.size})")
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Subtasks card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFD6D2C4), RoundedCornerShape(28.dp))
+                    .padding(20.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (subtasks.isEmpty()) {
+                        Text(
+                            text = "No subtasks yet. Add subtasks to break down this task.",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 15.sp,
+                            color = Color(0xFF8E8E93)
+                        )
+                    } else {
+                        subtasks.forEachIndexed { index, subtask ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Checkbox
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            subtasks[index] = subtask.copy(done = !subtask.done)
+                                        }
+                                        .then(
+                                            if (subtask.done) {
+                                                Modifier.background(AddTaskBlack)
+                                            } else {
+                                                Modifier
+                                                    .background(Color.White)
+                                                    .border(2.dp, AddTaskBlack, CircleShape)
+                                            }
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (subtask.done) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Check,
+                                            contentDescription = "Done",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Text(
+                                    text = subtask.title,
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 16.sp,
+                                    color = if (subtask.done) Color(0xFF8E8E93) else AddTaskBlack,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            subtasks[index] = subtask.copy(done = !subtask.done)
+                                        }
+                                )
+
+                                // Delete subtask button
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            subtasks.removeAt(index)
+                                            AppToastController.show("Subtask removed", ToastType.Info)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Delete subtask",
+                                        tint = Color(0xFFD9534A),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            if (index < subtasks.size - 1) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(Color(0xFFE8E8E8))
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
+                        }
+                    }
+
+                    // Add Subtask input row inside card
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(AddTaskCream.copy(alpha = 0.5f))
+                            .border(1.dp, Color(0xFFDCDAD4), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BasicTextField(
+                            value = newSubtaskText,
+                            onValueChange = { newSubtaskText = it },
+                            modifier = Modifier.weight(1f),
+                            textStyle = TextStyle(
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 15.sp,
+                                color = AddTaskBlack
+                            ),
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                if (newSubtaskText.isEmpty()) {
+                                    Text(
+                                        text = "Add a subtask...",
+                                        fontFamily = OutfitFontFamily,
+                                        color = Color(0xFF8E8E8E),
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .height(34.dp)
+                                .clip(CircleShape)
+                                .background(if (newSubtaskText.isNotBlank()) AddTaskBlack else AddTaskBlack.copy(alpha = 0.2f))
+                                .clickable(enabled = newSubtaskText.isNotBlank()) {
+                                    subtasks.add(SubtaskItem(title = newSubtaskText.trim(), done = false))
+                                    newSubtaskText = ""
+                                    AppToastController.show("Subtask added", ToastType.Success)
+                                }
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Add",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(28.dp))
 
-            // 8. Full-width black pill button "Save task", 56dp high, Outfit Bold 18sp, white text
+            // 9. Full-width black pill button "Save task" / "Update task", 56dp high, Outfit Bold 18sp, white text
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -699,6 +934,42 @@ fun AddEditTaskScreen(
                     fontSize = 18.sp,
                     color = Color.White
                 )
+            }
+
+            if (existingTask != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.5.dp, Color(0xFFD9534A), CircleShape)
+                        .clickable {
+                            AppDialogController.confirm(
+                                title = "Delete task?",
+                                message = "Are you sure you want to delete this task? This cannot be undone.",
+                                confirmText = "Delete",
+                                cancelText = "Cancel",
+                                destructive = true,
+                                onConfirm = {
+                                    viewModel.deleteTask(existingTask.id)
+                                    AppToastController.show("Task deleted", ToastType.Success)
+                                    onBack()
+                                }
+                            )
+                        }
+                        .testTag("delete_task_bottom_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Delete task",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFFD9534A)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -910,6 +1181,18 @@ fun AddEditTaskScreen(
                     }
                 }
             }
+        }
+
+        if (showNewCategoryDialog) {
+            CreateCategoryDialog(
+                onDismiss = { showNewCategoryDialog = false },
+                onCreateCategory = { name, iconKey, colorHex ->
+                    viewModel.addCategory(name, iconKey, colorHex)
+                    category = name
+                    showNewCategoryDialog = false
+                    AppToastController.show("Category '$name' created", ToastType.Success)
+                }
+            )
         }
     }
 }

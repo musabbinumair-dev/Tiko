@@ -199,20 +199,6 @@ fun HomeScreen(
                     )
                 )
         )
-
-        // Floating Bottom Navigation Bar (16dp side margin, 12dp from bottom above system inset)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 12.dp)
-        ) {
-            AppBottomNav(
-                activeTab = NavigationTab.HOME,
-                onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) }
-            )
-        }
     }
 }
 

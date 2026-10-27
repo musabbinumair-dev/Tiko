@@ -598,20 +598,6 @@ fun SettingsScreen(
                     )
                 )
         )
-
-        // FLOATING BOTTOM NAV: Reusing AppBottomNav with Profile (5th tab) active
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 12.dp)
-        ) {
-            AppBottomNav(
-                activeTab = NavigationTab.SETTINGS,
-                onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) }
-            )
-        }
     }
 
     // DIALOGS

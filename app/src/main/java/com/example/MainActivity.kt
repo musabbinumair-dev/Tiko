@@ -28,10 +28,14 @@ import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.TikoBackground
 import com.example.ui.components.AppOverlayHost
+import com.example.ui.components.AppBottomNav
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,6 +170,21 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         )
                     }
                 }
+
+            if (hasCustomFloatingNav && currentTab != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp)
+                ) {
+                    AppBottomNav(
+                        activeTab = currentTab,
+                        onTabSelected = { viewModel.selectTab(it) },
+                        onAddClick = { viewModel.navigateTo(Screen.AddTask) }
+                    )
+                }
+            }
 
             AppOverlayHost()
         }

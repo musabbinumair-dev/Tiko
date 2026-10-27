@@ -510,20 +510,6 @@ fun CalendarScreen(
                     )
                 )
         )
-
-        // FLOATING BOTTOM NAV: Reusing AppBottomNav with Calendar (4th tab) active
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 12.dp)
-        ) {
-            AppBottomNav(
-                activeTab = NavigationTab.CALENDAR,
-                onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) }
-            )
-        }
     }
 }
 

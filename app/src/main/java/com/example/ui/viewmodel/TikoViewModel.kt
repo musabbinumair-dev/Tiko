@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.TikoDatabase
+import com.example.data.model.CategoryModel
+import com.example.data.model.DefaultCategories
 import com.example.data.model.SubtaskItem
 import com.example.data.model.TaskEntity
 import com.example.data.repository.TaskRepository
@@ -59,6 +61,32 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedCategory = MutableStateFlow<String?>("All")
     val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
+
+    val categories: StateFlow<List<CategoryModel>> = preferences.customCategories
+        .combine(allTasks) { custom, tasks ->
+            val allList = DefaultCategories.toMutableList()
+            for (c in custom) {
+                if (allList.none { it.name.equals(c.name, ignoreCase = true) }) {
+                    allList.add(c)
+                }
+            }
+            val taskCategories = tasks.map { it.category }.distinct()
+            for (tc in taskCategories) {
+                if (tc.isNotBlank() && allList.none { it.name.equals(tc, ignoreCase = true) }) {
+                    allList.add(CategoryModel(tc, "folder", 0xFF6B4EFF))
+                }
+            }
+            allList
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DefaultCategories)
+
+    fun addCategory(name: String, iconKey: String = "folder", colorHex: Long = 0xFF6B4EFF) {
+        if (name.isBlank()) return
+        preferences.addCategory(CategoryModel(name.trim(), iconKey, colorHex))
+    }
+
+    fun deleteCategory(name: String) {
+        preferences.deleteCategory(name.trim())
+    }
 
     private val _selectedCalendarDate = MutableStateFlow(TikoDatabase.getTodayDateString())
     val selectedCalendarDate: StateFlow<String> = _selectedCalendarDate.asStateFlow()

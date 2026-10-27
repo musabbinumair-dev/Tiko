@@ -31,11 +31,15 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Work
+import com.example.data.model.CategoryColors
+import com.example.data.model.CategoryIcons
+import com.example.ui.components.CreateCategoryDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -106,71 +110,29 @@ fun ListsScreen(
     }
 
     val tasks by viewModel.allTasks.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     var selectedFilter by remember { mutableStateOf("All") } // "All", "Active", "Completed"
     var selectedCategoryForSheet by remember { mutableStateOf<String?>(null) }
     var showNewListDialog by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Aggregate real Room database data per category with fallback to pristine design defaults
-    val workTasks = tasks.filter { it.category.equals("Work", ignoreCase = true) }
-    val healthTasks = tasks.filter { it.category.equals("Health", ignoreCase = true) }
-    val personalTasks = tasks.filter { it.category.equals("Personal", ignoreCase = true) }
-    val studyTasks = tasks.filter {
-        it.category.equals("Study", ignoreCase = true) || it.category.equals("Education", ignoreCase = true)
-    }
-
-    val workTotal = workTasks.size
-    val workDone = workTasks.count { it.done }
-
-    val healthTotal = healthTasks.size
-    val healthDone = healthTasks.count { it.done }
-
-    val personalTotal = personalTasks.size
-    val personalDone = personalTasks.count { it.done }
-
-    val studyTotal = studyTasks.size
-    val studyDone = studyTasks.count { it.done }
-
-    // Next pending task title for Study card
-    val studyNextPending = studyTasks.firstOrNull { !it.done }?.title
-
-    val allCardModels = listOf(
+    val allCardModels = categories.mapIndexed { index, cat ->
+        val catTasks = tasks.filter { it.category.equals(cat.name, ignoreCase = true) }
+        val total = catTasks.size
+        val done = catTasks.count { it.done }
+        val nextPending = catTasks.firstOrNull { !it.done }?.title
         ListCardUiModel(
-            categoryName = "Work",
-            icon = Icons.Outlined.Work,
-            totalTasks = workTotal,
-            doneTasks = workDone,
-            backgroundColor = CardPurple,
-            contentColor = Color.White
-        ),
-        ListCardUiModel(
-            categoryName = "Health",
-            icon = Icons.Outlined.FitnessCenter,
-            totalTasks = healthTotal,
-            doneTasks = healthDone,
-            backgroundColor = CardYellow,
-            contentColor = AppBlack
-        ),
-        ListCardUiModel(
-            categoryName = "Personal",
-            icon = Icons.Outlined.Person,
-            totalTasks = personalTotal,
-            doneTasks = personalDone,
-            backgroundColor = CardBlack,
-            contentColor = Color.White
-        ),
-        ListCardUiModel(
-            categoryName = "Study",
-            icon = Icons.Outlined.MenuBook,
-            totalTasks = studyTotal,
-            doneTasks = studyDone,
-            backgroundColor = CardLime,
-            contentColor = AppBlack,
-            nextItemText = "Next: $studyNextPending",
-            isLastTaller = true
+            categoryName = cat.name,
+            icon = CategoryIcons.getIcon(cat.iconKey),
+            totalTasks = total,
+            doneTasks = done,
+            backgroundColor = Color(cat.colorHex),
+            contentColor = CategoryColors.getContentColor(cat.colorHex),
+            nextItemText = if (nextPending != null) "Next: $nextPending" else null,
+            isLastTaller = index == categories.size - 1
         )
-    )
+    }
 
     // Filter cards based on filter pills selection
     val displayedCards = allCardModels.filter { card ->
@@ -249,25 +211,6 @@ fun ListsScreen(
                 )
         )
 
-        // Shared Floating Bottom Navigation Bar (16dp side margin, 12dp from bottom above system inset)
-        // Active tab is LISTS (second icon black fill, white icon)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 12.dp)
-        ) {
-            AppBottomNav(
-                activeTab = NavigationTab.LISTS,
-                onTabSelected = { tab ->
-                    if (tab != NavigationTab.LISTS) {
-                        viewModel.selectTab(tab)
-                    }
-                },
-                onAddClick = { onNavigate(Screen.AddTask) }
-            )
-        }
-
         // Category Detail Bottom Sheet when tapping any card
         selectedCategoryForSheet?.let { categoryName ->
             val categoryTasks = tasks.filter { it.category.equals(categoryName, ignoreCase = true) }
@@ -287,12 +230,13 @@ fun ListsScreen(
             )
         }
 
-        // "+ New list" Overlay
+        // "+ New list" Overlay with icon picker
         if (showNewListDialog) {
-            NewListModalOverlay(
+            CreateCategoryDialog(
+                titleText = "NEW LIST",
                 onDismiss = { showNewListDialog = false },
-                onCreateList = { listName ->
-                    // Pre-populate with a starter task in the new list
+                onCreateCategory = { listName, iconKey, colorHex ->
+                    viewModel.addCategory(listName, iconKey, colorHex)
                     viewModel.createQuickTask("$listName starter task", listName)
                     AppToastController.show("List '$listName' created", ToastType.Success)
                     showNewListDialog = false

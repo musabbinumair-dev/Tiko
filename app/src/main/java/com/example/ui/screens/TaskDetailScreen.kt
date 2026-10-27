@@ -19,12 +19,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
@@ -47,10 +50,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.CategoryIcons
+import com.example.ui.components.AppDialogController
 import com.example.ui.components.AppToastController
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.ToastType
@@ -121,12 +127,7 @@ fun TaskDetailScreen(
     }
 
     // Category icon
-    val categoryIcon: ImageVector = when (task.category.lowercase()) {
-        "work" -> Icons.Outlined.Work
-        "health" -> Icons.Outlined.FitnessCenter
-        "study" -> Icons.Outlined.MenuBook
-        else -> Icons.Outlined.Person
-    }
+    val categoryIcon: ImageVector = CategoryIcons.getIcon(task.category)
 
     // Date display
     val dateDisplay = when {
@@ -162,7 +163,7 @@ fun TaskDetailScreen(
                 .testTag("task_detail_scroll"),
             contentPadding = PaddingValues(bottom = 36.dp)
         ) {
-            // TOP ROW: Back button (left) and Bookmark button (right)
+            // TOP ROW: Back button (left) and Actions (Delete + Bookmark) (right)
             item {
                 Row(
                     modifier = Modifier
@@ -179,19 +180,43 @@ fun TaskDetailScreen(
                         testTag = "task_detail_back_button"
                     )
 
-                    RoundIconButton(
-                        icon = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                        onClick = {
-                            isBookmarked = !isBookmarked
-                            if (isBookmarked) {
-                                AppToastController.show("Task bookmarked", ToastType.Info)
-                            } else {
-                                AppToastController.show("Bookmark removed", ToastType.Info)
-                            }
-                        },
-                        contentDescription = "Bookmark",
-                        testTag = "task_detail_bookmark_button"
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RoundIconButton(
+                            icon = Icons.Outlined.DeleteOutline,
+                            onClick = {
+                                AppDialogController.confirm(
+                                    title = "Delete task?",
+                                    message = "Are you sure you want to delete this task? This cannot be undone.",
+                                    confirmText = "Delete",
+                                    cancelText = "Cancel",
+                                    destructive = true,
+                                    onConfirm = {
+                                        viewModel.deleteTask(task.id)
+                                        AppToastController.show("Task deleted", ToastType.Info)
+                                    }
+                                )
+                            },
+                            contentDescription = "Delete task",
+                            testTag = "task_detail_delete_button"
+                        )
+
+                        RoundIconButton(
+                            icon = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                            onClick = {
+                                isBookmarked = !isBookmarked
+                                if (isBookmarked) {
+                                    AppToastController.show("Task bookmarked", ToastType.Info)
+                                } else {
+                                    AppToastController.show("Bookmark removed", ToastType.Info)
+                                }
+                            },
+                            contentDescription = "Bookmark",
+                            testTag = "task_detail_bookmark_button"
+                        )
+                    }
                 }
             }
 
@@ -418,23 +443,20 @@ fun TaskDetailScreen(
                         .background(Color.White)
                         .padding(horizontal = 20.dp, vertical = 20.dp)
                 ) {
-                    if (task.subtasks.isEmpty()) {
-                        Text(
-                            text = "No subtasks yet",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 16.sp,
-                            color = Color(0xFF8E8E8E)
-                        )
-                    } else {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (task.subtasks.isEmpty()) {
+                            Text(
+                                text = "No subtasks yet",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 16.sp,
+                                color = Color(0xFF8E8E8E)
+                            )
+                        } else {
                             task.subtasks.forEachIndexed { index, subtask ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable {
-                                            viewModel.toggleSubtask(task.id, subtask.id)
-                                        }
                                         .padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -442,6 +464,9 @@ fun TaskDetailScreen(
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)
+                                            .clickable {
+                                                viewModel.toggleSubtask(task.id, subtask.id)
+                                            }
                                             .then(
                                                 if (subtask.done) {
                                                     Modifier.background(DetailBlack)
@@ -470,9 +495,32 @@ fun TaskDetailScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = DetailBlack,
-                                        modifier = Modifier.weight(1f)
+                                        color = if (subtask.done) Color(0xFF8E8E8E) else DetailBlack,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                viewModel.toggleSubtask(task.id, subtask.id)
+                                            }
                                     )
+
+                                    // Delete subtask button
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                viewModel.removeSubtask(task.id, subtask.id)
+                                                AppToastController.show("Subtask deleted", ToastType.Info)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = "Delete subtask",
+                                            tint = Color(0xFFD9534A),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
 
                                 if (index < task.subtasks.size - 1) {
@@ -485,6 +533,64 @@ fun TaskDetailScreen(
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
+                            }
+                        }
+
+                        // Add Subtask input row
+                        Spacer(modifier = Modifier.height(16.dp))
+                        var newSubtaskInput by remember { mutableStateOf("") }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(DetailCreamBg.copy(alpha = 0.5f))
+                                .border(1.dp, Color(0xFFDCDAD4), RoundedCornerShape(16.dp))
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            BasicTextField(
+                                value = newSubtaskInput,
+                                onValueChange = { newSubtaskInput = it },
+                                modifier = Modifier.weight(1f),
+                                textStyle = TextStyle(
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 15.sp,
+                                    color = DetailBlack
+                                ),
+                                singleLine = true,
+                                decorationBox = { innerTextField ->
+                                    if (newSubtaskInput.isEmpty()) {
+                                        Text(
+                                            text = "Add subtask...",
+                                            fontFamily = OutfitFontFamily,
+                                            color = Color(0xFF8E8E8E),
+                                            fontSize = 15.sp
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .height(34.dp)
+                                    .clip(CircleShape)
+                                    .background(if (newSubtaskInput.isNotBlank()) DetailBlack else DetailBlack.copy(alpha = 0.2f))
+                                    .clickable(enabled = newSubtaskInput.isNotBlank()) {
+                                        viewModel.addSubtask(task.id, newSubtaskInput.trim())
+                                        AppToastController.show("Subtask added", ToastType.Success)
+                                        newSubtaskInput = ""
+                                    }
+                                    .padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Add",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color.White
+                                )
                             }
                         }
                     }
@@ -569,6 +675,43 @@ fun TaskDetailScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = Color.White
+                    )
+                }
+            }
+
+            // FULL-WIDTH DELETE BUTTON
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .height(52.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.5.dp, Color(0xFFD9534A), CircleShape)
+                        .clickable {
+                            AppDialogController.confirm(
+                                title = "Delete task?",
+                                message = "Are you sure you want to delete this task? This cannot be undone.",
+                                confirmText = "Delete",
+                                cancelText = "Cancel",
+                                destructive = true,
+                                onConfirm = {
+                                    viewModel.deleteTask(task.id)
+                                    AppToastController.show("Task deleted", ToastType.Info)
+                                }
+                            )
+                        }
+                        .testTag("task_detail_bottom_delete_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Delete task",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFFD9534A)
                     )
                 }
             }

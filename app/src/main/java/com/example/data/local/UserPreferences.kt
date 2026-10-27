@@ -2,9 +2,12 @@ package com.example.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.data.model.CategoryModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
 
 class UserPreferences(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("tiko_settings_prefs", Context.MODE_PRIVATE)
@@ -85,5 +88,56 @@ class UserPreferences(context: Context) {
         prefs.edit().remove("user_name").remove("user_email").apply()
         _userName.value = ""
         _userEmail.value = ""
+    }
+
+    private val _customCategories = MutableStateFlow(loadCustomCategories())
+    val customCategories: StateFlow<List<CategoryModel>> = _customCategories.asStateFlow()
+
+    private fun loadCustomCategories(): List<CategoryModel> {
+        val json = prefs.getString("custom_categories_json", "[]") ?: "[]"
+        return try {
+            val array = JSONArray(json)
+            val list = mutableListOf<CategoryModel>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                list.add(
+                    CategoryModel(
+                        name = obj.getString("name"),
+                        iconKey = obj.optString("iconKey", "folder"),
+                        colorHex = obj.optLong("colorHex", 0xFF6B4EFF)
+                    )
+                )
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun saveCustomCategories(categories: List<CategoryModel>) {
+        val array = JSONArray()
+        for (cat in categories) {
+            val obj = JSONObject()
+            obj.put("name", cat.name)
+            obj.put("iconKey", cat.iconKey)
+            obj.put("colorHex", cat.colorHex)
+            array.put(obj)
+        }
+        prefs.edit().putString("custom_categories_json", array.toString()).apply()
+    }
+
+    fun addCategory(category: CategoryModel) {
+        val current = _customCategories.value
+        if (current.none { it.name.equals(category.name, ignoreCase = true) }) {
+            val updated = current + category
+            saveCustomCategories(updated)
+            _customCategories.value = updated
+        }
+    }
+
+    fun deleteCategory(name: String) {
+        val updated = _customCategories.value.filterNot { it.name.equals(name, ignoreCase = true) }
+        saveCustomCategories(updated)
+        _customCategories.value = updated
     }
 }

@@ -58,7 +58,9 @@ import com.example.ui.components.CardBlack
 import com.example.ui.components.CardLime
 import com.example.ui.components.CardPurple
 import com.example.ui.components.CardYellow
+import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.frostedGlass
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
@@ -261,24 +263,19 @@ fun CalendarScreen(
                         testTag = "calendar_back_button"
                     )
 
-                    // "Today" button pill: white fill, 1dp black outline, 48dp height
-                    Box(
-                        modifier = Modifier
-                            .height(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
-                            .clickable {
-                                val now = Calendar.getInstance()
-                                displayedCalendar = now
-                                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now.time)
-                                viewModel.selectCalendarDate(todayStr)
-                            }
-                            .padding(horizontal = 18.dp)
-                            .testTag("calendar_today_button"),
-                        contentAlignment = Alignment.Center
+                    // "Today" button pill: frosted glassmorphic glassy pill, 48dp height
+                    FrostedGlassPill(
+                        modifier = Modifier.height(48.dp),
+                        onClick = {
+                            val now = Calendar.getInstance()
+                            displayedCalendar = now
+                            val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now.time)
+                            viewModel.selectCalendarDate(todayStr)
+                        },
+                        testTag = "calendar_today_button"
                     ) {
                         Row(
+                            modifier = Modifier.padding(horizontal = 18.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
@@ -318,7 +315,7 @@ fun CalendarScreen(
                 )
             }
 
-            // MONTH ROW: Prev button, White pill "October 2026", Next button
+            // MONTH ROW: Prev button, Frosted pill "October 2026", Next button
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
@@ -328,20 +325,15 @@ fun CalendarScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Prev Month Button: 40dp white circle with 1dp black outline
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
-                            .clickable {
-                                displayedCalendar = (displayedCalendar.clone() as Calendar).apply {
-                                    add(Calendar.MONTH, -1)
-                                }
+                    // Prev Month Button: 40dp frosted circle
+                    FrostedGlassPill(
+                        modifier = Modifier.size(40.dp),
+                        onClick = {
+                            displayedCalendar = (displayedCalendar.clone() as Calendar).apply {
+                                add(Calendar.MONTH, -1)
                             }
-                            .testTag("calendar_prev_month_button"),
-                        contentAlignment = Alignment.Center
+                        },
+                        testTag = "calendar_prev_month_button"
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ChevronLeft,
@@ -353,18 +345,13 @@ fun CalendarScreen(
 
                     Spacer(modifier = Modifier.width(10.dp))
 
-                    // Month Name Pill: white fill, 1dp black outline, height 40dp
-                    Box(
-                        modifier = Modifier
-                            .height(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.Center
+                    // Month Name Pill: frosted glassmorphic pill, height 40dp
+                    FrostedGlassPill(
+                        modifier = Modifier.height(40.dp)
                     ) {
                         Text(
                             text = monthTitle,
+                            modifier = Modifier.padding(horizontal = 24.dp),
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
@@ -374,20 +361,15 @@ fun CalendarScreen(
 
                     Spacer(modifier = Modifier.width(10.dp))
 
-                    // Next Month Button: 40dp white circle with 1dp black outline
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
-                            .clickable {
-                                displayedCalendar = (displayedCalendar.clone() as Calendar).apply {
-                                    add(Calendar.MONTH, 1)
-                                }
+                    // Next Month Button: 40dp frosted circle
+                    FrostedGlassPill(
+                        modifier = Modifier.size(40.dp),
+                        onClick = {
+                            displayedCalendar = (displayedCalendar.clone() as Calendar).apply {
+                                add(Calendar.MONTH, 1)
                             }
-                            .testTag("calendar_next_month_button"),
-                        contentAlignment = Alignment.Center
+                        },
+                        testTag = "calendar_next_month_button"
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ChevronRight,
@@ -483,17 +465,14 @@ fun CalendarScreen(
             // SELECTED DATE PILL LABEL: (e.g. "Tuesday, Oct 27")
             item {
                 Spacer(modifier = Modifier.height(18.dp))
-                Box(
+                FrostedGlassPill(
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .height(38.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .padding(horizontal = 18.dp),
-                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = selectedDateFormatted,
+                        modifier = Modifier.padding(horizontal = 18.dp),
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,

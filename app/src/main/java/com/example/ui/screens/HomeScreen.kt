@@ -64,6 +64,7 @@ import com.example.R
 import com.example.data.model.TaskEntity
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.ArrowOutwardIcon
+import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.screenTopPadding
 import com.example.ui.components.NeoCheckbox
@@ -291,19 +292,14 @@ private fun HomeTitleRow(onFilterClick: () -> Unit) {
             modifier = Modifier.testTag("home_title_my_tasks")
         )
 
-        // Filters pill: white fill, 1dp black outline, height 40dp, tune icon + Outfit Medium 16sp
-        Box(
-            modifier = Modifier
-                .height(40.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(1.dp, HomeBlack, CircleShape)
-                .clickable(onClick = onFilterClick)
-                .padding(horizontal = 16.dp)
-                .testTag("home_filters_pill"),
-            contentAlignment = Alignment.Center
+        // Filters pill: frosted glassmorphic glassy pill, height 40dp, tune icon + Outfit Medium 16sp
+        FrostedGlassPill(
+            modifier = Modifier.height(40.dp),
+            onClick = onFilterClick,
+            testTag = "home_filters_pill"
         ) {
             Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -326,7 +322,7 @@ private fun HomeTitleRow(onFilterClick: () -> Unit) {
     }
 }
 
-// STAT PILLS: 3 pills equal gap 8dp, height 40dp, white fill, 1dp black outline, fully rounded
+// STAT PILLS: 3 frosted glassmorphic pills equal gap 8dp, height 40dp
 @Composable
 private fun HomeStatPills(stats: TodayStats) {
     Row(
@@ -334,17 +330,15 @@ private fun HomeStatPills(stats: TodayStats) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Pill 1: 12 Done (filled black circle check)
-        Box(
+        FrostedGlassPill(
             modifier = Modifier
                 .weight(1f)
                 .height(40.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(1.dp, HomeBlack, CircleShape)
-                .padding(horizontal = 4.dp),
-            contentAlignment = Alignment.Center
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = null,
@@ -365,17 +359,15 @@ private fun HomeStatPills(stats: TodayStats) {
         }
 
         // Pill 2: Pending (clock)
-        Box(
+        FrostedGlassPill(
             modifier = Modifier
                 .weight(1f)
                 .height(40.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(1.dp, HomeBlack, CircleShape)
-                .padding(horizontal = 4.dp),
-            contentAlignment = Alignment.Center
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.Schedule,
                     contentDescription = null,
@@ -396,17 +388,15 @@ private fun HomeStatPills(stats: TodayStats) {
         }
 
         // Pill 3: Day Streak (flame) - one line
-        Box(
+        FrostedGlassPill(
             modifier = Modifier
                 .weight(1.15f)
                 .height(40.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(1.dp, HomeBlack, CircleShape)
-                .padding(horizontal = 4.dp),
-            contentAlignment = Alignment.Center
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.LocalFireDepartment,
                     contentDescription = null,

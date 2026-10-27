@@ -73,7 +73,9 @@ import com.example.ui.components.CardLime
 import com.example.ui.components.CardPurple
 import com.example.ui.components.CardYellow
 import com.example.ui.components.NeoCheckbox
+import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.frostedGlass
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
@@ -375,19 +377,14 @@ private fun ListsTitleRow(
             modifier = Modifier.testTag("lists_title_my_lists")
         )
 
-        // "+ New list" pill: white fill, 1dp black outline, height 40dp, Outfit Medium 16sp
-        Box(
-            modifier = Modifier
-                .height(40.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(1.dp, AppBlack, CircleShape)
-                .clickable(onClick = onNewListClick)
-                .padding(horizontal = 16.dp)
-                .testTag("lists_new_list_pill"),
-            contentAlignment = Alignment.Center
+        // "+ New list" pill: frosted glassmorphic glassy pill, height 40dp, Outfit Medium 16sp
+        FrostedGlassPill(
+            modifier = Modifier.height(40.dp),
+            onClick = onNewListClick,
+            testTag = "lists_new_list_pill"
         ) {
             Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -412,7 +409,7 @@ private fun ListsTitleRow(
 
 /**
  * Filter pills (14dp below title):
- * "All 4" selected (black fill, white text), "Active", "Completed" (white fill, 1dp black outline)
+ * "All 4" selected (black fill, white text), "Active", "Completed" (frosted glassmorphic pill)
  * height 40dp, fully rounded, Outfit Medium 15sp, 8dp gaps
  */
 @Composable
@@ -436,14 +433,13 @@ private fun ListsFilterPills(
             Box(
                 modifier = Modifier
                     .height(40.dp)
-                    .clip(CircleShape)
                     .then(
                         if (isSelected) {
-                            Modifier.background(AppBlack)
-                        } else {
                             Modifier
-                                .background(Color.White)
-                                .border(1.dp, AppBlack, CircleShape)
+                                .clip(CircleShape)
+                                .background(AppBlack)
+                        } else {
+                            Modifier.frostedGlass()
                         }
                     )
                     .clickable { onSelectFilter(key) }

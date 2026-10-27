@@ -1,68 +1,73 @@
 package com.example.ui.components
 
+import android.os.Build
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.FormatListBulleted
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.graphicsLayer
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
 import kotlin.math.abs
-
 
 val AppCreamBackground = Color(0xFFEFEBDD)
 val AppBlack = Color(0xFF151515)
@@ -74,6 +79,14 @@ val CardBlack = Color(0xFF151515)
 val CardLime = Color(0xFFC8DB6A)
 
 /**
+ * Shared capsule transition memory across screen changes
+ * so switching tabs smoothly glides the capsule without jumping.
+ */
+internal object CapsuleTransitionState {
+    var currentIndex: Float = 0f
+}
+
+/**
  * Shared screenTopPadding for all screen top rows:
  * Handles the status bar inset plus the 10dp top padding from Login/SignUp screens.
  */
@@ -82,8 +95,10 @@ fun Modifier.screenTopPadding(): Modifier = this
     .padding(top = 10.dp)
 
 /**
- * Shared RoundIconButton matching Home screen's top-bar buttons:
- * 48dp circle, white fill, 1dp #151515 outline, 24dp icon.
+ * Shared RoundIconButton:
+ * Frosted glassmorphic glassy circular button (48dp).
+ * Milky frosted glass gradient, specular light reflection border, soft shadow,
+ * and Android 12+ blur RenderEffect.
  */
 @Composable
 fun RoundIconButton(
@@ -93,13 +108,73 @@ fun RoundIconButton(
     modifier: Modifier = Modifier,
     testTag: String = "round_icon_button"
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = tween(durationMillis = 100),
+        label = "glass_button_press_scale"
+    )
+
+    val isAndroid12OrAbove = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    val glassBackgroundBrush = Brush.verticalGradient(
+        colors = if (isPressed) {
+            listOf(
+                Color.White.copy(alpha = 0.96f),
+                Color(0xFFEFEFEF).copy(alpha = 0.90f)
+            )
+        } else {
+            listOf(
+                Color.White.copy(alpha = 0.90f),
+                Color(0xFFF7F6F3).copy(alpha = 0.82f)
+            )
+        }
+    )
+
+    val glassBorderBrush = Brush.verticalGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.95f),
+            Color.White.copy(alpha = 0.40f)
+        )
+    )
+
     Box(
         modifier = modifier
             .size(48.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .shadow(
+                elevation = 8.dp,
+                shape = CircleShape,
+                spotColor = Color.Black.copy(alpha = 0.10f),
+                ambientColor = Color.Black.copy(alpha = 0.06f)
+            )
             .clip(CircleShape)
-            .background(Color.White)
-            .border(1.dp, AppBlack, CircleShape)
-            .clickable(onClick = onClick)
+            .then(
+                if (isAndroid12OrAbove) {
+                    Modifier.graphicsLayer {
+                        renderEffect = android.graphics.RenderEffect
+                            .createBlurEffect(
+                                16.dp.toPx(),
+                                16.dp.toPx(),
+                                android.graphics.Shader.TileMode.CLAMP
+                            )
+                            .asComposeRenderEffect()
+                    }
+                } else {
+                    Modifier
+                }
+            )
+            .background(glassBackgroundBrush)
+            .border(1.dp, glassBorderBrush, CircleShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .testTag(testTag),
         contentAlignment = Alignment.Center
     ) {
@@ -113,12 +188,143 @@ fun RoundIconButton(
 }
 
 /**
+ * Shared FrostedGlassPill:
+ * Frosted glassmorphic glassy pill container for buttons, filters, badges, and chips.
+ * Replaces plain white fill + black outline with luminous, semi-opaque frosted glass,
+ * a specular light reflection rim, subtle soft shadow, and Android 12+ blur RenderEffect.
+ */
+@Composable
+fun FrostedGlassPill(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    testTag: String = "",
+    elevation: Dp = 6.dp,
+    borderWidth: Dp = 1.dp,
+    content: @Composable () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && onClick != null) 0.94f else 1.0f,
+        animationSpec = tween(durationMillis = 100),
+        label = "glass_pill_press_scale"
+    )
+
+    val isAndroid12OrAbove = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    val glassBackgroundBrush = Brush.verticalGradient(
+        colors = if (isPressed && onClick != null) {
+            listOf(
+                Color.White.copy(alpha = 0.96f),
+                Color(0xFFEFEFEF).copy(alpha = 0.90f)
+            )
+        } else {
+            listOf(
+                Color.White.copy(alpha = 0.90f),
+                Color(0xFFF7F6F3).copy(alpha = 0.82f)
+            )
+        }
+    )
+
+    val glassBorderBrush = Brush.verticalGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.95f),
+            Color.White.copy(alpha = 0.40f)
+        )
+    )
+
+    val baseModifier = modifier
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .shadow(
+            elevation = elevation,
+            shape = CircleShape,
+            spotColor = Color.Black.copy(alpha = 0.10f),
+            ambientColor = Color.Black.copy(alpha = 0.06f)
+        )
+        .clip(CircleShape)
+        .then(
+            if (isAndroid12OrAbove) {
+                Modifier.graphicsLayer {
+                    renderEffect = android.graphics.RenderEffect
+                        .createBlurEffect(
+                            14.dp.toPx(),
+                            14.dp.toPx(),
+                            android.graphics.Shader.TileMode.CLAMP
+                        )
+                        .asComposeRenderEffect()
+                }
+            } else {
+                Modifier
+            }
+        )
+        .background(glassBackgroundBrush)
+        .border(borderWidth, glassBorderBrush, CircleShape)
+
+    val finalModifier = if (onClick != null) {
+        baseModifier
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .testTag(testTag)
+    } else {
+        baseModifier.testTag(testTag)
+    }
+
+    Box(
+        modifier = finalModifier,
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
+/**
+ * Modifier extension to apply frosted glassmorphic styling to any Box or layout.
+ */
+fun Modifier.frostedGlass(
+    shape: androidx.compose.ui.graphics.Shape = CircleShape,
+    elevation: Dp = 6.dp,
+    borderWidth: Dp = 1.dp
+): Modifier = this
+    .shadow(
+        elevation = elevation,
+        shape = shape,
+        spotColor = Color.Black.copy(alpha = 0.10f),
+        ambientColor = Color.Black.copy(alpha = 0.06f)
+    )
+    .clip(shape)
+    .background(
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.90f),
+                Color(0xFFF7F6F3).copy(alpha = 0.82f)
+            )
+        )
+    )
+    .border(
+        borderWidth,
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.95f),
+                Color.White.copy(alpha = 0.40f)
+            )
+        ),
+        shape
+    )
+
+/**
  * Shared AppBottomNav:
- * Floating white capsule, 72dp high, fully rounded, soft shadow.
- * 5 equal tabs with 24dp icons and Outfit SemiBold 12sp labels: Home, Lists, Add, Calendar, Profile.
- * Inactive: outlined icon, gray #5B5F66. Active: filled icon, black #111111.
- * Active tab capsule: 56dp high, tab width minus 6dp, black at 12% alpha.
- * Animated with spring (dampingRatio 0.72, stiffness 380) with 12% horizontal stretch.
+ * Floating pill bar (68dp height, fully rounded, soft shadow).
+ * Frosted glass with 20dp blur (Android 12+) and milky frosted gradient (85%-90% opacity), never washed-out transparent.
+ * 1dp frosted specular border with subtle highlight.
+ * Single black (#111111) capsule behind the active tab sliding with a fluid spring (dampingRatio 0.82, stiffness 380).
+ * Continuous color transition synchronized with the sliding capsule.
+ * 5 equal tabs with 24dp icons, 2dp gap, 11sp Outfit Medium label.
  */
 @Composable
 fun AppBottomNav(
@@ -134,49 +340,98 @@ fun AppBottomNav(
         NavigationTab.SETTINGS -> 4
     }
 
-    val animatedIndex by animateFloatAsState(
-        targetValue = activeIndex.toFloat(),
-        animationSpec = spring(
-            dampingRatio = 0.72f,
-            stiffness = 380f
-        ),
-        label = "active_tab_capsule_slide"
+    // Persist position across screen recompositions so the capsule glides smoothly between tabs
+    val animatableIndex = remember {
+        Animatable(CapsuleTransitionState.currentIndex)
+    }
+
+    LaunchedEffect(activeIndex) {
+        animatableIndex.animateTo(
+            targetValue = activeIndex.toFloat(),
+            animationSpec = spring(
+                dampingRatio = 0.82f,
+                stiffness = 380f
+            )
+        ) {
+            CapsuleTransitionState.currentIndex = value
+        }
+    }
+
+    val isAndroid12OrAbove = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    // Semi-opaque milky frosted glass gradient (never washed out or transparent)
+    val frostedGlassBrush = Brush.verticalGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.90f),
+            Color(0xFFF7F6F3).copy(alpha = 0.85f)
+        )
     )
 
-    val borderGradient = Brush.verticalGradient(
+    // Frosted specular rim border
+    val frostedBorderBrush = Brush.verticalGradient(
         colors = listOf(
-            Color.White.copy(alpha = 0.70f),
-            Color.White.copy(alpha = 0.10f)
+            Color.White.copy(alpha = 0.95f),
+            Color.White.copy(alpha = 0.45f)
         )
     )
 
     BoxWithConstraints(
         modifier = modifier
+            .navigationBarsPadding()
             .fillMaxWidth()
-            .height(72.dp)
+            .height(68.dp)
             .shadow(
-                elevation = 12.dp,
+                elevation = 14.dp,
                 shape = CircleShape,
                 spotColor = Color.Black.copy(alpha = 0.12f),
                 ambientColor = Color.Black.copy(alpha = 0.08f)
-            )
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.85f))
-            .border(1.dp, borderGradient, CircleShape)
-            .padding(horizontal = 4.dp),
+            ),
         contentAlignment = Alignment.CenterStart
     ) {
+        // Frosted glass background layer (blurred on Android 12+, semi-opaque milky frosted surface)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+                .then(
+                    if (isAndroid12OrAbove) {
+                        Modifier.graphicsLayer {
+                            renderEffect = android.graphics.RenderEffect
+                                .createBlurEffect(
+                                    20.dp.toPx(),
+                                    20.dp.toPx(),
+                                    android.graphics.Shader.TileMode.CLAMP
+                                )
+                                .asComposeRenderEffect()
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .background(frostedGlassBrush)
+        )
+
+        // 1dp specular frosted glass border
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, frostedBorderBrush, CircleShape)
+        )
+
+        val currentAnimatedIndex = animatableIndex.value
         val totalWidth = maxWidth
         val tabWidth = totalWidth / 5
-        val diff = abs(animatedIndex - activeIndex)
-        val stretchFactor = 1.0f + (diff.coerceAtMost(1f) * 0.12f)
-        val baseCapsuleWidth = (tabWidth - 6.dp).coerceAtLeast(0.dp)
+
+        // Subtle elastic fluid transit stretch that settles cleanly into the exact tab dimensions
+        val distanceToTarget = abs(currentAnimatedIndex - activeIndex.toFloat())
+        val stretchFactor = 1.0f + (distanceToTarget.coerceAtMost(1f) * 0.10f)
+        val baseCapsuleWidth = (tabWidth - 8.dp).coerceAtLeast(0.dp)
         val capsuleWidth = baseCapsuleWidth * stretchFactor
-        val capsuleHeight = 56.dp
-        val centerX = (animatedIndex + 0.5f) * tabWidth.value
+        val capsuleHeight = 58.dp
+        val centerX = (currentAnimatedIndex + 0.5f) * tabWidth.value
         val capsuleLeft = (centerX - (capsuleWidth.value / 2f)).dp
 
-        // Active tab pill capsule indicator
+        // ONE solid black (#111111) rounded capsule sliding behind the active tab
         Box(
             modifier = Modifier
                 .offset(x = capsuleLeft)
@@ -184,7 +439,7 @@ fun AppBottomNav(
                 .height(capsuleHeight)
                 .align(Alignment.CenterStart)
                 .clip(CircleShape)
-                .background(Color(0xFF111111).copy(alpha = 0.12f))
+                .background(Color(0xFF111111))
         )
 
         // 5 Equal Tab Items
@@ -193,7 +448,8 @@ fun AppBottomNav(
             verticalAlignment = Alignment.CenterVertically
         ) {
             GlassNavTab(
-                isActive = activeTab == NavigationTab.HOME,
+                tabIndex = 0,
+                animatedNavIndex = currentAnimatedIndex,
                 label = "Home",
                 filledIcon = Icons.Filled.Home,
                 outlinedIcon = Icons.Outlined.Home,
@@ -202,7 +458,8 @@ fun AppBottomNav(
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
-                isActive = activeTab == NavigationTab.LISTS,
+                tabIndex = 1,
+                animatedNavIndex = currentAnimatedIndex,
                 label = "Lists",
                 filledIcon = Icons.Filled.FormatListBulleted,
                 outlinedIcon = Icons.Outlined.FormatListBulleted,
@@ -211,16 +468,19 @@ fun AppBottomNav(
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
-                isActive = false,
+                tabIndex = 2,
+                animatedNavIndex = currentAnimatedIndex,
                 label = "Add",
                 filledIcon = Icons.Filled.Add,
                 outlinedIcon = Icons.Outlined.Add,
                 onClick = onAddClick,
                 testTag = "nav_add_button",
+                isSelectable = false,
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
-                isActive = activeTab == NavigationTab.CALENDAR,
+                tabIndex = 3,
+                animatedNavIndex = currentAnimatedIndex,
                 label = "Calendar",
                 filledIcon = Icons.Filled.CalendarToday,
                 outlinedIcon = Icons.Outlined.CalendarToday,
@@ -229,7 +489,8 @@ fun AppBottomNav(
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
-                isActive = activeTab == NavigationTab.SETTINGS,
+                tabIndex = 4,
+                animatedNavIndex = currentAnimatedIndex,
                 label = "Profile",
                 filledIcon = Icons.Filled.Person,
                 outlinedIcon = Icons.Outlined.Person,
@@ -243,27 +504,40 @@ fun AppBottomNav(
 
 @Composable
 private fun GlassNavTab(
-    isActive: Boolean,
+    tabIndex: Int,
+    animatedNavIndex: Float,
     label: String,
     filledIcon: ImageVector,
     outlinedIcon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    testTag: String = ""
+    testTag: String = "",
+    isSelectable: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1.0f,
+        targetValue = if (isPressed) 0.94f else 1.0f,
         animationSpec = tween(durationMillis = 100),
         label = "tab_press_scale"
     )
 
-    val contentColor by animateColorAsState(
-        targetValue = if (isActive) Color(0xFF111111) else Color(0xFF5B5F66),
-        animationSpec = tween(durationMillis = 200),
-        label = "tab_content_color"
-    )
+    // Calculate how close the capsule is to this tab (0f = centered over it, >= 0.7f = inactive)
+    val distance = abs(animatedNavIndex - tabIndex.toFloat())
+    val activeFraction = if (isSelectable) {
+        (1f - (distance * 1.6f)).coerceIn(0f, 1f)
+    } else {
+        (1f - (distance * 2f)).coerceIn(0f, 1f)
+    }
+
+    val inactiveIconColor = Color(0xFF111111).copy(alpha = 0.80f)
+    val activeIconColor = Color.White
+    val inactiveLabelColor = Color(0xFF111111)
+    val activeLabelColor = Color.White
+
+    // Smooth continuous color transition in direct lockstep with capsule motion
+    val currentIconColor = lerp(inactiveIconColor, activeIconColor, activeFraction)
+    val currentLabelColor = lerp(inactiveLabelColor, activeLabelColor, activeFraction)
 
     Box(
         modifier = modifier
@@ -284,27 +558,21 @@ private fun GlassNavTab(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Crossfade(
-                targetState = isActive,
-                animationSpec = tween(durationMillis = 200),
-                label = "tab_icon_crossfade"
-            ) { active ->
-                Icon(
-                    imageVector = if (active) filledIcon else outlinedIcon,
-                    contentDescription = label,
-                    tint = contentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                imageVector = if (activeFraction >= 0.45f) filledIcon else outlinedIcon,
+                contentDescription = label,
+                tint = currentIconColor,
+                modifier = Modifier.size(24.dp)
+            )
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
                 text = label,
                 fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                color = contentColor
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.sp,
+                color = currentLabelColor
             )
         }
     }

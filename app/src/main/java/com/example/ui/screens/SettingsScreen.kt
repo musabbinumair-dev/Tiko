@@ -137,12 +137,10 @@ fun SettingsScreen(
         }
     }
 
-    val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppCreamBackground)
-            .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
     ) {
         // Header Gradient #FFCF4D to cream
         Box(
@@ -573,8 +571,7 @@ fun SettingsScreen(
             AppBottomNav(
                 activeTab = NavigationTab.SETTINGS,
                 onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) },
-                backdrop = backdrop
+                onAddClick = { onNavigate(Screen.AddTask) }
             )
         }
     }

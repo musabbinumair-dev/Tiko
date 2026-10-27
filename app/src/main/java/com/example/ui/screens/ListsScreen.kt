@@ -244,8 +244,7 @@ fun ListsScreen(
                         viewModel.selectTab(tab)
                     }
                 },
-                onAddClick = { onNavigate(Screen.AddTask) },
-                backdrop = backdrop
+                onAddClick = { onNavigate(Screen.AddTask) }
             )
         }
 

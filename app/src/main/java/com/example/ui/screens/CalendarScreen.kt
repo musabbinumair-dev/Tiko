@@ -534,8 +534,7 @@ fun CalendarScreen(
             AppBottomNav(
                 activeTab = NavigationTab.CALENDAR,
                 onTabSelected = { viewModel.selectTab(it) },
-                onAddClick = { onNavigate(Screen.AddTask) },
-                backdrop = backdrop
+                onAddClick = { onNavigate(Screen.AddTask) }
             )
         }
     }

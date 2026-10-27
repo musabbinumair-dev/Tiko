@@ -135,11 +135,66 @@ fun HomeScreen(
         }
     }
 
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(HomeCreamBackground)
+    ) {
+        // Main scrollable content
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 14.dp,
+                bottom = 100.dp // Allows full list to scroll above floating bottom nav
+            )
+        ) {
+            // 1. Header (top padding 14dp)
+            item {
+                HomeHeader(
+                    viewModel = viewModel,
+                    onSearchClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
+                )
+            }
+
+            // 2. Title Row (16dp below header)
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                HomeTitleRow(
+                    onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
+                )
+            }
+
+            // 3. Stat Pills (14dp below title)
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                HomeStatPills(stats = stats)
+            }
+
+            // 4. Overlapping Task Cards (24dp below pills)
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                OverlappingTaskCardsList(
+                    cards = cardModels,
+                    onCardClick = { taskId -> onNavigate(Screen.TaskDetail(taskId)) }
+                )
+            }
+        }
+
+        // Floating Bottom Navigation Bar (20dp side margin, 14dp from bottom, height 66dp)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 14.dp)
+        ) {
             AppBottomNav(
                 activeTab = NavigationTab.HOME,
                 onTabSelected = { viewModel.selectTab(it) },
                 onAddClick = { onNavigate(Screen.AddTask) }
             )
+        }
     }
 }
 

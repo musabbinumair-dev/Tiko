@@ -59,6 +59,7 @@ import com.example.ui.components.CardLime
 import com.example.ui.components.CardPurple
 import com.example.ui.components.CardYellow
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
@@ -248,8 +249,8 @@ fun CalendarScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 14.dp),
+                        .screenTopPadding()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -449,26 +450,17 @@ fun CalendarScreen(
                                     val isToday = cell.dateString == todayDateString
                                     val hasTasks = tasks.any { it.dueDate == cell.dateString }
 
-                                    // Dot color: tasks or colorful mockup palette
-                                    val dotColor = when {
-                                        hasTasks -> {
-                                            val t = tasks.firstOrNull { it.dueDate == cell.dateString }
-                                            when (t?.category?.lowercase()) {
-                                                "work" -> CardPurple
-                                                "health" -> CardYellow
-                                                "study" -> CardLime
-                                                else -> Color(0xFFFF5A5F)
-                                            }
+                                    // Dot color: show ONLY on days that have at least one task in the database
+                                    val dotColor = if (hasTasks) {
+                                        val t = tasks.firstOrNull { it.dueDate == cell.dateString }
+                                        when (t?.category?.lowercase()) {
+                                            "work" -> CardPurple
+                                            "health" -> CardYellow
+                                            "study" -> CardLime
+                                            else -> Color(0xFFFF5A5F)
                                         }
-                                        else -> {
-                                            // Active dots palette matching mockup
-                                            when ((cell.dayNumber + (if (cell.isCurrentMonth) 2 else 0)) % 4) {
-                                                0 -> Color(0xFFFF5A5F)
-                                                1 -> CardYellow
-                                                2 -> CardLime
-                                                else -> CardPurple
-                                            }
-                                        }
+                                    } else {
+                                        null
                                     }
 
                                     CalendarDayItem(

@@ -64,6 +64,7 @@ import com.example.data.model.TaskEntity
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.screenTopPadding
 import com.example.ui.components.NeoCheckbox
 import com.example.ui.components.TikoCategoryIcon
 import com.example.ui.components.getCategoryColor
@@ -146,11 +147,10 @@ fun HomeScreen(
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
-                top = 14.dp,
                 bottom = 100.dp // Allows full list to scroll above floating bottom nav
             )
         ) {
-            // 1. Header (top padding 14dp)
+            // 1. Header (status bar + top spacing handled by screenTopPadding)
             item {
                 HomeHeader(
                     viewModel = viewModel,
@@ -209,7 +209,9 @@ private fun HomeHeader(
     val displayName = if (userName.isNotBlank()) userName else "User"
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .screenTopPadding(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

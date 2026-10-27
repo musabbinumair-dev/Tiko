@@ -38,6 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import com.example.ui.components.AppDialogController
+import com.example.ui.components.AppToastController
+import com.example.ui.components.ToastType
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -259,7 +262,16 @@ fun LoginScreen(
                 color = LoginBlack,
                 modifier = Modifier
                     .align(Alignment.End)
-                    .clickable { /* action */ }
+                    .clickable {
+                        AppDialogController.alert(
+                            title = "Reset Password",
+                            message = if (email.isNotBlank()) {
+                                "A reset link has been sent to $email."
+                            } else {
+                                "Please enter your email above to receive a password reset link."
+                            }
+                        )
+                    }
                     .testTag("login_forgot_password")
             )
 
@@ -272,7 +284,21 @@ fun LoginScreen(
                     .height(56.dp)
                     .clip(CircleShape)
                     .background(LoginBlack)
-                    .clickable(onClick = { onLoginSuccess(email.ifBlank { "user@example.com" }) })
+                    .clickable {
+                        val trimmedEmail = email.trim()
+                        if (trimmedEmail.isEmpty()) {
+                            AppToastController.show("Please enter your email address", ToastType.Error)
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+                            AppToastController.show("Please enter a valid email address", ToastType.Error)
+                        } else if (password.isEmpty()) {
+                            AppToastController.show("Please enter your password", ToastType.Error)
+                        } else if (password.length < 6) {
+                            AppToastController.show("Password must be at least 6 characters", ToastType.Error)
+                        } else {
+                            AppToastController.show("Welcome back!", ToastType.Success)
+                            onLoginSuccess(trimmedEmail)
+                        }
+                    }
                     .testTag("login_submit_button"),
                 contentAlignment = Alignment.Center
             ) {

@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
@@ -59,9 +60,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.example.data.model.TaskEntity
+import com.example.ui.components.AppToastController
+import com.example.ui.components.ToastType
 import com.example.ui.components.AppBlack
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.AppCreamBackground
@@ -72,6 +74,7 @@ import com.example.ui.components.CardPurple
 import com.example.ui.components.CardYellow
 import com.example.ui.components.NeoCheckbox
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
@@ -187,8 +190,7 @@ fun ListsScreen(
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
-                top = 14.dp,
-                bottom = 100.dp // Ensures last card is fully visible above floating bottom nav
+                bottom = 140.dp // Clears floating bottom nav (66dp + 14dp margin + breathing room)
             )
         ) {
             // 1. Top Area: Back button (RoundIconButton) at left, Search button at right
@@ -267,22 +269,23 @@ fun ListsScreen(
             )
         }
 
-        // "+ New list" Dialog
+        // "+ New list" Overlay
         if (showNewListDialog) {
-            NewListDialog(
+            NewListModalOverlay(
                 onDismiss = { showNewListDialog = false },
                 onCreateList = { listName ->
                     // Pre-populate with a starter task in the new list
                     viewModel.createQuickTask("$listName starter task", listName)
+                    AppToastController.show("List '$listName' created", ToastType.Success)
                     showNewListDialog = false
                     selectedCategoryForSheet = listName
                 }
             )
         }
 
-        // Search Dialog
+        // Search Overlay
         if (showSearchDialog) {
-            ListsSearchDialog(
+            ListsSearchModalOverlay(
                 tasks = tasks,
                 searchQuery = searchQuery,
                 onQueryChange = { searchQuery = it },
@@ -307,7 +310,9 @@ private fun ListsTopBar(
     onSearchClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .screenTopPadding(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -827,22 +832,39 @@ private fun CategoryTaskItem(
 }
 
 /**
- * Dialog to add a new list/category
+ * Modal overlay to add a new list/category
  */
 @Composable
-private fun NewListDialog(
+private fun NewListModalOverlay(
     onDismiss: () -> Unit,
     onCreateList: (String) -> Unit
 ) {
     var listName by remember { mutableStateOf("") }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(100f)
+            .background(Color.Black.copy(alpha = 0.40f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        BackHandler(onBack = onDismiss)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 24.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(AppCreamBackground)
                 .border(2.dp, AppBlack, RoundedCornerShape(24.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { /* Consume */ }
                 .padding(20.dp)
         ) {
             Column {
@@ -932,10 +954,10 @@ private fun NewListDialog(
 }
 
 /**
- * Search Dialog to find tasks across lists
+ * Search Overlay to find tasks across lists
  */
 @Composable
-private fun ListsSearchDialog(
+private fun ListsSearchModalOverlay(
     tasks: List<TaskEntity>,
     searchQuery: String,
     onQueryChange: (String) -> Unit,
@@ -950,13 +972,30 @@ private fun ListsSearchDialog(
         }
     } else emptyList()
 
-    Dialog(onDismissRequest = onDismiss) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(100f)
+            .background(Color.Black.copy(alpha = 0.40f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        BackHandler(onBack = onDismiss)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 24.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(AppCreamBackground)
                 .border(2.dp, AppBlack, RoundedCornerShape(24.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { /* Consume */ }
                 .padding(20.dp)
         ) {
             Column {

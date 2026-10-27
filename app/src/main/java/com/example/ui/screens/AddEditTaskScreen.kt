@@ -1,10 +1,21 @@
 package com.example.ui.screens
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.zIndex
+import com.example.ui.components.AppDialogController
+import com.example.ui.components.AppToastController
+import com.example.ui.components.ToastType
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +71,8 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.TikoDatabase
 import com.example.data.model.SubtaskItem
 import com.example.ui.components.ArrowOutwardIcon
+import com.example.ui.components.RoundIconButton
+import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.TikoViewModel
 import java.text.SimpleDateFormat
@@ -105,6 +118,7 @@ private fun formatDateForDisplay(dateStr: String): String {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTaskScreen(
     taskId: Long?,
@@ -135,39 +149,40 @@ fun AddEditTaskScreen(
     var titleError by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
-    // Date & Time pickers
-    val calendar = remember { Calendar.getInstance() }
-    val datePickerDialog = remember {
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth ->
-                val cal = Calendar.getInstance()
-                cal.set(year, month, dayOfMonth)
-                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                dueDate = sdf.format(cal.time)
-            },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
-        )
+    var showDatePickerOverlay by remember { mutableStateOf(false) }
+    var showTimePickerOverlay by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            sdf.parse(dueDate)?.time ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
+    )
+
+    val timePickerState = rememberTimePickerState(
+        initialHour = 9,
+        initialMinute = 0,
+        is24Hour = false
+    )
+
+    val handleBack = {
+        if (title.isNotBlank() && existingTask == null) {
+            AppDialogController.confirm(
+                title = "Discard task?",
+                message = "You have unsaved changes. Are you sure you want to discard them?",
+                confirmText = "Discard",
+                cancelText = "Keep Editing",
+                destructive = true,
+                onConfirm = { onBack() }
+            )
+        } else {
+            onBack()
+        }
     }
 
-    val timePickerDialog = remember {
-        TimePickerDialog(
-            context,
-            { _, hourOfDay, minute ->
-                val isPm = hourOfDay >= 12
-                val displayHour = when {
-                    hourOfDay == 0 -> 12
-                    hourOfDay > 12 -> hourOfDay - 12
-                    else -> hourOfDay
-                }
-                val amPm = if (isPm) "PM" else "AM"
-                dueTime = String.format(Locale.getDefault(), "%d:%02d %s", displayHour, minute, amPm)
-            },
-            9, 0, false
-        )
-    }
+    BackHandler(onBack = handleBack)
 
     val backgroundGradient = Brush.verticalGradient(
         0.0f to AddTaskYellow,
@@ -183,7 +198,6 @@ fun AddEditTaskScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
@@ -191,27 +205,17 @@ fun AddEditTaskScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp, bottom = 12.dp),
+                    .screenTopPadding()
+                    .padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Back button: 48dp white circle with 1dp #151515 outline
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(1.dp, AddTaskBlack, CircleShape)
-                        .clickable(onClick = onBack),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = AddTaskBlack,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                RoundIconButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    onClick = handleBack,
+                    contentDescription = "Back",
+                    testTag = "add_task_back_button"
+                )
 
                 // Centered title "New task" Outfit Bold 20sp
                 Text(
@@ -223,20 +227,12 @@ fun AddEditTaskScreen(
                 )
 
                 // Menu button (three dots): 48dp white circle with 1dp #151515 outline
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(1.dp, AddTaskBlack, CircleShape)
-                        .clickable { showMenu = !showMenu },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
+                Box {
+                    RoundIconButton(
+                        icon = Icons.Default.MoreVert,
+                        onClick = { showMenu = !showMenu },
                         contentDescription = "Menu",
-                        tint = AddTaskBlack,
-                        modifier = Modifier.size(22.dp)
+                        testTag = "add_task_menu_button"
                     )
 
                     if (existingTask != null) {
@@ -248,8 +244,18 @@ fun AddEditTaskScreen(
                                 text = { Text("Delete task", color = CardRed) },
                                 onClick = {
                                     showMenu = false
-                                    viewModel.deleteTask(existingTask.id)
-                                    onBack()
+                                    AppDialogController.confirm(
+                                        title = "Delete task?",
+                                        message = "Are you sure you want to delete this task? This cannot be undone.",
+                                        confirmText = "Delete",
+                                        cancelText = "Cancel",
+                                        destructive = true,
+                                        onConfirm = {
+                                            viewModel.deleteTask(existingTask.id)
+                                            AppToastController.show("Task deleted", ToastType.Success)
+                                            onBack()
+                                        }
+                                    )
                                 }
                             )
                         }
@@ -478,7 +484,7 @@ fun AddEditTaskScreen(
                         .height(84.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(CardLime)
-                        .clickable { datePickerDialog.show() }
+                        .clickable { showDatePickerOverlay = true }
                         .padding(horizontal = 16.dp, vertical = 14.dp)
                         .testTag("date_picker_card")
                 ) {
@@ -540,7 +546,7 @@ fun AddEditTaskScreen(
                         .height(84.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(AddTaskBlack)
-                        .clickable { timePickerDialog.show() }
+                        .clickable { showTimePickerOverlay = true }
                         .padding(horizontal = 16.dp, vertical = 14.dp)
                         .testTag("time_picker_card")
                 ) {
@@ -651,6 +657,7 @@ fun AddEditTaskScreen(
                     .clickable {
                         if (title.isBlank()) {
                             titleError = true
+                            AppToastController.show("Please enter a task title", ToastType.Error)
                         } else {
                             if (existingTask != null) {
                                 viewModel.updateTask(
@@ -665,6 +672,7 @@ fun AddEditTaskScreen(
                                     subtasks = subtasks.toList(),
                                     done = existingTask.done
                                 )
+                                AppToastController.show("Task updated successfully", ToastType.Success)
                             } else {
                                 viewModel.saveTask(
                                     title = title,
@@ -676,6 +684,7 @@ fun AddEditTaskScreen(
                                     reminder = reminder,
                                     subtasks = subtasks.toList()
                                 )
+                                AppToastController.show("Task saved successfully", ToastType.Success)
                             }
                             onBack()
                         }
@@ -693,6 +702,214 @@ fun AddEditTaskScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        // Custom Date Picker Modal
+        if (showDatePickerOverlay) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(100f)
+                    .background(Color.Black.copy(alpha = 0.40f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showDatePickerOverlay = false }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                BackHandler { showDatePickerOverlay = false }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White)
+                        .border(1.dp, AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { /* Consume clicks */ }
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        DatePicker(
+                            state = datePickerState,
+                            colors = DatePickerDefaults.colors(
+                                containerColor = Color.White,
+                                titleContentColor = AddTaskBlack,
+                                headlineContentColor = AddTaskBlack,
+                                selectedDayContainerColor = AddTaskBlack,
+                                selectedDayContentColor = Color.White,
+                                todayDateBorderColor = CardPurple,
+                                todayContentColor = CardPurple
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .border(1.dp, AddTaskBlack, CircleShape)
+                                    .clickable { showDatePickerOverlay = false }
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = AddTaskBlack
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .clip(CircleShape)
+                                    .background(AddTaskBlack)
+                                    .clickable {
+                                        datePickerState.selectedDateMillis?.let { millis ->
+                                            val cal = Calendar.getInstance()
+                                            cal.timeInMillis = millis
+                                            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                                            dueDate = sdf.format(cal.time)
+                                        }
+                                        showDatePickerOverlay = false
+                                    }
+                                    .padding(horizontal = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Confirm",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Custom Time Picker Modal
+        if (showTimePickerOverlay) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(100f)
+                    .background(Color.Black.copy(alpha = 0.40f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showTimePickerOverlay = false }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                BackHandler { showTimePickerOverlay = false }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White)
+                        .border(1.dp, AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { /* Consume clicks */ }
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "SELECT TIME",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp,
+                            color = AddTaskBlack
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TimePicker(
+                            state = timePickerState,
+                            colors = TimePickerDefaults.colors(
+                                clockDialColor = Color(0xFFF6F6F6),
+                                selectorColor = CardPurple,
+                                containerColor = Color.White,
+                                timeSelectorSelectedContainerColor = AddTaskBlack,
+                                timeSelectorSelectedContentColor = Color.White,
+                                timeSelectorUnselectedContainerColor = Color(0xFFF1EFEA),
+                                timeSelectorUnselectedContentColor = AddTaskBlack
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .border(1.dp, AddTaskBlack, CircleShape)
+                                    .clickable { showTimePickerOverlay = false }
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = AddTaskBlack
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .clip(CircleShape)
+                                    .background(AddTaskBlack)
+                                    .clickable {
+                                        val hour = timePickerState.hour
+                                        val minute = timePickerState.minute
+                                        val isPm = hour >= 12
+                                        val displayHour = when {
+                                            hour == 0 -> 12
+                                            hour > 12 -> hour - 12
+                                            else -> hour
+                                        }
+                                        val amPm = if (isPm) "PM" else "AM"
+                                        dueTime = String.format(Locale.getDefault(), "%d:%02d %s", displayHour, minute, amPm)
+                                        showTimePickerOverlay = false
+                                    }
+                                    .padding(horizontal = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Confirm",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

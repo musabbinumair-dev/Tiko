@@ -51,7 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.SubtaskItem
+import com.example.ui.components.AppToastController
+import com.example.ui.components.RoundIconButton
+import com.example.ui.components.ToastType
+import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
@@ -164,48 +167,31 @@ fun TaskDetailScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 14.dp),
+                        .screenTopPadding()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 48dp white circle, 1dp #151515 outline, back icon
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
-                            .clickable(onClick = onBack)
-                            .testTag("task_detail_back_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.ChevronLeft,
-                            contentDescription = "Back",
-                            tint = DetailBlack,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
+                    RoundIconButton(
+                        icon = Icons.Outlined.ChevronLeft,
+                        onClick = onBack,
+                        contentDescription = "Back",
+                        testTag = "task_detail_back_button"
+                    )
 
-                    // 48dp white circle, 1dp #151515 outline, bookmark button
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
-                            .clickable { isBookmarked = !isBookmarked }
-                            .testTag("task_detail_bookmark_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = DetailBlack,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                    RoundIconButton(
+                        icon = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                        onClick = {
+                            isBookmarked = !isBookmarked
+                            if (isBookmarked) {
+                                AppToastController.show("Task bookmarked", ToastType.Info)
+                            } else {
+                                AppToastController.show("Bookmark removed", ToastType.Info)
+                            }
+                        },
+                        contentDescription = "Bookmark",
+                        testTag = "task_detail_bookmark_button"
+                    )
                 }
             }
 
@@ -295,12 +281,12 @@ fun TaskDetailScreen(
                     // Due Date Pill
                     Box(
                         modifier = Modifier
-                            .weight(1.15f)
+                            .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
                             .background(Color.White)
                             .border(1.dp, DetailBlack, CircleShape)
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -311,14 +297,14 @@ fun TaskDetailScreen(
                                 imageVector = Icons.Outlined.CalendarToday,
                                 contentDescription = null,
                                 tint = DetailBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = dateDisplay,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 color = DetailBlack,
                                 maxLines = 1
                             )
@@ -328,12 +314,12 @@ fun TaskDetailScreen(
                     // Time Pill
                     Box(
                         modifier = Modifier
-                            .weight(1.1f)
+                            .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
                             .background(Color.White)
                             .border(1.dp, DetailBlack, CircleShape)
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -344,14 +330,14 @@ fun TaskDetailScreen(
                                 imageVector = Icons.Outlined.Schedule,
                                 contentDescription = null,
                                 tint = DetailBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = timeDisplay,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 color = DetailBlack,
                                 maxLines = 1
                             )
@@ -361,12 +347,12 @@ fun TaskDetailScreen(
                     // Priority Pill
                     Box(
                         modifier = Modifier
-                            .weight(0.85f)
+                            .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
                             .background(Color.White)
                             .border(1.dp, DetailBlack, CircleShape)
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -377,14 +363,14 @@ fun TaskDetailScreen(
                                 imageVector = Icons.Outlined.LocalFireDepartment,
                                 contentDescription = null,
                                 tint = DetailBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = priorityDisplay,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 color = DetailBlack,
                                 maxLines = 1
                             )
@@ -565,7 +551,15 @@ fun TaskDetailScreen(
                         .height(56.dp)
                         .clip(CircleShape)
                         .background(DetailBlack)
-                        .clickable { viewModel.toggleTaskDone(task) }
+                        .clickable {
+                            val willBeDone = !task.done
+                            viewModel.toggleTaskDone(task)
+                            if (willBeDone) {
+                                AppToastController.show("Task completed!", ToastType.Success)
+                            } else {
+                                AppToastController.show("Task marked as pending", ToastType.Info)
+                            }
+                        }
                         .testTag("task_detail_toggle_done"),
                     contentAlignment = Alignment.Center
                 ) {

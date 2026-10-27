@@ -27,6 +27,7 @@ import com.example.ui.screens.SignUpScreen
 import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.TikoBackground
+import com.example.ui.components.AppOverlayHost
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
@@ -165,6 +166,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                     )
                 }
             }
+
+            AppOverlayHost()
         }
     }
 }

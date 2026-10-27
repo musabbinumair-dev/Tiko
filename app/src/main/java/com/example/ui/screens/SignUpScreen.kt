@@ -42,6 +42,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import com.example.ui.components.AppToastController
+import com.example.ui.components.ToastType
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -438,8 +440,25 @@ fun SignUpScreen(
                     .clip(CircleShape)
                     .background(SignUpBlack)
                     .alpha(if (isFormValid) 1.0f else 0.4f)
-                    .clickable(enabled = isFormValid) {
-                        onCreateAccountSuccess(fullName.trim(), email.trim())
+                    .clickable {
+                        val trimmedName = fullName.trim()
+                        val trimmedEmail = email.trim()
+                        if (trimmedName.isEmpty()) {
+                            AppToastController.show("Please enter your full name", ToastType.Error)
+                        } else if (trimmedEmail.isEmpty()) {
+                            AppToastController.show("Please enter your email address", ToastType.Error)
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+                            AppToastController.show("Please enter a valid email address", ToastType.Error)
+                        } else if (password.isEmpty()) {
+                            AppToastController.show("Please enter a password", ToastType.Error)
+                        } else if (password.length < 6) {
+                            AppToastController.show("Password must be at least 6 characters", ToastType.Error)
+                        } else if (!agreedToTerms) {
+                            AppToastController.show("Please agree to the Terms and Privacy Policy", ToastType.Warning)
+                        } else {
+                            AppToastController.show("Account created successfully!", ToastType.Success)
+                            onCreateAccountSuccess(trimmedName, trimmedEmail)
+                        }
                     }
                     .testTag("signup_submit_button"),
                 contentAlignment = Alignment.Center

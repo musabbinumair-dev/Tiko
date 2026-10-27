@@ -1,12 +1,12 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,15 +34,17 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.TrackChanges
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.zIndex
+import com.example.ui.components.AppDialogController
+import com.example.ui.components.AppToastController
+import com.example.ui.components.ToastType
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,6 +71,7 @@ import com.example.ui.components.CardLime
 import com.example.ui.components.CardPurple
 import com.example.ui.components.CardYellow
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
@@ -106,10 +109,7 @@ fun SettingsScreen(
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var editNameInput by remember { mutableStateOf(userName) }
     var editEmailInput by remember { mutableStateOf(userEmail) }
-
-    var showRemindersDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
 
     // Dynamic stats calculation from real data only
     val completedCount = remember(tasks) { tasks.count { it.done } }
@@ -162,15 +162,15 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("profile_screen_scroll"),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 140.dp)
         ) {
             // TOP ROW: Back button (left), Edit pencil button (right)
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 14.dp),
+                        .screenTopPadding()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -225,7 +225,7 @@ fun SettingsScreen(
                                 .background(CardPurple)
                                 .border(2.dp, Color.White, CircleShape)
                                 .clickable {
-                                    Toast.makeText(context, "Change avatar photo", Toast.LENGTH_SHORT).show()
+                                    AppToastController.show("Photo upload coming soon", ToastType.Info)
                                 }
                                 .testTag("profile_camera_badge"),
                             contentAlignment = Alignment.Center
@@ -454,13 +454,23 @@ fun SettingsScreen(
                                 ProfileSwitch(
                                     checked = notificationsOn,
                                     onCheckedChange = { checked ->
-                                        notificationsOn = checked
-                                        preferences.setNotificationsEnabled(checked)
-                                        Toast.makeText(
-                                            context,
-                                            if (checked) "Notifications enabled" else "Notifications disabled",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        if (checked) {
+                                            AppDialogController.confirm(
+                                                title = "Allow reminders?",
+                                                message = "Tiko can send you notifications 15 minutes before your tasks are due.",
+                                                confirmText = "Allow",
+                                                cancelText = "Not now",
+                                                onConfirm = {
+                                                    notificationsOn = true
+                                                    preferences.setNotificationsEnabled(true)
+                                                    AppToastController.show("Notifications enabled", ToastType.Success)
+                                                }
+                                            )
+                                        } else {
+                                            notificationsOn = false
+                                            preferences.setNotificationsEnabled(false)
+                                            AppToastController.show("Notifications disabled", ToastType.Info)
+                                        }
                                     },
                                     testTag = "switch_notifications"
                                 )
@@ -473,7 +483,12 @@ fun SettingsScreen(
                         SettingsRow(
                             icon = Icons.Outlined.CalendarToday,
                             label = "Reminders",
-                            onClick = { showRemindersDialog = true },
+                            onClick = {
+                                AppDialogController.alert(
+                                    title = "Reminders & Alerts",
+                                    message = "Task due date reminders are scheduled automatically 15 minutes before deadlines."
+                                )
+                            },
                             trailing = {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -495,11 +510,7 @@ fun SettingsScreen(
                                     checked = darkModeOn,
                                     onCheckedChange = { checked ->
                                         darkModeOn = checked
-                                        Toast.makeText(
-                                            context,
-                                            if (checked) "Dark mode enabled" else "Dark mode disabled",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        AppToastController.show(if (checked) "Dark mode enabled" else "Dark mode disabled", ToastType.Success)
                                     },
                                     testTag = "switch_dark_mode"
                                 )
@@ -546,7 +557,18 @@ fun SettingsScreen(
                         .height(52.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF151515))
-                        .clickable { showLogoutDialog = true }
+                        .clickable {
+                            AppDialogController.confirm(
+                                title = "Log Out",
+                                message = "Are you sure you want to log out of your account?",
+                                confirmText = "Log out",
+                                destructive = true,
+                                onConfirm = {
+                                    viewModel.logout()
+                                    AppToastController.show("Logged out successfully", ToastType.Success)
+                                }
+                            )
+                        }
                         .testTag("profile_logout_button"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -578,21 +600,43 @@ fun SettingsScreen(
 
     // DIALOGS
 
-    // 1. Edit Profile Dialog
+    // 1. Edit Profile Custom Dialog
     if (showEditProfileDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditProfileDialog = false },
-            title = {
-                Text(
-                    text = "Edit Profile",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = AppBlack
-                )
-            },
-            text = {
-                Column {
+        BackHandler { showEditProfileDialog = false }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1000f)
+                .background(Color.Black.copy(alpha = 0.40f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { showEditProfileDialog = false },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.White)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { }
+                    .padding(24.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Edit Profile",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 24.sp,
+                        color = AppBlack
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     OutlinedTextField(
                         value = editNameInput,
                         onValueChange = { editNameInput = it },
@@ -603,7 +647,9 @@ fun SettingsScreen(
                             focusedLabelColor = CardPurple
                         )
                     )
+
                     Spacer(modifier = Modifier.height(12.dp))
+
                     OutlinedTextField(
                         value = editEmailInput,
                         onValueChange = { editEmailInput = it },
@@ -614,88 +660,106 @@ fun SettingsScreen(
                             focusedLabelColor = CardPurple
                         )
                     )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        preferences.setUserName(editNameInput.trim())
-                        preferences.setUserEmail(editEmailInput.trim())
-                        showEditProfileDialog = false
-                        Toast.makeText(context, "Profile updated", Toast.LENGTH_SHORT).show()
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .background(AppBlack)
+                            .clickable {
+                                preferences.setUserName(editNameInput.trim())
+                                preferences.setUserEmail(editEmailInput.trim())
+                                showEditProfileDialog = false
+                                AppToastController.show("Profile updated", ToastType.Success)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Save",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
                     }
-                ) {
-                    Text(
-                        text = "Save",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        color = CardPurple
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditProfileDialog = false }) {
-                    Text("Cancel", fontFamily = OutfitFontFamily, color = AppBlack)
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, AppBlack, CircleShape)
+                            .clickable { showEditProfileDialog = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = AppBlack,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
             }
-        )
+        }
     }
 
-    // 2. Reminders Dialog
-    if (showRemindersDialog) {
-        AlertDialog(
-            onDismissRequest = { showRemindersDialog = false },
-            title = {
-                Text(
-                    text = "Reminders & Alerts",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = AppBlack
-                )
-            },
-            text = {
-                Text(
-                    text = "Task due date reminders are scheduled automatically 15 minutes before deadlines.",
-                    fontFamily = OutfitFontFamily,
-                    fontSize = 15.sp,
-                    color = AppBlack
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showRemindersDialog = false }) {
-                    Text("OK", fontFamily = OutfitFontFamily, fontWeight = FontWeight.Bold, color = CardPurple)
-                }
-            }
-        )
-    }
-
-    // 3. Language Selection Dialog
+    // 2. Language Selection Custom Dialog
     if (showLanguageDialog) {
         val languages = listOf("English", "Spanish", "French", "German", "Japanese")
-        AlertDialog(
-            onDismissRequest = { showLanguageDialog = false },
-            title = {
-                Text(
-                    text = "Select Language",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = AppBlack
-                )
-            },
-            text = {
-                Column {
+        BackHandler { showLanguageDialog = false }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1000f)
+                .background(Color.Black.copy(alpha = 0.40f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { showLanguageDialog = false },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.White)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { }
+                    .padding(24.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Select Language",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 24.sp,
+                        color = AppBlack
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     languages.forEach { lang ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     selectedLanguage = lang
                                     showLanguageDialog = false
-                                    Toast.makeText(context, "Language set to $lang", Toast.LENGTH_SHORT).show()
+                                    AppToastController.show("Language set to $lang", ToastType.Success)
                                 }
-                                .padding(vertical = 10.dp),
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -707,54 +771,30 @@ fun SettingsScreen(
                             )
                         }
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showLanguageDialog = false }) {
-                    Text("Cancel", fontFamily = OutfitFontFamily, color = AppBlack)
-                }
-            }
-        )
-    }
 
-    // 4. Logout Confirmation Dialog
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = {
-                Text(
-                    text = "Log Out",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = AppBlack
-                )
-            },
-            text = {
-                Text(
-                    text = "Are you sure you want to log out of your account?",
-                    fontFamily = OutfitFontFamily,
-                    fontSize = 15.sp,
-                    color = AppBlack
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        viewModel.logout()
-                        Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, AppBlack, CircleShape)
+                            .clickable { showLanguageDialog = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = AppBlack,
+                            fontSize = 16.sp
+                        )
                     }
-                ) {
-                    Text("Log out", fontFamily = OutfitFontFamily, fontWeight = FontWeight.Bold, color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel", fontFamily = OutfitFontFamily, color = AppBlack)
                 }
             }
-        )
+        }
     }
 }
 

@@ -217,12 +217,10 @@ fun CalendarScreen(
         weeks
     }
 
-    val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppCreamBackground)
-            .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
     ) {
         // Header warm gradient #FFCF4D fading to cream behind the top area
         Box(

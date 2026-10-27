@@ -37,11 +37,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
-import com.kyant.backdrop.backdrops.LayerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
+
 
 val AppCreamBackground = Color(0xFFEFEBDD)
 val AppBlack = Color(0xFF151515)
@@ -95,30 +91,10 @@ fun AppBottomNav(
     activeTab: NavigationTab,
     onTabSelected: (NavigationTab) -> Unit,
     onAddClick: () -> Unit,
-    backdrop: LayerBackdrop? = null,
     modifier: Modifier = Modifier
 ) {
     val sdkInt = android.os.Build.VERSION.SDK_INT
-    val navModifier = if (sdkInt >= 33 && backdrop != null) {
-        Modifier
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { CircleShape },
-                effects = {
-                    vibrancy()
-                    blur(16.dp.toPx())
-                    lens(16.dp.toPx(), 32.dp.toPx())
-                }
-            )
-            .background(Color.White.copy(alpha = 0.25f), CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.8f), CircleShape)
-            .shadow(
-                elevation = 12.dp,
-                shape = CircleShape,
-                spotColor = Color(0x35000000),
-                ambientColor = Color(0x20000000)
-            )
-    } else if (sdkInt >= 31) {
+    val navModifier = if (sdkInt >= 31) {
         Modifier
             .background(Color.White.copy(alpha = 0.5f), CircleShape)
             .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape)

@@ -176,12 +176,10 @@ fun ListsScreen(
         }
     }
 
-    val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppCreamBackground)
-            .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
     ) {
         // Main scrollable content
         LazyColumn(

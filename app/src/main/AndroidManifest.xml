@@ -25,6 +25,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity-alias
+            android:name="com.example.MainActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true" />
     </application>
 
 </manifest>

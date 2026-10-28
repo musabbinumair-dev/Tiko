@@ -25,9 +25,9 @@ sealed class Screen {
     object Login : Screen()
     object SignUp : Screen()
     data class Main(val tab: NavigationTab = NavigationTab.HOME) : Screen()
-    data class TaskDetail(val taskId: Long) : Screen()
+    data class TaskDetail(val taskId: String) : Screen()
     object AddTask : Screen()
-    data class EditTask(val taskId: Long) : Screen()
+    data class EditTask(val taskId: String) : Screen()
     object ErrorSaveFailed : Screen() {
         const val ROUTE = "error_save_failed"
     }
@@ -50,6 +50,16 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     private val database = TikoDatabase.getInstance(application)
     private val repository = TaskRepository(database.taskDao())
     val preferences = com.example.data.local.UserPreferences(application)
+    val syncManager = com.example.data.sync.SyncManager(application, database.taskDao())
+    val syncStatus: StateFlow<String> = syncManager.syncStatus
+
+    fun startSync(userId: String, isFirstPullAfterLogin: Boolean = false) {
+        syncManager.start(userId, isFirstPullAfterLogin)
+    }
+
+    fun stopSync() {
+        syncManager.stop()
+    }
 
     val allTasks: StateFlow<List<TaskEntity>> = repository.allTasks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -151,15 +161,15 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
             Screen.NotFound.ROUTE -> Screen.NotFound
             else -> {
                 if (route.startsWith("task_detail/")) {
-                    val id = route.substringAfter("task_detail/").toLongOrNull()
-                    if (id != null && allTasks.value.any { it.id == id }) {
+                    val id = route.substringAfter("task_detail/")
+                    if (id.isNotBlank() && allTasks.value.any { it.id == id }) {
                         Screen.TaskDetail(id)
                     } else {
                         Screen.NotFound
                     }
                 } else if (route.startsWith("edit_task/")) {
-                    val id = route.substringAfter("edit_task/").toLongOrNull()
-                    if (id != null && allTasks.value.any { it.id == id }) {
+                    val id = route.substringAfter("edit_task/")
+                    if (id.isNotBlank() && allTasks.value.any { it.id == id }) {
                         Screen.EditTask(id)
                     } else {
                         Screen.NotFound
@@ -172,7 +182,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         navigateTo(screen)
     }
 
-    fun handleTaskNotificationIntent(taskId: Long) {
+    fun handleTaskNotificationIntent(taskId: String) {
         if (allTasks.value.any { it.id == taskId }) {
             navigateTo(Screen.TaskDetail(taskId))
         } else {
@@ -198,26 +208,26 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun toggleSubtask(taskId: Long, subtaskId: String) {
+    fun toggleSubtask(taskId: String, subtaskId: String) {
         viewModelScope.launch {
             repository.toggleSubtask(taskId, subtaskId)
         }
     }
 
-    fun addSubtask(taskId: Long, title: String) {
+    fun addSubtask(taskId: String, title: String) {
         if (title.isBlank()) return
         viewModelScope.launch {
             repository.addSubtask(taskId, title.trim())
         }
     }
 
-    fun removeSubtask(taskId: Long, subtaskId: String) {
+    fun removeSubtask(taskId: String, subtaskId: String) {
         viewModelScope.launch {
             repository.removeSubtask(taskId, subtaskId)
         }
     }
 
-    fun deleteTask(taskId: Long) {
+    fun deleteTask(taskId: String) {
         viewModelScope.launch {
             repository.deleteTaskById(taskId)
             goBack()
@@ -225,11 +235,16 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
-        preferences.clearUser()
-        _screenStack.value = listOf(Screen.Welcome)
+        stopSync()
+        viewModelScope.launch {
+            repository.clearAllTasks()
+            preferences.clearUser()
+            _screenStack.value = listOf(Screen.Welcome)
+        }
     }
 
     fun clearDatabase() {
+        stopSync()
         viewModelScope.launch {
             repository.clearAllTasks()
             preferences.clearUser()
@@ -296,7 +311,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateTask(
-        id: Long,
+        id: String,
         title: String,
         notes: String,
         category: String,
@@ -381,5 +396,10 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
             sb.append("\n")
         }
         return sb.toString()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        syncManager.stop()
     }
 }

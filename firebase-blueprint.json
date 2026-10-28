@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "Task": {
+      "path": "users/{userId}/tasks/{taskId}",
+      "fields": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "notes": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "dueTime": { "type": "string" },
+        "reminder": { "type": "string" },
+        "done": { "type": "boolean" },
+        "completedAt": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "deleted": { "type": "boolean" },
+        "subtasks": { "type": "array" }
+      }
+    }
+  }
+}

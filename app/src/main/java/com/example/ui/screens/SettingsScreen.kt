@@ -290,6 +290,18 @@ fun SettingsScreen(
                                 color = AppBlack
                             )
                         }
+                        if (user != null) {
+                            val syncStatus by viewModel.syncStatus.collectAsState()
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = syncStatus,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp,
+                                color = Color(0xFF5B5F66),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     } else {
                         // Guest mode: show "Log in" button
                         Box(
@@ -596,7 +608,7 @@ fun SettingsScreen(
                                     onConfirm = {
                                         scope.launch {
                                             authRepository.signOut()
-                                            viewModel.clearDatabase()
+                                            viewModel.logout()
                                             AppToastController.show("Logged out successfully", ToastType.Success)
                                             onNavigate(Screen.Welcome)
                                         }
@@ -999,48 +1011,40 @@ fun SettingsScreen(
                                     .background(Color(0xFFFF3B30))
                                     .clickable {
                                         scope.launch {
-                                            if (deletePasswordInput.isNotBlank()) {
-                                                when (val reauth = authRepository.reauthenticate(deletePasswordInput)) {
-                                                    is AuthResult.Success -> {
-                                                        when (val deleteResult = authRepository.deleteAccount()) {
-                                                            is AuthResult.Success -> {
-                                                                viewModel.clearDatabase()
-                                                                AppToastController.show("Account deleted", ToastType.Success)
-                                                                showDeleteDialog = false
-                                                                onNavigate(Screen.Welcome)
-                                                            }
-                                                            is AuthResult.Error -> {
-                                                                AppToastController.show(deleteResult.message, ToastType.Error)
-                                                            }
-                                                        }
-                                                    }
-                                                    is AuthResult.Error -> {
-                                                        // Fallback attempt direct delete (e.g. for Google users)
-                                                        when (val deleteResult = authRepository.deleteAccount()) {
-                                                            is AuthResult.Success -> {
-                                                                viewModel.clearDatabase()
-                                                                AppToastController.show("Account deleted", ToastType.Success)
-                                                                showDeleteDialog = false
-                                                                onNavigate(Screen.Welcome)
-                                                            }
-                                                            is AuthResult.Error -> {
-                                                                AppToastController.show(reauth.message, ToastType.Error)
-                                                            }
-                                                        }
+                                            val uid = currentUser?.uid
+                                            val performAccountDeletion: suspend () -> Unit = {
+                                                if (!uid.isNullOrBlank()) {
+                                                    try {
+                                                        viewModel.syncManager.deleteAllUserTasks(uid)
+                                                    } catch (e: Exception) {
+                                                        // continue to account deletion
                                                     }
                                                 }
-                                            } else {
                                                 when (val deleteResult = authRepository.deleteAccount()) {
                                                     is AuthResult.Success -> {
-                                                        viewModel.clearDatabase()
+                                                        viewModel.logout()
                                                         AppToastController.show("Account deleted", ToastType.Success)
                                                         showDeleteDialog = false
                                                         onNavigate(Screen.Welcome)
                                                     }
                                                     is AuthResult.Error -> {
-                                                        AppToastController.show("Please enter your password", ToastType.Error)
+                                                        AppToastController.show(deleteResult.message, ToastType.Error)
                                                     }
                                                 }
+                                            }
+
+                                            if (deletePasswordInput.isNotBlank()) {
+                                                when (val reauth = authRepository.reauthenticate(deletePasswordInput)) {
+                                                    is AuthResult.Success -> {
+                                                        performAccountDeletion()
+                                                    }
+                                                    is AuthResult.Error -> {
+                                                        // Fallback attempt direct delete (e.g. for Google users)
+                                                        performAccountDeletion()
+                                                    }
+                                                }
+                                            } else {
+                                                performAccountDeletion()
                                             }
                                         }
                                     },

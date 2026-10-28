@@ -74,7 +74,7 @@ import java.util.Calendar
 import java.util.Locale
 
 private data class CalendarTaskCardData(
-    val id: Long,
+    val id: String,
     val title: String,
     val time: String,
     val category: String,
@@ -598,7 +598,7 @@ private fun CalendarDayItem(
 @Composable
 private fun CalendarOverlappingCardsList(
     cards: List<CalendarTaskCardData>,
-    onCardClick: (Long) -> Unit
+    onCardClick: (String) -> Unit
 ) {
     if (cards.isEmpty()) {
         EmptyState(

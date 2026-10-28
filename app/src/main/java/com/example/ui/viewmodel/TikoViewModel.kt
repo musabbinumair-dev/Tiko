@@ -231,89 +231,9 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    val userAvatarId: StateFlow<String> = preferences.userAvatarId
-    val googlePhotoUrl: StateFlow<String> = preferences.googlePhotoUrl
-
     fun saveUserProfile(name: String, email: String) {
         preferences.setUserName(name.trim())
         preferences.setUserEmail(email.trim())
-    }
-
-    fun selectAvatar(avatarId: String) {
-        preferences.setAvatarId(avatarId)
-        val auth = try { com.google.firebase.auth.FirebaseAuth.getInstance() } catch (e: Throwable) { null }
-        val currentUser = auth?.currentUser
-        if (currentUser != null) {
-            try {
-                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                db.collection("users").document(currentUser.uid).set(
-                    mapOf(
-                        "avatarId" to avatarId,
-                        "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
-                    ),
-                    com.google.firebase.firestore.SetOptions.merge()
-                ).addOnFailureListener { e ->
-                    android.util.Log.w("TikoViewModel", "Failed to sync avatar to Firestore", e)
-                }
-            } catch (e: Throwable) {
-                android.util.Log.w("TikoViewModel", "Firestore not available for avatar sync", e)
-            }
-        }
-    }
-
-    fun syncProfileWithFirebase(user: com.google.firebase.auth.FirebaseUser?) {
-        if (user == null) return
-        val name = user.displayName ?: ""
-        val email = user.email ?: ""
-        val photo = user.photoUrl?.toString() ?: ""
-
-        if (name.isNotBlank()) preferences.setUserName(name)
-        if (email.isNotBlank()) preferences.setUserEmail(email)
-        if (photo.isNotBlank()) preferences.setGooglePhotoUrl(photo)
-
-        viewModelScope.launch {
-            try {
-                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                db.collection("users").document(user.uid).get()
-                    .addOnSuccessListener { doc ->
-                        if (doc != null && doc.exists()) {
-                            val remoteAvatar = doc.getString("avatarId")
-                            if (!remoteAvatar.isNullOrBlank()) {
-                                preferences.setAvatarId(remoteAvatar)
-                            } else if (photo.isNotEmpty() && preferences.userAvatarId.value.isBlank()) {
-                                preferences.setAvatarId("google")
-                            }
-                        } else {
-                            val initialAvatar = if (photo.isNotEmpty()) "google" else "default"
-                            if (preferences.userAvatarId.value.isBlank()) {
-                                preferences.setAvatarId(initialAvatar)
-                            }
-                            val profileData = mapOf(
-                                "displayName" to name,
-                                "email" to email,
-                                "photoUrl" to photo,
-                                "avatarId" to (preferences.userAvatarId.value.ifBlank { initialAvatar }),
-                                "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
-                            )
-                            db.collection("users").document(user.uid).set(
-                                profileData,
-                                com.google.firebase.firestore.SetOptions.merge()
-                            )
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        android.util.Log.w("TikoViewModel", "Could not fetch user profile from Firestore", e)
-                        if (photo.isNotEmpty() && preferences.userAvatarId.value.isBlank()) {
-                            preferences.setAvatarId("google")
-                        }
-                    }
-            } catch (e: Throwable) {
-                android.util.Log.w("TikoViewModel", "Firestore unavailable", e)
-                if (photo.isNotEmpty() && preferences.userAvatarId.value.isBlank()) {
-                    preferences.setAvatarId("google")
-                }
-            }
-        }
     }
 
 

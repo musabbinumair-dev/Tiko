@@ -97,15 +97,19 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
     var hasCheckedAuth by rememberSaveable { mutableStateOf(false) }
 
-    // Check auth state and sync user profile/avatar
-    LaunchedEffect(currentUser) {
-        val user = currentUser
-        if (user != null) {
-            viewModel.syncProfileWithFirebase(user)
-            if (!hasCheckedAuth) {
-                hasCheckedAuth = true
+    // Check auth state and navigate appropriately
+    LaunchedEffect(currentUser, hasCheckedAuth) {
+        if (!hasCheckedAuth) {
+            hasCheckedAuth = true
+            val user = currentUser
+            if (user != null) {
+                // User is signed in, go to Home
+                val name = user.displayName ?: "User"
+                val email = user.email ?: ""
+                viewModel.saveUserProfile(name, email)
                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
             }
+            // If currentUser is null, stay on Welcome screen (default)
         }
     }
 
@@ -269,7 +273,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val name = user?.displayName?.ifBlank { null }
                                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
                                 viewModel.saveUserProfile(name, email)
-                                viewModel.syncProfileWithFirebase(user)
                                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
                             },
                             onSignUp = {
@@ -284,7 +287,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             },
                             onCreateAccountSuccess = { name, email ->
                                 viewModel.saveUserProfile(name, email)
-                                viewModel.syncProfileWithFirebase(currentUser)
                                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
                             },
                             onNavigateLogin = {

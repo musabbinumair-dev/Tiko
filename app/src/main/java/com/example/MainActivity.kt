@@ -270,11 +270,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 viewModel.goBack()
                             },
                             onLoginSuccess = { email ->
-                                val user = currentUser
+                                val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: currentUser
                                 val name = user?.displayName?.ifBlank { null }
                                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
                                 viewModel.saveUserProfile(name, email)
-                                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                                viewModel.navigateToHomeClearingAuth()
                             },
                             onSignUp = {
                                 viewModel.navigateTo(Screen.SignUp)
@@ -287,8 +287,10 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 viewModel.goBack()
                             },
                             onCreateAccountSuccess = { name, email ->
-                                viewModel.saveUserProfile(name, email)
-                                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+                                val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: currentUser
+                                val finalName = name.ifBlank { user?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() } }
+                                viewModel.saveUserProfile(finalName, email)
+                                viewModel.navigateToHomeClearingAuth()
                             },
                             onNavigateLogin = {
                                 viewModel.navigateTo(Screen.Login)

@@ -28,7 +28,7 @@ sealed class AuthResult {
 }
 
 sealed class GoogleAuthResult {
-    data class Success(val displayName: String = "", val email: String = "") : GoogleAuthResult()
+    data class Success(val displayName: String = "", val email: String = "", val uid: String = "") : GoogleAuthResult()
     data class Error(val message: String) : GoogleAuthResult()
     data object Cancelled : GoogleAuthResult()
 }
@@ -146,83 +146,55 @@ class AuthRepository(private val context: Context? = null) {
             }
 
             val credential = result.credential
-            if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                val idToken = googleIdTokenCredential.idToken
-                val authCredential = GoogleAuthProvider.getCredential(idToken, null)
+            Log.d("TikoGoogle", "credential received: ${credential.type}")
 
-                try {
-                    val authResult = auth.signInWithCredential(authCredential).await()
-                    val user = authResult.user
-                    val displayName = user?.displayName?.ifBlank { null }
-                        ?: googleIdTokenCredential.displayName?.ifBlank { null }
-                        ?: googleIdTokenCredential.givenName?.ifBlank { null }
-                        ?: "User"
-                    val email = user?.email?.ifBlank { null }
-                        ?: googleIdTokenCredential.id
-
-                    if (user?.displayName.isNullOrBlank() && displayName.isNotBlank()) {
-                        user?.updateProfile(
-                            UserProfileChangeRequest.Builder()
-                                .setDisplayName(displayName)
-                                .build()
-                        )?.await()
+            val idToken: String? = try {
+                when {
+                    credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL -> {
+                        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                        googleIdTokenCredential.idToken
                     }
-                    GoogleAuthResult.Success(displayName = displayName, email = email)
-                } catch (collisionEx: FirebaseAuthUserCollisionException) {
-                    Log.w(TAG, "Account collision detected during Google Sign-In: [${collisionEx.javaClass.name}] ${collisionEx.message}", collisionEx)
-                    val email = collisionEx.email ?: ""
-                    val msg = if (email.isNotBlank()) {
-                        "An account already exists with $email using password. Please log in with your email and password."
-                    } else {
-                        "An account already exists with this email. Please log in with your email and password."
+                    credential is CustomCredential -> {
+                        credential.data.getString("com.google.android.libraries.identity.googleid.BUNDLE_KEY_ID_TOKEN")
+                            ?: credential.data.getString("id_token")
                     }
-                    GoogleAuthResult.Error(msg)
+                    else -> null
                 }
-            } else {
-                Log.e(TAG, "Unable to retrieve Google credentials: credential class=${credential.javaClass.name}, type=${(credential as? CustomCredential)?.type}")
-                GoogleAuthResult.Error("Unable to retrieve Google credentials.")
+            } catch (e: Exception) {
+                Log.d("TikoGoogle", "Error extracting idToken: ${e.message}")
+                null
+            }
+
+            Log.d("TikoGoogle", if (idToken != null) "idToken is not null" else "idToken is null")
+
+            if (idToken.isNullOrEmpty()) {
+                val errorMsg = "Google ID token is null"
+                Log.d("TikoGoogle", "Firebase sign-in failure: $errorMsg")
+                return GoogleAuthResult.Error(errorMsg)
+            }
+
+            try {
+                val authCredential = GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = FirebaseAuth.getInstance().signInWithCredential(authCredential).await()
+                val user = authResult.user
+                Log.d("TikoGoogle", "Firebase sign-in success")
+                Log.d("TikoGoogle", "uid: ${user?.uid}")
+
+                val displayName = user?.displayName?.ifBlank { null }
+                    ?: user?.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+                    ?: "User"
+                val email = user?.email ?: ""
+                GoogleAuthResult.Success(displayName = displayName, email = email, uid = user?.uid ?: "")
+            } catch (e: Exception) {
+                Log.d("TikoGoogle", "Firebase sign-in failure: ${e.message}")
+                GoogleAuthResult.Error(e.message ?: e.toString())
             }
         } catch (e: GetCredentialCancellationException) {
-            Log.d(TAG, "Google Sign-In cancelled or dismissed by user: [${e.javaClass.name}] ${e.message}")
+            Log.d("TikoGoogle", "CredentialManager cancelled: ${e.message}")
             GoogleAuthResult.Cancelled
-        } catch (e: NoCredentialException) {
-            Log.e(TAG, "Google Sign-In no account: [${e.javaClass.name}] ${e.message}", e)
-            GoogleAuthResult.Error("No Google account selected or available on device. Please add a Google account to your device settings.")
-        } catch (e: GetCredentialException) {
-            Log.e(TAG, "Google Sign-In GetCredentialException: [${e.javaClass.name}] ${e.message}", e)
-            val msg = e.message ?: ""
-            when {
-                msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true) -> {
-                    GoogleAuthResult.Cancelled
-                }
-                msg.contains("10:", ignoreCase = true) || msg.contains("developer error", ignoreCase = true) -> {
-                    GoogleAuthResult.Error("Google Sign-In configuration error: Please register the debug SHA-1 fingerprint in Firebase Console.")
-                }
-                msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) || msg.contains("No accounts", ignoreCase = true) -> {
-                    GoogleAuthResult.Error("No Google account selected or available on device.")
-                }
-                else -> {
-                    GoogleAuthResult.Error("Google Sign-In failed: ${e.localizedMessage ?: e.message ?: "Unknown error"}")
-                }
-            }
         } catch (e: Exception) {
-            Log.e(TAG, "Google Sign-In exception: [${e.javaClass.name}] ${e.message}", e)
-            val msg = e.message ?: ""
-            when {
-                msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true) -> {
-                    GoogleAuthResult.Cancelled
-                }
-                msg.contains("10:", ignoreCase = true) || msg.contains("developer error", ignoreCase = true) -> {
-                    GoogleAuthResult.Error("Google Sign-In configuration error: Please register the debug SHA-1 fingerprint in Firebase Console.")
-                }
-                msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) -> {
-                    GoogleAuthResult.Error("No Google account selected or available on device.")
-                }
-                else -> {
-                    GoogleAuthResult.Error(mapFirebaseError(e))
-                }
-            }
+            Log.d("TikoGoogle", "CredentialManager failure: ${e.message}")
+            GoogleAuthResult.Error(e.message ?: e.toString())
         }
     }
 

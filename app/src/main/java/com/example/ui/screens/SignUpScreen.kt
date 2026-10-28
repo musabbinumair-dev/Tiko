@@ -94,6 +94,7 @@ fun SignUpScreen(
     var agreedToTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val isFormValid = fullName.isNotBlank() &&
         email.isNotBlank() &&
@@ -539,6 +540,27 @@ fun SignUpScreen(
                 )
             }
 
+            if (!errorMessage.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFFFEBEE))
+                        .border(1.5.dp, Color(0xFFD32F2F), RoundedCornerShape(14.dp))
+                        .padding(14.dp)
+                        .testTag("signup_error_banner")
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = Color(0xFFD32F2F)
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             // 7. One outlined pill "Continue with Google"
             Box(
                 modifier = Modifier
@@ -550,9 +572,11 @@ fun SignUpScreen(
                     .alpha(if (isLoading || isGoogleLoading) 0.6f else 1.0f)
                     .clickable(enabled = !isLoading && !isGoogleLoading) {
                         isGoogleLoading = true
+                        errorMessage = null
                         scope.launch {
                             when (val result = authRepository.signInWithGoogle(context)) {
                                 is GoogleAuthResult.Success -> {
+                                    isGoogleLoading = false
                                     AppToastController.show("Signed in with Google!", ToastType.Success)
                                     onCreateAccountSuccess(result.displayName, result.email)
                                 }
@@ -560,8 +584,9 @@ fun SignUpScreen(
                                     isGoogleLoading = false
                                 }
                                 is GoogleAuthResult.Error -> {
-                                    AppToastController.show(result.message, ToastType.Error)
                                     isGoogleLoading = false
+                                    errorMessage = result.message
+                                    AppToastController.show(result.message, ToastType.Error)
                                 }
                             }
                         }

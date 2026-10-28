@@ -124,6 +124,11 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         _screenStack.value = _screenStack.value + screen
     }
 
+    fun navigateToHomeClearingAuth() {
+        _selectedTab.value = NavigationTab.HOME
+        _screenStack.value = listOf(Screen.Main(NavigationTab.HOME))
+    }
+
     fun goBack(): Boolean {
         if (_screenStack.value.size > 1) {
             _screenStack.value = _screenStack.value.dropLast(1)

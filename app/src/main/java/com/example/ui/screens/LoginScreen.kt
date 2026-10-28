@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -85,6 +86,7 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var isResettingPassword by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val backgroundGradient = Brush.verticalGradient(
         0.0f to LoginYellow,
@@ -389,6 +391,27 @@ fun LoginScreen(
                 )
             }
 
+            if (!errorMessage.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFFFEBEE))
+                        .border(1.5.dp, Color(0xFFD32F2F), RoundedCornerShape(14.dp))
+                        .padding(14.dp)
+                        .testTag("login_error_banner")
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = Color(0xFFD32F2F)
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             // 8. Two full-width pills, 56dp high, white fill, 1dp #151515 outline, centered icon + text Outfit Bold 17sp:
             // "Continue with Google" (multicolor G icon)
             Box(
@@ -401,9 +424,11 @@ fun LoginScreen(
                     .alpha(if (isLoading || isGoogleLoading) 0.6f else 1.0f)
                     .clickable(enabled = !isLoading && !isGoogleLoading) {
                         isGoogleLoading = true
+                        errorMessage = null
                         scope.launch {
                             when (val result = authRepository.signInWithGoogle(context)) {
                                 is GoogleAuthResult.Success -> {
+                                    isGoogleLoading = false
                                     AppToastController.show("Signed in with Google!", ToastType.Success)
                                     onLoginSuccess(result.email)
                                 }
@@ -411,8 +436,9 @@ fun LoginScreen(
                                     isGoogleLoading = false
                                 }
                                 is GoogleAuthResult.Error -> {
-                                    AppToastController.show(result.message, ToastType.Error)
                                     isGoogleLoading = false
+                                    errorMessage = result.message
+                                    AppToastController.show(result.message, ToastType.Error)
                                 }
                             }
                         }

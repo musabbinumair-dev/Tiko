@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,9 +58,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +87,7 @@ import com.example.ui.components.NeoCheckbox
 import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.frostedGlass
+import com.example.ui.components.pressable
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
@@ -99,7 +105,7 @@ private data class ListCardUiModel(
     val isLastTaller: Boolean = false
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ListsScreen(
     viewModel: TikoViewModel,
@@ -631,7 +637,7 @@ private fun SingleOverlappingListCard(
  * Bottom sheet displaying tasks for the selected list category.
  * Allows checking/unchecking tasks, clicking to view details, or adding a task.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryTasksBottomSheet(
     categoryName: String,
@@ -726,7 +732,8 @@ private fun CategoryTasksBottomSheet(
                         CategoryTaskItem(
                             task = task,
                             onToggle = { onToggleTask(task) },
-                            onClick = { onTaskClick(task) }
+                            onClick = { onTaskClick(task) },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
@@ -739,15 +746,28 @@ private fun CategoryTasksBottomSheet(
 private fun CategoryTaskItem(
     task: TaskEntity,
     onToggle: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "task_item_scale"
+    )
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(18.dp))
             .background(Color.White)
             .border(1.dp, AppBlack.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

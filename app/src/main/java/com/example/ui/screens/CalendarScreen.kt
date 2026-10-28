@@ -63,6 +63,7 @@ import com.example.ui.components.CardYellow
 import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.frostedGlass
+import com.example.ui.components.pressable
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab

@@ -65,6 +65,25 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
 
+/**
+ * Reusable press-scale modifier: scales to 0.96 while pressed (spring, dampingRatio 0.6),
+ * returns to 1.0 on release. Wrap around any tappable composable.
+ * Usage: Modifier.pressable(interactionSource)
+ */
+@Composable
+fun Modifier.pressable(
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    pressedScale: Float = 0.96f
+): Modifier {
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) pressedScale else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "pressable_scale"
+    )
+    return this.graphicsLayer { scaleX = scale; scaleY = scale }
+}
+
 val AppCreamBackground = Color(0xFFEFEBDD)
 val AppBlack = Color(0xFF151515)
 val AppGray = Color(0xFF6B6B6B)

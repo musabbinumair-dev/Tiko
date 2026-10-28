@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,6 +37,11 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,9 +54,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +77,7 @@ import com.example.ui.components.EmptyState
 import com.example.ui.components.FrostedGlassPill
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.screenTopPadding
+import com.example.ui.components.pressable
 import com.example.ui.components.NeoCheckbox
 import com.example.ui.components.TikoCategoryIcon
 import com.example.ui.components.getCategoryColor
@@ -102,6 +112,7 @@ private data class HomeCardData(
     val isLastTaller: Boolean = false
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: TikoViewModel,
@@ -153,37 +164,33 @@ fun HomeScreen(
                 bottom = 120.dp // Allows full list to scroll above floating bottom nav
             )
         ) {
-            // 1. Header (status bar + top spacing handled by screenTopPadding)
-            item {
+            // 1. Header
+            item(key = "header") {
                 HomeHeader(
                     viewModel = viewModel,
                     onSearchClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
                 )
             }
 
-            // 2. Title Row (16dp below header)
-            item {
+            // 2. Title Row
+            item(key = "title_row") {
                 Spacer(modifier = Modifier.height(16.dp))
                 HomeTitleRow(
                     onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) },
-                    onFilterLongClick = {
-                        // DEBUG: Testing only - long-press the "Filters" pill opens not found error screen
-                        onNavigate(Screen.NotFound)
-                    }
+                    onFilterLongClick = { onNavigate(Screen.NotFound) }
                 )
             }
 
-            // 3. Stat Pills (14dp below title)
-            item {
+            // 3. Stat Pills
+            item(key = "stat_pills") {
                 Spacer(modifier = Modifier.height(14.dp))
                 HomeStatPills(stats = stats)
             }
 
-            // 4. Overlapping Task Cards (24dp below pills)
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                val pendingTasksExist = tasks.any { !it.done }
-                if (tasks.isEmpty()) {
+            // 4. Task cards — one item per task with stable key + animateItem
+            if (tasks.isEmpty()) {
+                item(key = "empty_state") {
+                    Spacer(modifier = Modifier.height(24.dp))
                     EmptyState(
                         image = R.drawable.illus_no_tasks,
                         title = "No tasks yet",
@@ -191,16 +198,29 @@ fun HomeScreen(
                         buttonText = "Add your first task",
                         onButton = { onNavigate(Screen.AddTask) }
                     )
-                } else if (!pendingTasksExist) {
+                }
+            } else if (tasks.none { !it.done }) {
+                item(key = "all_done_state") {
+                    Spacer(modifier = Modifier.height(24.dp))
                     EmptyState(
                         image = R.drawable.illus_all_done,
                         title = "All done!",
                         caption = "You finished everything. Enjoy the rest of your day."
                     )
-                } else {
-                    OverlappingTaskCardsList(
-                        cards = cardModels,
-                        onCardClick = { taskId -> onNavigate(Screen.TaskDetail(taskId)) }
+                }
+            } else {
+                item(key = "cards_spacer") { Spacer(modifier = Modifier.height(24.dp)) }
+                items(
+                    items = cardModels,
+                    key = { it.id }
+                ) { card ->
+                    val isLast = card == cardModels.last()
+                    SingleOverlappingCard(
+                        card = card,
+                        isOverlapped = !isLast,
+                        zIndex = cardModels.indexOf(card).toFloat(),
+                        onClick = { onNavigate(Screen.TaskDetail(card.id)) },
+                        modifier = Modifier.animateItem()
                     )
                 }
             }
@@ -430,14 +450,13 @@ private fun HomeStatPills(stats: TodayStats) {
     }
 }
 
-// STACKED OVERLAPPING TASK CARDS
+// STACKED OVERLAPPING TASK CARDS — kept for reference, items now rendered directly in LazyColumn
 @Composable
 private fun OverlappingTaskCardsList(
     cards: List<HomeCardData>,
     onCardClick: (Long) -> Unit
 ) {
     if (cards.isEmpty()) return
-
     Column(modifier = Modifier.fillMaxWidth()) {
         cards.forEachIndexed { index, card ->
             val isLast = index == cards.lastIndex
@@ -456,13 +475,21 @@ private fun SingleOverlappingCard(
     card: HomeCardData,
     isOverlapped: Boolean,
     zIndex: Float,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "card_press_scale"
+    )
     val cardHeight = if (card.isLastTaller) 190.dp else 134.dp
     val overlapPx = 18.dp
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .zIndex(zIndex)
             .layout { measurable, constraints ->
@@ -477,9 +504,14 @@ private fun SingleOverlappingCard(
                 }
             }
             .height(cardHeight)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(28.dp))
             .background(card.backgroundColor)
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .padding(16.dp)
             .testTag("home_card_${card.id}")
     ) {

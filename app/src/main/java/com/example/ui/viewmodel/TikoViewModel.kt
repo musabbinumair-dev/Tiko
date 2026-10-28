@@ -55,6 +55,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Welcome))
+    val screenStack: StateFlow<List<Screen>> = _screenStack.asStateFlow()
     val currentScreen: StateFlow<Screen> = _screenStack
         .combine(MutableStateFlow(Unit)) { stack, _ -> stack.lastOrNull() ?: Screen.Welcome }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Screen.Welcome)

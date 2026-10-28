@@ -6,6 +6,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
@@ -68,10 +80,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val currentScreen by viewModel.currentScreen.collectAsState()
+    val screenStack by viewModel.screenStack.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val allTasks by viewModel.allTasks.collectAsState()
     val stats by viewModel.todayStats.collectAsState()
     val notifEnabled by viewModel.preferences.notificationsEnabled.collectAsState()
+    val haptic = LocalHapticFeedback.current
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
 
@@ -141,13 +155,15 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         }
     }
 
-    val isMainScreen = currentScreen is Screen.Main
     val currentTab = (currentScreen as? Screen.Main)?.tab
     val hasCustomFloatingNav = currentTab == NavigationTab.HOME ||
         currentTab == NavigationTab.LISTS ||
         currentTab == NavigationTab.CALENDAR ||
         currentTab == NavigationTab.SETTINGS
     val creamBackground = Color(0xFFEFEBDD)
+
+    // Determine transition direction: push (forward) vs pop (back) vs tab switch
+    val stackSize = screenStack.size
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -158,7 +174,59 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 .fillMaxSize()
                 .background(if (hasCustomFloatingNav) creamBackground else TikoBackground)
         ) {
-            when (val screen = currentScreen) {
+            AnimatedContent(
+                targetState = currentScreen,
+                modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    val isTabSwitch = targetState is Screen.Main && initialState is Screen.Main
+                    val isSlideUp = targetState is Screen.AddTask ||
+                        targetState is Screen.ErrorSaveFailed ||
+                        targetState is Screen.NotFound
+                    val isSlideDown = initialState is Screen.AddTask ||
+                        initialState is Screen.ErrorSaveFailed ||
+                        initialState is Screen.NotFound
+                    val isPop = stackSize < 2 ||
+                        (initialState !is Screen.Welcome && targetState is Screen.Main &&
+                            initialState !is Screen.Main)
+
+                    when {
+                        isTabSwitch -> ContentTransform(
+                            targetContentEnter = fadeIn(tween(200)),
+                            initialContentExit = fadeOut(tween(200))
+                        )
+                        isSlideUp -> ContentTransform(
+                            targetContentEnter = slideInVertically(
+                                tween(300, easing = FastOutSlowInEasing)
+                            ) { it } + fadeIn(tween(300)),
+                            initialContentExit = fadeOut(tween(200))
+                        )
+                        isSlideDown -> ContentTransform(
+                            targetContentEnter = fadeIn(tween(200)),
+                            initialContentExit = slideOutVertically(
+                                tween(300, easing = FastOutSlowInEasing)
+                            ) { it } + fadeOut(tween(200))
+                        )
+                        isPop -> ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                tween(300, easing = FastOutSlowInEasing)
+                            ) { -(it * 0.24f).toInt() } + fadeIn(tween(300)),
+                            initialContentExit = slideOutHorizontally(
+                                tween(300, easing = FastOutSlowInEasing)
+                            ) { (it * 0.24f).toInt() } + fadeOut(tween(200))
+                        )
+                        else -> ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                tween(300, easing = FastOutSlowInEasing)
+                            ) { (it * 0.24f).toInt() } + fadeIn(tween(300)),
+                            initialContentExit = slideOutHorizontally(
+                                tween(300, easing = FastOutSlowInEasing)
+                            ) { -(it * 0.24f).toInt() } + fadeOut(tween(200))
+                        )
+                    }
+                },
+                label = "screen_transition"
+            ) { screen ->
+                when (screen) {
                     is Screen.Welcome -> {
                         WelcomeScreen(
                             onNavigateHome = {
@@ -326,9 +394,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             }
                         )
                     }
-                }
+                } // end when
+            } // end AnimatedContent
 
             if (hasCustomFloatingNav && currentTab != null) {
+                // Add haptic on tab selection — wired through AppBottomNav's onTabSelected
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -337,7 +407,10 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 ) {
                     AppBottomNav(
                         activeTab = currentTab,
-                        onTabSelected = { viewModel.selectTab(it) },
+                        onTabSelected = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.selectTab(it)
+                        },
                         onAddClick = { viewModel.navigateTo(Screen.AddTask) }
                     )
                 }

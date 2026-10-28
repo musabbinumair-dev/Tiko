@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -209,15 +210,15 @@ fun HomeScreen(
                 }
             } else {
                 item(key = "cards_spacer") { Spacer(modifier = Modifier.height(24.dp)) }
-                items(
+                itemsIndexed(
                     items = cardModels,
-                    key = { it.id }
-                ) { card ->
-                    val isLast = card == cardModels.last()
+                    key = { _, card -> card.id }
+                ) { index, card ->
+                    val isLast = index == cardModels.lastIndex
                     SingleOverlappingCard(
                         card = card,
                         isOverlapped = !isLast,
-                        zIndex = cardModels.indexOf(card).toFloat(),
+                        zIndex = index.toFloat(),
                         onClick = { onNavigate(Screen.TaskDetail(card.id)) },
                         modifier = Modifier.animateItem()
                     )

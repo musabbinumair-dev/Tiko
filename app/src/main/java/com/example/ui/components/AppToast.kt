@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -88,7 +90,7 @@ fun AppToastHost(modifier: Modifier = Modifier) {
 
     LaunchedEffect(toast?.id) {
         if (toast != null) {
-            val duration = if (toast.type == ToastType.Error) 4000L else 3000L
+            val duration = if (toast.type == ToastType.Error) 3800L else 2800L
             delay(duration)
             if (AppToastController.currentToast?.id == toast.id) {
                 AppToastController.dismiss()
@@ -97,115 +99,71 @@ fun AppToastHost(modifier: Modifier = Modifier) {
     }
 
     Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.TopCenter
+        modifier = modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(bottom = 96.dp)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(
             visible = toast != null,
             enter = slideInVertically(
-                animationSpec = spring(dampingRatio = 0.75f)
-            ) { -it } + fadeIn(animationSpec = spring(dampingRatio = 0.75f)),
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f)
+            ) { it / 2 } + fadeIn(animationSpec = androidx.compose.animation.core.tween(180)),
             exit = slideOutVertically(
-                animationSpec = spring(dampingRatio = 0.75f)
-            ) { -it } + fadeOut(animationSpec = spring(dampingRatio = 0.75f))
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f)
+            ) { it / 2 } + fadeOut(animationSpec = androidx.compose.animation.core.tween(150))
         ) {
             if (toast != null) {
-                val (bgColor, textColor, typeIcon) = when (toast.type) {
-                    ToastType.Error -> Triple(Color(0xFFD9534A), Color.White, Icons.Outlined.ErrorOutline)
-                    ToastType.Success -> Triple(Color(0xFFC8DB6A), Color(0xFF151515), Icons.Outlined.CheckCircle)
-                    ToastType.Warning -> Triple(Color(0xFFFFB92E), Color(0xFF151515), Icons.Outlined.WarningAmber)
-                    ToastType.Info -> Triple(Color(0xFF6B4EFF), Color.White, Icons.Outlined.Info)
+                val (accentColor, typeIcon) = when (toast.type) {
+                    ToastType.Error -> Color(0xFFFF3B30) to Icons.Outlined.ErrorOutline
+                    ToastType.Success -> Color(0xFF34C759) to Icons.Outlined.CheckCircle
+                    ToastType.Warning -> Color(0xFFFF9500) to Icons.Outlined.WarningAmber
+                    ToastType.Info -> Color(0xFF6B4EFF) to Icons.Outlined.Info
                 }
 
-                Box(
+                // Sleek, compact capsule pill at the bottom center
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(top = 8.dp)
-                        .padding(horizontal = 20.dp)
                         .shadow(
                             elevation = 8.dp,
-                            shape = RoundedCornerShape(28.dp),
-                            spotColor = Color.Black.copy(alpha = 0.10f),
-                            ambientColor = Color.Black.copy(alpha = 0.10f)
+                            shape = CircleShape,
+                            spotColor = Color.Black.copy(alpha = 0.25f),
+                            ambientColor = Color.Black.copy(alpha = 0.15f)
                         )
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(bgColor)
+                        .clip(CircleShape)
+                        .background(Color(0xFF181818))
+                        .border(1.dp, Color(0xFF2E2E2E), CircleShape)
+                        .clickable { AppToastController.dismiss() }
                         .pointerInput(toast.id) {
                             detectVerticalDragGestures { _, dragAmount ->
-                                if (dragAmount < -8f) {
+                                if (dragAmount > 8f || dragAmount < -8f) {
                                     AppToastController.dismiss()
                                 }
                             }
                         }
-                        .padding(16.dp)
-                        .testTag("app_toast")
+                        .padding(horizontal = 16.dp, vertical = 11.dp)
+                        .testTag("app_toast"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // White pill tag top-left: 32dp high, 18dp icon + type name, Outfit Medium 14sp, black
-                            Row(
-                                modifier = Modifier
-                                    .height(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White)
-                                    .border(1.dp, Color(0xFF151515), CircleShape)
-                                    .padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = typeIcon,
-                                    contentDescription = null,
-                                    tint = Color(0xFF151515),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = toast.type.name,
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF151515)
-                                )
-                            }
-
-                            // 40dp white circle with black X at top-right to dismiss
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White)
-                                    .border(1.dp, Color(0xFF151515), CircleShape)
-                                    .clickable { AppToastController.dismiss() }
-                                    .testTag("app_toast_dismiss"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Dismiss",
-                                    tint = Color(0xFF151515),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Message in Outfit Bold 18sp (max 2 lines)
-                        Text(
-                            text = toast.message,
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = textColor,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Icon(
+                        imageVector = typeIcon,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = toast.message,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

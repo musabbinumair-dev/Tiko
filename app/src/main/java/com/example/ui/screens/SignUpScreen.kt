@@ -442,16 +442,16 @@ fun SignUpScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 5. Full-width black pill button "Create account", 56dp high
-            // (disabled look at 40% opacity until all fields are filled and the checkbox is checked)
+            // 5. Full-width bold pill button "Create account", 56dp high
+            // Always fully visible and responsive, never faded or hidden
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
                     .background(SignUpBlack)
-                    .alpha(if (isFormValid) 1.0f else 0.4f)
-                    .clickable(enabled = isFormValid) {
+                    .border(1.dp, SignUpBlack, CircleShape)
+                    .clickable(enabled = !isLoading) {
                         val trimmedName = fullName.trim()
                         val trimmedEmail = email.trim()
                         val trimmedPassword = password.trim()
@@ -467,7 +467,7 @@ fun SignUpScreen(
                                 AppToastController.show("Please enter a valid email address", ToastType.Error)
                             }
                             trimmedPassword.length < 8 -> {
-                                AppToastController.show("Use at least 8 characters.", ToastType.Error)
+                                AppToastController.show("Use at least 8 characters for password.", ToastType.Error)
                             }
                             !agreedToTerms -> {
                                 AppToastController.show("Please agree to the Terms and Privacy Policy", ToastType.Warning)

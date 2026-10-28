@@ -26,6 +26,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Edit
@@ -119,6 +122,8 @@ fun SettingsScreen(
     var editNameInput by remember { mutableStateOf(userName) }
     var editEmailInput by remember { mutableStateOf(userEmail) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deletePasswordInput by remember { mutableStateOf("") }
 
     // Dynamic stats calculation from real data only
     val completedCount = remember(tasks) { tasks.count { it.done } }
@@ -614,9 +619,6 @@ fun SettingsScreen(
                 // "Delete account" BUTTON (red)
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
-                    var deletePasswordInput by remember { mutableStateOf("") }
-                    var showDeleteDialog by remember { mutableStateOf(false) }
-                    
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -625,6 +627,7 @@ fun SettingsScreen(
                             .clip(CircleShape)
                             .background(Color(0xFFFF3B30))
                             .clickable {
+                                deletePasswordInput = ""
                                 showDeleteDialog = true
                             }
                             .testTag("profile_delete_button"),
@@ -637,132 +640,6 @@ fun SettingsScreen(
                             fontSize = 16.sp,
                             color = Color.White
                         )
-                    }
-                    
-                    // Delete confirmation dialog with password
-                    if (showDeleteDialog) {
-                        BackHandler { showDeleteDialog = false }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .zIndex(2000f)
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) { showDeleteDialog = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.85f)
-                                    .clip(RoundedCornerShape(28.dp))
-                                    .background(Color.White)
-                                    .padding(20.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "Delete Account",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 22.sp,
-                                    color = AppBlack
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "This action cannot be undone. Enter your password to confirm.",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 15.sp,
-                                    color = Color(0xFF6B6B6B),
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                
-                                OutlinedTextField(
-                                    value = deletePasswordInput,
-                                    onValueChange = { deletePasswordInput = it },
-                                    placeholder = { Text("Password") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = AppBlack,
-                                        unfocusedBorderColor = Color(0xFFCCCCCC)
-                                    )
-                                )
-                                
-                                Spacer(modifier = Modifier.height(16.dp))
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFEFEBDD))
-                                            .clickable { 
-                                                showDeleteDialog = false
-                                                deletePasswordInput = ""
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "Cancel",
-                                            fontFamily = OutfitFontFamily,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
-                                            color = AppBlack
-                                        )
-                                    }
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFFF3B30))
-                                            .clickable {
-                                                if (deletePasswordInput.isNotBlank()) {
-                                                    scope.launch {
-                                                        when (val result = authRepository.reauthenticate(deletePasswordInput)) {
-                                                            is AuthResult.Success -> {
-                                                                when (val deleteResult = authRepository.deleteAccount()) {
-                                                                    is AuthResult.Success -> {
-                                                                        viewModel.clearDatabase()
-                                                                        AppToastController.show("Account deleted", ToastType.Success)
-                                                                        showDeleteDialog = false
-                                                                        onNavigate(Screen.Welcome)
-                                                                    }
-                                                                    is AuthResult.Error -> {
-                                                                        AppToastController.show(deleteResult.message, ToastType.Error)
-                                                                    }
-                                                                }
-                                                            }
-                                                            is AuthResult.Error -> {
-                                                                AppToastController.show(result.message, ToastType.Error)
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    AppToastController.show("Please enter your password", ToastType.Error)
-                                                }
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "Delete",
-                                            fontFamily = OutfitFontFamily,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -978,6 +855,206 @@ fun SettingsScreen(
                             color = AppBlack,
                             fontSize = 16.sp
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Delete Account Modal Popup Dialog (true window modal)
+    if (showDeleteDialog) {
+        Dialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                deletePasswordInput = ""
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        showDeleteDialog = false
+                        deletePasswordInput = ""
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { /* Consume click */ }
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Warning badge
+                        Row(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFEEEE))
+                                .border(1.dp, Color(0xFFFF3B30), CircleShape)
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteOutline,
+                                contentDescription = null,
+                                tint = Color(0xFFFF3B30),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Permanent Action",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFFFF3B30)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = "Delete Account",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 24.sp,
+                            color = AppBlack
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "This will permanently remove your account, profile, and all saved tasks. This cannot be undone.",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 14.sp,
+                            color = Color(0xFF6B6B6B),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedTextField(
+                            value = deletePasswordInput,
+                            onValueChange = { deletePasswordInput = it },
+                            placeholder = { Text("Password (optional if signed in with Google)") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AppBlack,
+                                unfocusedBorderColor = Color(0xFFCCCCCC)
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFEFEBDD))
+                                    .border(1.dp, Color(0xFF151515), CircleShape)
+                                    .clickable {
+                                        showDeleteDialog = false
+                                        deletePasswordInput = ""
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = AppBlack
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFF3B30))
+                                    .clickable {
+                                        scope.launch {
+                                            if (deletePasswordInput.isNotBlank()) {
+                                                when (val reauth = authRepository.reauthenticate(deletePasswordInput)) {
+                                                    is AuthResult.Success -> {
+                                                        when (val deleteResult = authRepository.deleteAccount()) {
+                                                            is AuthResult.Success -> {
+                                                                viewModel.clearDatabase()
+                                                                AppToastController.show("Account deleted", ToastType.Success)
+                                                                showDeleteDialog = false
+                                                                onNavigate(Screen.Welcome)
+                                                            }
+                                                            is AuthResult.Error -> {
+                                                                AppToastController.show(deleteResult.message, ToastType.Error)
+                                                            }
+                                                        }
+                                                    }
+                                                    is AuthResult.Error -> {
+                                                        // Fallback attempt direct delete (e.g. for Google users)
+                                                        when (val deleteResult = authRepository.deleteAccount()) {
+                                                            is AuthResult.Success -> {
+                                                                viewModel.clearDatabase()
+                                                                AppToastController.show("Account deleted", ToastType.Success)
+                                                                showDeleteDialog = false
+                                                                onNavigate(Screen.Welcome)
+                                                            }
+                                                            is AuthResult.Error -> {
+                                                                AppToastController.show(reauth.message, ToastType.Error)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                when (val deleteResult = authRepository.deleteAccount()) {
+                                                    is AuthResult.Success -> {
+                                                        viewModel.clearDatabase()
+                                                        AppToastController.show("Account deleted", ToastType.Success)
+                                                        showDeleteDialog = false
+                                                        onNavigate(Screen.Welcome)
+                                                    }
+                                                    is AuthResult.Error -> {
+                                                        AppToastController.show("Please enter your password", ToastType.Error)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Delete",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -72,6 +72,7 @@ open class MainActivity : ComponentActivity() {
         com.example.data.FirebaseInitializer.init(this)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+
         setContent {
             MyApplicationTheme {
                 TikoApp()

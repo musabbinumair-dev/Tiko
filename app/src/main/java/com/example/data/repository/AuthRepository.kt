@@ -7,8 +7,10 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.example.data.FirebaseInitializer
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -110,10 +112,39 @@ class AuthRepository(private val context: Context? = null) {
                 .addCredentialOption(googleIdOption)
                 .build()
 
-            val result = credentialManager.getCredential(
-                request = request,
-                context = activityContext
-            )
+            val result = try {
+                credentialManager.getCredential(
+                    request = request,
+                    context = activityContext
+                )
+            } catch (e: NoCredentialException) {
+                Log.w(TAG, "GetGoogleIdOption threw NoCredentialException [${e.javaClass.name}]: ${e.message}. Falling back to GetSignInWithGoogleOption.", e)
+                val fallbackOption = GetSignInWithGoogleOption.Builder(serverClientId = WEB_CLIENT_ID)
+                    .build()
+                val fallbackRequest = GetCredentialRequest.Builder()
+                    .addCredentialOption(fallbackOption)
+                    .build()
+                credentialManager.getCredential(
+                    request = fallbackRequest,
+                    context = activityContext
+                )
+            } catch (e: GetCredentialException) {
+                val msg = e.message ?: ""
+                if (msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) || msg.contains("No accounts", ignoreCase = true)) {
+                    Log.w(TAG, "GetGoogleIdOption threw no credentials error [${e.javaClass.name}]: ${e.message}. Falling back to GetSignInWithGoogleOption.", e)
+                    val fallbackOption = GetSignInWithGoogleOption.Builder(serverClientId = WEB_CLIENT_ID)
+                        .build()
+                    val fallbackRequest = GetCredentialRequest.Builder()
+                        .addCredentialOption(fallbackOption)
+                        .build()
+                    credentialManager.getCredential(
+                        request = fallbackRequest,
+                        context = activityContext
+                    )
+                } else {
+                    throw e
+                }
+            }
 
             val credential = result.credential
             if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -140,7 +171,7 @@ class AuthRepository(private val context: Context? = null) {
                     }
                     AuthResult.Success(displayName = displayName, email = email)
                 } catch (collisionEx: FirebaseAuthUserCollisionException) {
-                    Log.w(TAG, "Account collision detected during Google Sign-In", collisionEx)
+                    Log.w(TAG, "Account collision detected during Google Sign-In: [${collisionEx.javaClass.name}] ${collisionEx.message}", collisionEx)
                     val email = collisionEx.email ?: ""
                     val msg = if (email.isNotBlank()) {
                         "An account already exists with $email using password. Please log in with your email and password."
@@ -150,24 +181,35 @@ class AuthRepository(private val context: Context? = null) {
                     AuthResult.Error(msg)
                 }
             } else {
+                Log.e(TAG, "Unable to retrieve Google credentials: credential class=${credential.javaClass.name}, type=${(credential as? CustomCredential)?.type}")
                 AuthResult.Error("Unable to retrieve Google credentials.")
             }
         } catch (e: GetCredentialCancellationException) {
-            Log.d(TAG, "Google Sign-In cancelled by user")
+            Log.w(TAG, "Google Sign-In cancelled: [${e.javaClass.name}] ${e.message}", e)
             AuthResult.Error("Google Sign-In was cancelled.")
+        } catch (e: NoCredentialException) {
+            Log.e(TAG, "Google Sign-In no account: [${e.javaClass.name}] ${e.message}", e)
+            AuthResult.Error("No Google account selected or available on device.")
         } catch (e: GetCredentialException) {
-            Log.e(TAG, "GetCredentialException during Google Sign-In", e)
+            Log.e(TAG, "Google Sign-In GetCredentialException: [${e.javaClass.name}] ${e.message}", e)
             val msg = e.message ?: ""
             if (msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true)) {
                 AuthResult.Error("Google Sign-In was cancelled.")
-            } else if (msg.contains("no credential", ignoreCase = true)) {
+            } else if (msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) || msg.contains("No accounts", ignoreCase = true)) {
                 AuthResult.Error("No Google account selected or available on device.")
             } else {
-                AuthResult.Error("Google Sign-In failed: ${e.localizedMessage ?: "Unknown error"}")
+                AuthResult.Error("Google Sign-In failed: ${e.localizedMessage ?: e.message ?: "Unknown error"}")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Google Sign-In failed", e)
-            AuthResult.Error(mapFirebaseError(e))
+            Log.e(TAG, "Google Sign-In exception: [${e.javaClass.name}] ${e.message}", e)
+            val msg = e.message ?: ""
+            if (msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true)) {
+                AuthResult.Error("Google Sign-In was cancelled.")
+            } else if (msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true)) {
+                AuthResult.Error("No Google account selected or available on device.")
+            } else {
+                AuthResult.Error(mapFirebaseError(e))
+            }
         }
     }
 

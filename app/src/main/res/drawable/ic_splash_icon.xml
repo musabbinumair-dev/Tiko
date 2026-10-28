@@ -1,0 +1,48 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group>
+        <clip-path
+            android:pathData="M54,8 A46,46 0 1,0 54,100 A46,46 0 1,0 54,8 Z" />
+
+        <!-- Top section: Rich Golden Yellow (#FFB92E) -->
+        <path
+            android:fillColor="#FFB92E"
+            android:pathData="M0,0 H108 V108 H0 Z" />
+
+        <!-- Middle section: Dynamic Signature Purple (#6B4EFF) -->
+        <path
+            android:fillColor="#6B4EFF"
+            android:pathData="M0,40 L108,46 L108,66 L0,60 Z" />
+
+        <!-- Bottom section: Deep Charcoal Black (#151515) -->
+        <path
+            android:fillColor="#151515"
+            android:pathData="M0,60 L108,66 L108,108 L0,108 Z" />
+
+        <!-- Centered Bold White Checkmark -->
+        <!-- Subtle dark stroke backing for razor-sharp separation across colors -->
+        <path
+            android:pathData="M41,54 L49,63 L68,44"
+            android:strokeColor="#151515"
+            android:strokeWidth="8"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+
+        <path
+            android:pathData="M41,54 L49,63 L68,44"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+
+    <!-- Outer neo-brutal circular border (3dp #151515) -->
+    <path
+        android:pathData="M54,8 A46,46 0 1,0 54,100 A46,46 0 1,0 54,8 Z"
+        android:strokeColor="#151515"
+        android:strokeWidth="3" />
+</vector>

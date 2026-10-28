@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -101,8 +110,7 @@ private data class ListCardUiModel(
     val doneTasks: Int,
     val backgroundColor: Color,
     val contentColor: Color,
-    val nextItemText: String? = null,
-    val isLastTaller: Boolean = false
+    val nextPendingTask: TaskEntity? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -125,11 +133,11 @@ fun ListsScreen(
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val allCardModels = categories.mapIndexed { index, cat ->
+    val allCardModels = categories.map { cat ->
         val catTasks = tasks.filter { it.category.equals(cat.name, ignoreCase = true) }
         val total = catTasks.size
         val done = catTasks.count { it.done }
-        val nextPending = catTasks.firstOrNull { !it.done }?.title
+        val nextPending = catTasks.firstOrNull { !it.done }
         ListCardUiModel(
             categoryName = cat.name,
             icon = CategoryIcons.getIcon(cat.iconKey),
@@ -137,8 +145,7 @@ fun ListsScreen(
             doneTasks = done,
             backgroundColor = Color(cat.colorHex),
             contentColor = CategoryColors.getContentColor(cat.colorHex),
-            nextItemText = if (nextPending != null) "Next: $nextPending" else null,
-            isLastTaller = index == categories.size - 1
+            nextPendingTask = nextPending
         )
     }
 
@@ -207,6 +214,9 @@ fun ListsScreen(
                         cards = displayedCards,
                         onCardClick = { categoryName ->
                             selectedCategoryForSheet = categoryName
+                        },
+                        onTaskClick = { task ->
+                            onNavigate(Screen.TaskDetail(task.id))
                         }
                     )
                 }
@@ -424,13 +434,15 @@ private fun ListsFilterPills(
 
 /**
  * Overlapping list cards:
- * 28dp radius, full width, each card overlaps previous by about 18dp.
- * Uses layout modifier to report height minus overlapPx so following card overlaps it.
+ * Compact height (~140dp exposed), 32dp radius, 20dp padding.
+ * Each card overlaps the one above by 16dp with next card drawn on top (zIndex).
+ * Generous bottom padding keeps the previous card's progress bar fully visible.
  */
 @Composable
 private fun OverlappingListCards(
     cards: List<ListCardUiModel>,
-    onCardClick: (String) -> Unit
+    onCardClick: (String) -> Unit,
+    onTaskClick: (TaskEntity) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         cards.forEachIndexed { index, card ->
@@ -438,8 +450,10 @@ private fun OverlappingListCards(
             SingleOverlappingListCard(
                 card = card,
                 isOverlapped = !isLast,
+                isLast = isLast,
                 zIndex = index.toFloat(),
-                onClick = { onCardClick(card.categoryName) }
+                onClick = { onCardClick(card.categoryName) },
+                onTaskClick = onTaskClick
             )
         }
     }
@@ -449,11 +463,13 @@ private fun OverlappingListCards(
 private fun SingleOverlappingListCard(
     card: ListCardUiModel,
     isOverlapped: Boolean,
+    isLast: Boolean,
     zIndex: Float,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onTaskClick: (TaskEntity) -> Unit
 ) {
-    val cardHeight = if (card.isLastTaller) 255.dp else 192.dp
-    val overlapPx = 18.dp
+    val overlapPx = 16.dp
+    val showNextTaskFooter = isLast && card.nextPendingTask != null
 
     Box(
         modifier = Modifier
@@ -470,35 +486,41 @@ private fun SingleOverlappingListCard(
                     placeable.placeRelative(0, 0)
                 }
             }
-            .height(cardHeight)
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(32.dp))
             .background(card.backgroundColor)
             .clickable(onClick = onClick)
-            .padding(16.dp)
+            .padding(
+                start = 20.dp,
+                top = 20.dp,
+                end = 20.dp,
+                bottom = if (isOverlapped) 36.dp else 20.dp
+            )
             .testTag("list_card_${card.categoryName.lowercase()}")
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top Row: Category tag (left) + Arrow outward circle (right)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // 1. Top Row: Pill (top-left) + Arrow button (top-right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // White pill tag: height 32dp, icon 18dp + Outfit Medium 14sp
+                // Smaller white pill with outlined line icon (2dp stroke, not filled) + label at 14sp medium
                 Box(
                     modifier = Modifier
-                        .height(32.dp)
+                        .height(30.dp)
                         .clip(CircleShape)
                         .background(Color.White)
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = card.icon,
-                            contentDescription = card.categoryName,
-                            tint = AppBlack,
-                            modifier = Modifier.size(18.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CategoryOutlinedIcon(
+                            categoryName = card.categoryName,
+                            icon = card.icon,
+                            color = AppBlack
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -511,59 +533,62 @@ private fun SingleOverlappingListCard(
                     }
                 }
 
-                // 44dp white circle with black arrow_outward icon 22dp
+                // Arrow button (top-right): white circle, 40dp, black ↗ arrow
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(Color.White)
                         .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
-                        size = 22.dp,
+                        size = 20.dp,
                         color = AppBlack
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Title: Outfit Bold 32sp
+            // 2. Bold title at about 30sp
             Text(
                 text = card.categoryName,
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = 32.sp,
-                lineHeight = 36.sp,
+                fontSize = 30.sp,
+                lineHeight = 32.sp,
                 color = card.contentColor
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // "12 tasks" Outfit Regular 16sp (reduced opacity)
+            // 3. "12 tasks" at 16sp semibold with about 70% opacity
             Text(
-                text = "${card.totalTasks} tasks",
+                text = if (card.totalTasks == 1) "1 task" else "${card.totalTasks} tasks",
                 fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.Normal,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
-                color = card.contentColor.copy(alpha = 0.8f)
+                lineHeight = 20.sp,
+                color = card.contentColor.copy(alpha = 0.70f)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // "8 of 12 done" Outfit Medium 15sp
+            // 4. "8 of 12 done" at 14sp medium
             Text(
                 text = "${card.doneTasks} of ${card.totalTasks} done",
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Medium,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
+                lineHeight = 18.sp,
                 color = card.contentColor
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Progress bar: 8dp high fully rounded (track = 25% opacity, fill = solid)
+            // 5. Progress bar: full card width, 8dp tall, fully rounded.
+            // Track is text color at ~25% opacity; fill is solid white or black.
             val progress = if (card.totalTasks > 0) {
                 (card.doneTasks.toFloat() / card.totalTasks.toFloat()).coerceIn(0f, 1f)
             } else 0f
@@ -575,20 +600,22 @@ private fun SingleOverlappingListCard(
                     .clip(CircleShape)
                     .background(card.contentColor.copy(alpha = 0.25f))
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(fraction = progress)
-                        .clip(CircleShape)
-                        .background(card.contentColor)
-                )
+                if (progress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(fraction = progress)
+                            .clip(CircleShape)
+                            .background(card.contentColor)
+                    )
+                }
             }
 
-            // Last card only (Study): thin divider + 32dp black circle with white chevron + "Next: Read chapter 5"
-            if (card.isLastTaller && card.nextItemText != null) {
-                Spacer(modifier = Modifier.height(16.dp))
+            // 6. Next-task footer (on card with pending task)
+            if (showNextTaskFooter && card.nextPendingTask != null) {
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Thin divider
+                // Thin divider under the progress bar
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -598,11 +625,14 @@ private fun SingleOverlappingListCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Row with 32dp black circle holding a white ">" chevron, then "Next: <task title>" at 14sp semibold
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onTaskClick(card.nextPendingTask) }
+                        .testTag("next_task_footer_${card.categoryName.lowercase()}")
                 ) {
-                    // 32dp black circle with white chevron
                     Box(
                         modifier = Modifier
                             .size(32.dp)
@@ -612,24 +642,238 @@ private fun SingleOverlappingListCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ChevronRight,
-                            contentDescription = "Next Task",
+                            contentDescription = "Open task",
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     Text(
-                        text = card.nextItemText,
+                        text = "Next: ${card.nextPendingTask.title}",
                         fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
-                        color = card.contentColor
+                        color = card.contentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * Renders an outlined icon with 2dp stroke according to category name:
+ * Briefcase (Work), horizontal dumbbell (Health), user outline (Personal), open book (Study).
+ */
+@Composable
+private fun CategoryOutlinedIcon(
+    categoryName: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    color: Color = AppBlack
+) {
+    val clean = categoryName.lowercase().trim()
+    when {
+        clean.contains("work") || clean.contains("job") || clean.contains("office") -> {
+            WorkOutlineIcon(modifier = modifier, color = color)
+        }
+        clean.contains("health") || clean.contains("gym") || clean.contains("fit") -> {
+            HorizontalDumbbellIcon(modifier = modifier, color = color)
+        }
+        clean.contains("personal") || clean.contains("self") || clean.contains("me") -> {
+            PersonOutlineIcon(modifier = modifier, color = color)
+        }
+        clean.contains("study") || clean.contains("book") || clean.contains("learn") || clean.contains("read") -> {
+            BookOutlineIcon(modifier = modifier, color = color)
+        }
+        else -> {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+/** Outlined briefcase with top handle, rounded body, and divider latch line */
+@Composable
+private fun WorkOutlineIcon(
+    modifier: Modifier = Modifier,
+    color: Color = AppBlack
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val strokeWidth = 1.8.dp.toPx()
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val w = size.width
+        val h = size.height
+
+        // Top handle
+        val handlePath = Path().apply {
+            moveTo(w * 0.34f, h * 0.30f)
+            lineTo(w * 0.34f, h * 0.14f)
+            quadraticTo(w * 0.34f, h * 0.06f, w * 0.44f, h * 0.06f)
+            lineTo(w * 0.56f, h * 0.06f)
+            quadraticTo(w * 0.66f, h * 0.06f, w * 0.66f, h * 0.14f)
+            lineTo(w * 0.66f, h * 0.30f)
+        }
+        drawPath(handlePath, color = color, style = stroke)
+
+        // Body rounded rectangle
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.08f, h * 0.30f),
+            size = Size(w * 0.84f, h * 0.62f),
+            cornerRadius = CornerRadius(w * 0.14f, h * 0.14f),
+            style = stroke
+        )
+
+        // Center line across body
+        drawLine(
+            color = color,
+            start = Offset(w * 0.08f, h * 0.58f),
+            end = Offset(w * 0.92f, h * 0.58f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+
+        // Center latch
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.42f, h * 0.52f),
+            size = Size(w * 0.16f, h * 0.12f),
+            cornerRadius = CornerRadius(w * 0.03f, h * 0.03f),
+            style = stroke
+        )
+    }
+}
+
+/** Outlined horizontal dumbbell with connecting bar and vertical weight plates on left and right */
+@Composable
+private fun HorizontalDumbbellIcon(
+    modifier: Modifier = Modifier,
+    color: Color = AppBlack
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val strokeWidth = 1.8.dp.toPx()
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val w = size.width
+        val h = size.height
+        val midY = h * 0.5f
+
+        // Horizontal connecting bar
+        drawLine(
+            color = color,
+            start = Offset(w * 0.14f, midY),
+            end = Offset(w * 0.86f, midY),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+
+        // Left outer weight plate
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.06f, h * 0.22f),
+            size = Size(w * 0.12f, h * 0.56f),
+            cornerRadius = CornerRadius(w * 0.06f, h * 0.06f),
+            style = stroke
+        )
+
+        // Left inner weight plate
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.22f, h * 0.30f),
+            size = Size(w * 0.08f, h * 0.40f),
+            cornerRadius = CornerRadius(w * 0.04f, h * 0.04f),
+            style = stroke
+        )
+
+        // Right inner weight plate
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.70f, h * 0.30f),
+            size = Size(w * 0.08f, h * 0.40f),
+            cornerRadius = CornerRadius(w * 0.04f, h * 0.04f),
+            style = stroke
+        )
+
+        // Right outer weight plate
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.82f, h * 0.22f),
+            size = Size(w * 0.12f, h * 0.56f),
+            cornerRadius = CornerRadius(w * 0.06f, h * 0.06f),
+            style = stroke
+        )
+    }
+}
+
+/** Outlined user icon with circular head and curved shoulder contour */
+@Composable
+private fun PersonOutlineIcon(
+    modifier: Modifier = Modifier,
+    color: Color = AppBlack
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val strokeWidth = 1.8.dp.toPx()
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val w = size.width
+        val h = size.height
+
+        // Head circle
+        drawCircle(
+            color = color,
+            radius = w * 0.20f,
+            center = Offset(w * 0.5f, h * 0.30f),
+            style = stroke
+        )
+
+        // Shoulder arc
+        val shoulderPath = Path().apply {
+            moveTo(w * 0.16f, h * 0.88f)
+            quadraticTo(w * 0.20f, h * 0.62f, w * 0.5f, h * 0.62f)
+            quadraticTo(w * 0.80f, h * 0.62f, w * 0.84f, h * 0.88f)
+        }
+        drawPath(shoulderPath, color = color, style = stroke)
+    }
+}
+
+/** Outlined open book icon with spine and curved pages */
+@Composable
+private fun BookOutlineIcon(
+    modifier: Modifier = Modifier,
+    color: Color = AppBlack
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val strokeWidth = 1.8.dp.toPx()
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val w = size.width
+        val h = size.height
+
+        val bookPath = Path().apply {
+            // Spine top
+            moveTo(w * 0.5f, h * 0.32f)
+            // Left page top curve
+            quadraticTo(w * 0.30f, h * 0.22f, w * 0.10f, h * 0.26f)
+            // Left edge
+            lineTo(w * 0.10f, h * 0.74f)
+            // Left page bottom curve
+            quadraticTo(w * 0.30f, h * 0.70f, w * 0.5f, h * 0.80f)
+            // Center spine up
+            lineTo(w * 0.5f, h * 0.32f)
+            // Right page top curve
+            quadraticTo(w * 0.70f, h * 0.22f, w * 0.90f, h * 0.26f)
+            // Right edge
+            lineTo(w * 0.90f, h * 0.74f)
+            // Right page bottom curve
+            quadraticTo(w * 0.70f, h * 0.70f, w * 0.5f, h * 0.80f)
+        }
+        drawPath(bookPath, color = color, style = stroke)
     }
 }
 
@@ -1032,7 +1276,7 @@ private fun ListsSearchModalOverlay(
                             .height(200.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(searchResults) { task ->
+                        items(searchResults, key = { it.id }) { task ->
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()

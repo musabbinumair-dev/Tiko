@@ -10,12 +10,12 @@ plugins {
 
 android {
   namespace = "com.musab.tiko"
-  compileSdk = 37
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.tiko.kxmpzq"
     minSdk = 24
-    targetSdk = 37
+    targetSdk = 35
     versionCode = 1
     versionName = "1.0"
 

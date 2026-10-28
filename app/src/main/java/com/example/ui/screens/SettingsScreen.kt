@@ -206,6 +206,9 @@ fun SettingsScreen(
             // AVATAR & USER INFO
             item {
                 Spacer(modifier = Modifier.height(10.dp))
+                val user = currentUser
+                val displayName = user?.displayName ?: userName.ifBlank { "Guest" }
+                val displayEmail = user?.email ?: userEmail.ifBlank { "user@example.com" }
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -218,11 +221,7 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         com.example.ui.components.UserInitialsAvatar(
-                            name = if (user != null) {
-                                user.displayName ?: "User"
-                            } else {
-                                "Guest"
-                            },
+                            name = displayName,
                             size = 110.dp,
                             backgroundColor = CardYellow,
                             textColor = AppBlack,
@@ -255,13 +254,8 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Name: Outfit ExtraBold 34sp
-                    val user = currentUser
                     Text(
-                        text = if (user != null) {
-                            user.displayName ?: "User"
-                        } else {
-                            "Guest"
-                        },
+                        text = displayName,
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 34.sp,
@@ -273,7 +267,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // White pill with email or "Log in" button for guest
-                    if (user != null) {
+                    if (user != null || userEmail.isNotBlank()) {
                         Box(
                             modifier = Modifier
                                 .height(34.dp)
@@ -284,7 +278,7 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = user.email ?: "user@example.com",
+                                text = displayEmail,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 15.sp,

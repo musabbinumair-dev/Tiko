@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "542946903408",
+    "project_id": "tiko-de3d6",
+    "storage_bucket": "tiko-de3d6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:542946903408:android:468b3a90ad7ce4056ebbb5",
+        "android_client_info": {
+          "package_name": "com.musab.tiko"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA60kwBJwa9D5_HBXmXpq-cif6iix0-UI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

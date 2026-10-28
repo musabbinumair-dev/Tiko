@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.musab.tiko"
   compileSdk = 37
 
   defaultConfig {

@@ -108,7 +108,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 val name = user.displayName ?: "User"
                 val email = user.email ?: ""
                 viewModel.saveUserProfile(name, email)
-                viewModel.startSync(user.uid, isFirstPullAfterLogin = false)
                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
             }
             // If currentUser is null, stay on Welcome screen (default)
@@ -118,9 +117,9 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     LaunchedEffect(allTasks) {
         val activity = context as? ComponentActivity
         val intent = activity?.intent
-        val notifTaskId = intent?.getStringExtra("task_id")
-            ?: intent?.getStringExtra("TASK_ID")
-            ?: intent?.getStringExtra("taskId")
+        val notifTaskId = intent?.getLongExtra("task_id", -1L)?.takeIf { it != -1L }
+            ?: intent?.getLongExtra("TASK_ID", -1L)?.takeIf { it != -1L }
+            ?: intent?.getLongExtra("taskId", -1L)?.takeIf { it != -1L }
         val route = intent?.getStringExtra("route")
         if (notifTaskId != null) {
             intent?.removeExtra("task_id")
@@ -275,9 +274,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val name = user?.displayName?.ifBlank { null }
                                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
                                 viewModel.saveUserProfile(name, email)
-                                if (user != null) {
-                                    viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
-                                }
                                 viewModel.navigateToHomeClearingAuth()
                             },
                             onSignUp = {
@@ -294,9 +290,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: currentUser
                                 val finalName = name.ifBlank { user?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() } }
                                 viewModel.saveUserProfile(finalName, email)
-                                if (user != null) {
-                                    viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
-                                }
                                 viewModel.navigateToHomeClearingAuth()
                             },
                             onNavigateLogin = {

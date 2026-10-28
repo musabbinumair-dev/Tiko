@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import com.example.data.local.TaskDao
+import com.example.data.local.TikoDatabase
 import com.example.data.model.TaskEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -10,9 +11,9 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     val allTasks: Flow<List<TaskEntity>> = taskDao.getAllTasks()
 
-    fun getTaskById(id: String): Flow<TaskEntity?> = taskDao.getTaskById(id)
+    fun getTaskById(id: Long): Flow<TaskEntity?> = taskDao.getTaskById(id)
 
-    suspend fun getTaskByIdOnce(id: String): TaskEntity? = withContext(Dispatchers.IO) {
+    suspend fun getTaskByIdOnce(id: Long): TaskEntity? = withContext(Dispatchers.IO) {
         taskDao.getTaskByIdOnce(id)
     }
 
@@ -22,51 +23,46 @@ class TaskRepository(private val taskDao: TaskDao) {
     fun getTasksByDate(date: String): Flow<List<TaskEntity>> =
         taskDao.getTasksByDate(date)
 
-    suspend fun insertTask(task: TaskEntity) = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        taskDao.insertTask(task.copy(updatedAt = now, synced = false))
+    suspend fun insertTask(task: TaskEntity): Long = withContext(Dispatchers.IO) {
+        taskDao.insertTask(task)
     }
 
     suspend fun updateTask(task: TaskEntity) = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        taskDao.updateTask(task.copy(updatedAt = now, synced = false))
+        taskDao.updateTask(task)
     }
 
     suspend fun toggleTaskDone(task: TaskEntity) = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        val newDone = !task.done
-        val completedAt = if (newDone) now else null
-        taskDao.setTaskDone(task.id, newDone, completedAt, now)
+        taskDao.setTaskDone(task.id, !task.done)
     }
 
-    suspend fun toggleSubtask(taskId: String, subtaskId: String) = withContext(Dispatchers.IO) {
+    suspend fun toggleSubtask(taskId: Long, subtaskId: String) = withContext(Dispatchers.IO) {
         val task = taskDao.getTaskByIdOnce(taskId) ?: return@withContext
         val updated = task.copyWithToggledSubtask(subtaskId)
         taskDao.updateTask(updated)
     }
 
-    suspend fun addSubtask(taskId: String, title: String) = withContext(Dispatchers.IO) {
+    suspend fun addSubtask(taskId: Long, title: String) = withContext(Dispatchers.IO) {
         val task = taskDao.getTaskByIdOnce(taskId) ?: return@withContext
         val updated = task.copyWithAddedSubtask(title)
         taskDao.updateTask(updated)
     }
 
-    suspend fun removeSubtask(taskId: String, subtaskId: String) = withContext(Dispatchers.IO) {
+    suspend fun removeSubtask(taskId: Long, subtaskId: String) = withContext(Dispatchers.IO) {
         val task = taskDao.getTaskByIdOnce(taskId) ?: return@withContext
         val updated = task.copyWithRemovedSubtask(subtaskId)
         taskDao.updateTask(updated)
     }
 
     suspend fun deleteTask(task: TaskEntity) = withContext(Dispatchers.IO) {
-        taskDao.softDeleteById(task.id, System.currentTimeMillis())
+        taskDao.deleteTask(task)
     }
 
-    suspend fun deleteTaskById(id: String) = withContext(Dispatchers.IO) {
-        taskDao.softDeleteById(id, System.currentTimeMillis())
+    suspend fun deleteTaskById(id: Long) = withContext(Dispatchers.IO) {
+        taskDao.deleteById(id)
     }
 
     suspend fun deleteCompletedTasks(): Int = withContext(Dispatchers.IO) {
-        taskDao.softDeleteCompletedTasks(System.currentTimeMillis())
+        taskDao.deleteCompletedTasks()
     }
 
     suspend fun clearAllTasks() = withContext(Dispatchers.IO) {

@@ -71,7 +71,7 @@ private val DetailPurple = Color(0xFF6B4EFF)
 
 @Composable
 fun TaskDetailScreen(
-    taskId: String,
+    taskId: Long,
     viewModel: TikoViewModel,
     onNavigate: (Screen) -> Unit,
     onBack: () -> Unit,

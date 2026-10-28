@@ -101,7 +101,7 @@ private val CardBlack = Color(0xFF151515)
 private val CardLime = Color(0xFFC8DB6A)
 
 private data class HomeCardData(
-    val id: String,
+    val id: Long,
     val title: String,
     val time: String,
     val category: String,
@@ -454,7 +454,7 @@ private fun HomeStatPills(stats: TodayStats) {
 @Composable
 private fun OverlappingTaskCardsList(
     cards: List<HomeCardData>,
-    onCardClick: (String) -> Unit
+    onCardClick: (Long) -> Unit
 ) {
     if (cards.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {

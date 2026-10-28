@@ -9,7 +9,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@Database(entities = [TaskEntity::class], version = 4, exportSchema = false)
+@Database(entities = [TaskEntity::class], version = 3, exportSchema = false)
 abstract class TikoDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
 
@@ -25,7 +25,6 @@ abstract class TikoDatabase : RoomDatabase() {
                     "tiko_tasks.db"
                 )
                     .fallbackToDestructiveMigration()
-                    // from now on write real Migrations
                     .build()
                 INSTANCE = instance
                 instance

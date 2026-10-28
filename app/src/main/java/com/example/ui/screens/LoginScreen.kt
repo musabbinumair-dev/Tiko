@@ -33,7 +33,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.example.data.repository.AuthRepository
+import com.example.data.repository.AuthResult
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,9 +73,14 @@ fun LoginScreen(
     onSignUp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
+    
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var isResettingPassword by remember { mutableStateOf(false) }
 
     val backgroundGradient = Brush.verticalGradient(
         0.0f to LoginYellow,
@@ -262,15 +271,27 @@ fun LoginScreen(
                 color = LoginBlack,
                 modifier = Modifier
                     .align(Alignment.End)
-                    .clickable {
-                        AppDialogController.alert(
-                            title = "Reset Password",
-                            message = if (email.isNotBlank()) {
-                                "A reset link has been sent to $email."
-                            } else {
-                                "Please enter your email above to receive a password reset link."
+                    .clickable(enabled = !isResettingPassword) {
+                        val trimmedEmail = email.trim()
+                        if (trimmedEmail.isEmpty()) {
+                            AppToastController.show("Enter your email first", ToastType.Error)
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+                            AppToastController.show("Please enter a valid email address", ToastType.Error)
+                        } else {
+                            isResettingPassword = true
+                            scope.launch {
+                                when (val result = authRepository.sendPasswordReset(trimmedEmail)) {
+                                    is AuthResult.Success -> {
+                                        AppToastController.show("Reset link sent", ToastType.Success)
+                                        isResettingPassword = false
+                                    }
+                                    is AuthResult.Error -> {
+                                        AppToastController.show(result.message, ToastType.Error)
+                                        isResettingPassword = false
+                                    }
+                                }
                             }
-                        )
+                        }
                     }
                     .testTag("login_forgot_password")
             )
@@ -284,31 +305,55 @@ fun LoginScreen(
                     .height(56.dp)
                     .clip(CircleShape)
                     .background(LoginBlack)
-                    .clickable {
+                    .clickable(enabled = !isLoading) {
                         val trimmedEmail = email.trim()
-                        if (trimmedEmail.isEmpty()) {
-                            AppToastController.show("Please enter your email address", ToastType.Error)
-                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
-                            AppToastController.show("Please enter a valid email address", ToastType.Error)
-                        } else if (password.isEmpty()) {
-                            AppToastController.show("Please enter your password", ToastType.Error)
-                        } else if (password.length < 6) {
-                            AppToastController.show("Password must be at least 6 characters", ToastType.Error)
-                        } else {
-                            AppToastController.show("Welcome back!", ToastType.Success)
-                            onLoginSuccess(trimmedEmail)
+                        val trimmedPassword = password.trim()
+                        
+                        when {
+                            trimmedEmail.isEmpty() -> {
+                                AppToastController.show("Please enter your email address", ToastType.Error)
+                            }
+                            !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches() -> {
+                                AppToastController.show("Please enter a valid email address", ToastType.Error)
+                            }
+                            trimmedPassword.length < 8 -> {
+                                AppToastController.show("Use at least 8 characters.", ToastType.Error)
+                            }
+                            else -> {
+                                isLoading = true
+                                scope.launch {
+                                    when (val result = authRepository.signIn(trimmedEmail, trimmedPassword)) {
+                                        is AuthResult.Success -> {
+                                            AppToastController.show("Welcome back!", ToastType.Success)
+                                            onLoginSuccess(trimmedEmail)
+                                        }
+                                        is AuthResult.Error -> {
+                                            AppToastController.show(result.message, ToastType.Error)
+                                            isLoading = false
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     .testTag("login_submit_button"),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Log in",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color.White
-                )
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        text = "Log in",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color.White
+                    )
+                }
             }
 
             // 7. Divider: thin gray lines with "or" centered, Outfit Regular 15sp
@@ -349,7 +394,9 @@ fun LoginScreen(
                     .clip(CircleShape)
                     .background(Color.White)
                     .border(1.dp, LoginBlack, CircleShape)
-                    .clickable(onClick = { onLoginSuccess("google.user@gmail.com") })
+                    .clickable(onClick = { 
+                        AppToastController.show("Coming soon", ToastType.Info)
+                    })
                     .testTag("continue_with_google"),
                 contentAlignment = Alignment.Center
             ) {
@@ -379,7 +426,9 @@ fun LoginScreen(
                     .clip(CircleShape)
                     .background(Color.White)
                     .border(1.dp, LoginBlack, CircleShape)
-                    .clickable(onClick = { onLoginSuccess("apple.user@icloud.com") })
+                    .clickable(onClick = { 
+                        AppToastController.show("Coming soon", ToastType.Info)
+                    })
                     .testTag("continue_with_apple"),
                 contentAlignment = Alignment.Center
             ) {

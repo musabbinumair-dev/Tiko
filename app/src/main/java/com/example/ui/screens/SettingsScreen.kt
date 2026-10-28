@@ -47,7 +47,11 @@ import com.example.ui.components.AppToastController
 import com.example.ui.components.ToastType
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.example.data.repository.AuthRepository
+import com.example.data.repository.AuthResult
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,6 +94,10 @@ fun SettingsScreen(
     onNavigate: (Screen) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
+    val currentUser by authRepository.currentUser.collectAsState(initial = null)
+    
     // Intercept hardware/gesture back press to return to Home
     BackHandler {
         viewModel.selectTab(NavigationTab.HOME)
@@ -209,7 +218,11 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         com.example.ui.components.UserInitialsAvatar(
-                            name = userName,
+                            name = if (currentUser != null) {
+                                currentUser.displayName ?: "User"
+                            } else {
+                                "Guest"
+                            },
                             size = 110.dp,
                             backgroundColor = CardYellow,
                             textColor = AppBlack,
@@ -243,7 +256,11 @@ fun SettingsScreen(
 
                     // Name: Outfit ExtraBold 34sp
                     Text(
-                        text = if (userName.isNotBlank()) userName else "User",
+                        text = if (currentUser != null) {
+                            currentUser.displayName ?: "User"
+                        } else {
+                            "Guest"
+                        },
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 34.sp,
@@ -254,23 +271,46 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // White pill with email, Outfit Medium 15sp
-                    Box(
-                        modifier = Modifier
-                            .height(34.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, Color(0xFFDCD8CB), CircleShape)
-                            .padding(horizontal = 20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (userEmail.isNotBlank()) userEmail else "user@example.com",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp,
-                            color = AppBlack
-                        )
+                    // White pill with email or "Log in" button for guest
+                    if (currentUser != null) {
+                        Box(
+                            modifier = Modifier
+                                .height(34.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(1.dp, Color(0xFFDCD8CB), CircleShape)
+                                .padding(horizontal = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = currentUser.email ?: "user@example.com",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                color = AppBlack
+                            )
+                        }
+                    } else {
+                        // Guest mode: show "Log in" button
+                        Box(
+                            modifier = Modifier
+                                .height(34.dp)
+                                .clip(CircleShape)
+                                .background(AppBlack)
+                                .clickable {
+                                    onNavigate(Screen.Login)
+                                }
+                                .padding(horizontal = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Log in",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
@@ -537,37 +577,198 @@ fun SettingsScreen(
             }
 
             // "Log out" BUTTON
-            item {
-                Spacer(modifier = Modifier.height(18.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .height(52.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF151515))
-                        .clickable {
-                            AppDialogController.confirm(
-                                title = "Log Out",
-                                message = "Are you sure you want to log out of your account?",
-                                confirmText = "Log out",
-                                destructive = true,
-                                onConfirm = {
-                                    viewModel.logout()
-                                    AppToastController.show("Logged out successfully", ToastType.Success)
+            if (currentUser != null) {
+                item {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF151515))
+                            .clickable {
+                                AppDialogController.confirm(
+                                    title = "Log Out",
+                                    message = "Are you sure you want to log out of your account?",
+                                    confirmText = "Log out",
+                                    destructive = true,
+                                    onConfirm = {
+                                        scope.launch {
+                                            authRepository.signOut()
+                                            viewModel.clearDatabase()
+                                            AppToastController.show("Logged out successfully", ToastType.Success)
+                                            onNavigate(Screen.Welcome)
+                                        }
+                                    }
+                                )
+                            }
+                            .testTag("profile_logout_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Log out",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // "Delete account" BUTTON (red)
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    var deletePasswordInput by remember { mutableStateOf("") }
+                    var showDeleteDialog by remember { mutableStateOf(false) }
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFF3B30))
+                            .clickable {
+                                showDeleteDialog = true
+                            }
+                            .testTag("profile_delete_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Delete account",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                    }
+                    
+                    // Delete confirmation dialog with password
+                    if (showDeleteDialog) {
+                        BackHandler { showDeleteDialog = false }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .zIndex(2000f)
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { showDeleteDialog = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .clip(RoundedCornerShape(28.dp))
+                                    .background(Color.White)
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Delete Account",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 22.sp,
+                                    color = AppBlack
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "This action cannot be undone. Enter your password to confirm.",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF6B6B6B),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                OutlinedTextField(
+                                    value = deletePasswordInput,
+                                    onValueChange = { deletePasswordInput = it },
+                                    placeholder = { Text("Password") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = AppBlack,
+                                        unfocusedBorderColor = Color(0xFFCCCCCC)
+                                    )
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFEFEBDD))
+                                            .clickable { 
+                                                showDeleteDialog = false
+                                                deletePasswordInput = ""
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Cancel",
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = AppBlack
+                                        )
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFF3B30))
+                                            .clickable {
+                                                if (deletePasswordInput.isNotBlank()) {
+                                                    scope.launch {
+                                                        when (val result = authRepository.reauthenticate(deletePasswordInput)) {
+                                                            is AuthResult.Success -> {
+                                                                when (val deleteResult = authRepository.deleteAccount()) {
+                                                                    is AuthResult.Success -> {
+                                                                        viewModel.clearDatabase()
+                                                                        AppToastController.show("Account deleted", ToastType.Success)
+                                                                        showDeleteDialog = false
+                                                                        onNavigate(Screen.Welcome)
+                                                                    }
+                                                                    is AuthResult.Error -> {
+                                                                        AppToastController.show(deleteResult.message, ToastType.Error)
+                                                                    }
+                                                                }
+                                                            }
+                                                            is AuthResult.Error -> {
+                                                                AppToastController.show(result.message, ToastType.Error)
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    AppToastController.show("Please enter your password", ToastType.Error)
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Delete",
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = Color.White
+                                        )
+                                    }
                                 }
-                            )
+                            }
                         }
-                        .testTag("profile_logout_button"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Log out",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = Color.White
-                    )
+                    }
                 }
             }
         }

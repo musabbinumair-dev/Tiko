@@ -37,7 +37,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.example.data.repository.AuthRepository
+import com.example.data.repository.AuthResult
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -78,16 +82,21 @@ fun SignUpScreen(
     onNavigateLogin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
+    
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var agreedToTerms by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
     val isFormValid = fullName.isNotBlank() &&
         email.isNotBlank() &&
         password.isNotBlank() &&
-        agreedToTerms
+        agreedToTerms &&
+        !isLoading
 
     val backgroundGradient = Brush.verticalGradient(
         0.0f to SignUpYellow,
@@ -440,36 +449,62 @@ fun SignUpScreen(
                     .clip(CircleShape)
                     .background(SignUpBlack)
                     .alpha(if (isFormValid) 1.0f else 0.4f)
-                    .clickable {
+                    .clickable(enabled = isFormValid) {
                         val trimmedName = fullName.trim()
                         val trimmedEmail = email.trim()
-                        if (trimmedName.isEmpty()) {
-                            AppToastController.show("Please enter your full name", ToastType.Error)
-                        } else if (trimmedEmail.isEmpty()) {
-                            AppToastController.show("Please enter your email address", ToastType.Error)
-                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
-                            AppToastController.show("Please enter a valid email address", ToastType.Error)
-                        } else if (password.isEmpty()) {
-                            AppToastController.show("Please enter a password", ToastType.Error)
-                        } else if (password.length < 6) {
-                            AppToastController.show("Password must be at least 6 characters", ToastType.Error)
-                        } else if (!agreedToTerms) {
-                            AppToastController.show("Please agree to the Terms and Privacy Policy", ToastType.Warning)
-                        } else {
-                            AppToastController.show("Account created successfully!", ToastType.Success)
-                            onCreateAccountSuccess(trimmedName, trimmedEmail)
+                        val trimmedPassword = password.trim()
+                        
+                        when {
+                            trimmedName.isEmpty() -> {
+                                AppToastController.show("Please enter your full name", ToastType.Error)
+                            }
+                            trimmedEmail.isEmpty() -> {
+                                AppToastController.show("Please enter your email address", ToastType.Error)
+                            }
+                            !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches() -> {
+                                AppToastController.show("Please enter a valid email address", ToastType.Error)
+                            }
+                            trimmedPassword.length < 8 -> {
+                                AppToastController.show("Use at least 8 characters.", ToastType.Error)
+                            }
+                            !agreedToTerms -> {
+                                AppToastController.show("Please agree to the Terms and Privacy Policy", ToastType.Warning)
+                            }
+                            else -> {
+                                isLoading = true
+                                scope.launch {
+                                    when (val result = authRepository.signUp(trimmedName, trimmedEmail, trimmedPassword)) {
+                                        is AuthResult.Success -> {
+                                            AppToastController.show("Account created successfully!", ToastType.Success)
+                                            onCreateAccountSuccess(trimmedName, trimmedEmail)
+                                        }
+                                        is AuthResult.Error -> {
+                                            AppToastController.show(result.message, ToastType.Error)
+                                            isLoading = false
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     .testTag("signup_submit_button"),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Create account",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color.White
-                )
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        text = "Create account",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color.White
+                    )
+                }
             }
 
             // 6. Divider: "or"
@@ -509,7 +544,9 @@ fun SignUpScreen(
                     .clip(CircleShape)
                     .background(Color.White)
                     .border(1.dp, SignUpBlack, CircleShape)
-                    .clickable(onClick = { onCreateAccountSuccess("Google User", "user@gmail.com") })
+                    .clickable(onClick = { 
+                        AppToastController.show("Coming soon", ToastType.Info)
+                    })
                     .testTag("signup_continue_with_google"),
                 contentAlignment = Alignment.Center
             ) {

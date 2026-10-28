@@ -29,8 +29,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.data.repository.AuthRepository
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,6 +81,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TikoApp(viewModel: TikoViewModel = viewModel()) {
+    val authRepository = remember { AuthRepository() }
+    val currentUser by authRepository.currentUser.collectAsState(initial = null)
+    
     val currentScreen by viewModel.currentScreen.collectAsState()
     val screenStack by viewModel.screenStack.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
@@ -88,6 +93,22 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val haptic = LocalHapticFeedback.current
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
+    var hasCheckedAuth by rememberSaveable { mutableStateOf(false) }
+
+    // Check auth state and navigate appropriately
+    LaunchedEffect(currentUser, hasCheckedAuth) {
+        if (!hasCheckedAuth) {
+            hasCheckedAuth = true
+            if (currentUser != null) {
+                // User is signed in, go to Home
+                val name = currentUser.displayName ?: "User"
+                val email = currentUser.email ?: ""
+                viewModel.saveUserProfile(name, email)
+                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+            }
+            // If currentUser is null, stay on Welcome screen (default)
+        }
+    }
 
     val context = LocalContext.current
     LaunchedEffect(allTasks) {

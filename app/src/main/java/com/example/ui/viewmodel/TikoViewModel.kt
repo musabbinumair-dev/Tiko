@@ -224,6 +224,13 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         _screenStack.value = listOf(Screen.Welcome)
     }
 
+    fun clearDatabase() {
+        viewModelScope.launch {
+            repository.clearAllTasks()
+            preferences.clearUser()
+        }
+    }
+
     fun saveUserProfile(name: String, email: String) {
         preferences.setUserName(name.trim())
         preferences.setUserEmail(email.trim())

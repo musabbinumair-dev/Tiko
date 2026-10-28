@@ -28,7 +28,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Prepare build environment & Keystore
+      - name: Prepare build environment
         run: |
           # Accept Android licenses
           yes | sdkmanager --licenses || true
@@ -42,13 +42,37 @@ jobs:
           fi
           chmod +x ./gradlew
 
-      - name: Decode Keystore
-        run: base64 -d debug.keystore.base64 > debug.keystore
+      - name: Create signing key (first time only)
+        env:
+          KEYSTORE_PASSWORD: "tiko_secure_password_2026_xyz"
+        run: |
+          if [ ! -f "app/tiko.keystore" ]; then
+            keytool -genkeypair \
+              -keystore app/tiko.keystore \
+              -alias tiko \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Tiko" \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEYSTORE_PASSWORD"
+            git config --global user.name "github-actions"
+            git config --global user.email "actions@github.com"
+            git add -f app/tiko.keystore
+            git commit -m "Add signing key [skip ci]" || true
+            git push || true
+          fi
 
-      - name: Print Keystore SHA-1
-        run: keytool -list -v -keystore debug.keystore -storepass android
+      - name: Print Keystore SHA-1 and SHA-256
+        run: |
+          keytool -list -v -keystore app/tiko.keystore -storepass "tiko_secure_password_2026_xyz" | grep -iE "sha1|sha-1|sha256|sha-256" >> $GITHUB_STEP_SUMMARY || true
 
       - name: Build Debug APK
+        env:
+          KEYSTORE_PATH: app/tiko.keystore
+          KEYSTORE_PASSWORD: "tiko_secure_password_2026_xyz"
+          KEY_ALIAS: tiko
+          KEY_PASSWORD: "tiko_secure_password_2026_xyz"
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact

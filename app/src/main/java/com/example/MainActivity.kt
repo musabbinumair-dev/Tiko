@@ -34,11 +34,13 @@ import com.example.ui.components.AppOverlayHost
 import com.example.ui.components.AppToastController
 import com.example.ui.components.EmptyState
 import com.example.ui.components.ToastType
+import androidx.compose.ui.platform.LocalContext
 import com.example.ui.screens.AddEditTaskScreen
 import com.example.ui.screens.CalendarScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ListsScreen
 import com.example.ui.screens.LoginScreen
+import com.example.ui.screens.NotFoundScreen
 import com.example.ui.screens.SaveErrorScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SignUpScreen
@@ -72,6 +74,25 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val notifEnabled by viewModel.preferences.notificationsEnabled.collectAsState()
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    LaunchedEffect(allTasks) {
+        val activity = context as? ComponentActivity
+        val intent = activity?.intent
+        val notifTaskId = intent?.getLongExtra("task_id", -1L)?.takeIf { it != -1L }
+            ?: intent?.getLongExtra("TASK_ID", -1L)?.takeIf { it != -1L }
+            ?: intent?.getLongExtra("taskId", -1L)?.takeIf { it != -1L }
+        val route = intent?.getStringExtra("route")
+        if (notifTaskId != null) {
+            intent?.removeExtra("task_id")
+            intent?.removeExtra("TASK_ID")
+            intent?.removeExtra("taskId")
+            viewModel.handleTaskNotificationIntent(notifTaskId)
+        } else if (!route.isNullOrBlank()) {
+            intent?.removeExtra("route")
+            viewModel.navigateToRoute(route)
+        }
+    }
 
     LaunchedEffect(currentScreen, notifEnabled) {
         val isWelcomeOrAuth = currentScreen is Screen.Welcome ||
@@ -203,12 +224,29 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         }
                     }
                     is Screen.TaskDetail -> {
-                        TaskDetailScreen(
-                            taskId = screen.taskId,
-                            viewModel = viewModel,
-                            onNavigate = { viewModel.navigateTo(it) },
-                            onBack = { viewModel.goBack() }
-                        )
+                        val task = allTasks.find { it.id == screen.taskId }
+                        if (task == null) {
+                            NotFoundScreen(
+                                onBackToHome = {
+                                    viewModel.selectTab(NavigationTab.HOME)
+                                },
+                                onGoBack = {
+                                    if (!viewModel.goBack()) {
+                                        viewModel.selectTab(NavigationTab.HOME)
+                                    }
+                                },
+                                onClose = {
+                                    viewModel.selectTab(NavigationTab.HOME)
+                                }
+                            )
+                        } else {
+                            TaskDetailScreen(
+                                taskId = screen.taskId,
+                                viewModel = viewModel,
+                                onNavigate = { viewModel.navigateTo(it) },
+                                onBack = { viewModel.goBack() }
+                            )
+                        }
                     }
                     is Screen.AddTask -> {
                         AddEditTaskScreen(
@@ -218,11 +256,28 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         )
                     }
                     is Screen.EditTask -> {
-                        AddEditTaskScreen(
-                            taskId = screen.taskId,
-                            viewModel = viewModel,
-                            onBack = { viewModel.goBack() }
-                        )
+                        val task = allTasks.find { it.id == screen.taskId }
+                        if (task == null) {
+                            NotFoundScreen(
+                                onBackToHome = {
+                                    viewModel.selectTab(NavigationTab.HOME)
+                                },
+                                onGoBack = {
+                                    if (!viewModel.goBack()) {
+                                        viewModel.selectTab(NavigationTab.HOME)
+                                    }
+                                },
+                                onClose = {
+                                    viewModel.selectTab(NavigationTab.HOME)
+                                }
+                            )
+                        } else {
+                            AddEditTaskScreen(
+                                taskId = screen.taskId,
+                                viewModel = viewModel,
+                                onBack = { viewModel.goBack() }
+                            )
+                        }
                     }
                     is Screen.ErrorSaveFailed -> {
                         SaveErrorScreen(
@@ -238,6 +293,36 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             },
                             onBack = {
                                 viewModel.goBack()
+                            }
+                        )
+                    }
+                    is Screen.NotFound -> {
+                        NotFoundScreen(
+                            onBackToHome = {
+                                viewModel.selectTab(NavigationTab.HOME)
+                            },
+                            onGoBack = {
+                                if (!viewModel.goBack()) {
+                                    viewModel.selectTab(NavigationTab.HOME)
+                                }
+                            },
+                            onClose = {
+                                viewModel.selectTab(NavigationTab.HOME)
+                            }
+                        )
+                    }
+                    else -> {
+                        NotFoundScreen(
+                            onBackToHome = {
+                                viewModel.selectTab(NavigationTab.HOME)
+                            },
+                            onGoBack = {
+                                if (!viewModel.goBack()) {
+                                    viewModel.selectTab(NavigationTab.HOME)
+                                }
+                            },
+                            onClose = {
+                                viewModel.selectTab(NavigationTab.HOME)
                             }
                         )
                     }

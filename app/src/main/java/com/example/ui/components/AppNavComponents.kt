@@ -8,7 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -158,10 +160,12 @@ fun RoundIconButton(
  * Soft porcelain frosted gradient with specular rim and subtle shadow.
  * Fully visible and razor-sharp content with no blur on text or icons.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FrostedGlassPill(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     testTag: String = "",
     elevation: Dp = 4.dp,
     borderWidth: Dp = 1.dp,
@@ -170,7 +174,7 @@ fun FrostedGlassPill(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed && onClick != null) 0.94f else 1.0f,
+        targetValue = if (isPressed && (onClick != null || onLongClick != null)) 0.94f else 1.0f,
         animationSpec = tween(durationMillis = 100),
         label = "glass_pill_press_scale"
     )
@@ -189,7 +193,7 @@ fun FrostedGlassPill(
         .clip(CircleShape)
         .background(
             Brush.verticalGradient(
-                colors = if (isPressed && onClick != null) {
+                colors = if (isPressed && (onClick != null || onLongClick != null)) {
                     listOf(Color(0xFFF0EFEF), Color(0xFFE8E7E2))
                 } else {
                     listOf(Color(0xFFFFFFFF), Color(0xFFF6F5F2))
@@ -207,12 +211,13 @@ fun FrostedGlassPill(
             CircleShape
         )
 
-    val finalModifier = if (onClick != null) {
+    val finalModifier = if (onClick != null || onLongClick != null) {
         baseModifier
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = onClick ?: {},
+                onLongClick = onLongClick
             )
             .testTag(testTag)
     } else {

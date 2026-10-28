@@ -165,7 +165,11 @@ fun HomeScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 HomeTitleRow(
-                    onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
+                    onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) },
+                    onFilterLongClick = {
+                        // DEBUG: Testing only - long-press the "Filters" pill opens not found error screen
+                        onNavigate(Screen.NotFound)
+                    }
                 )
             }
 
@@ -279,7 +283,10 @@ private fun HomeHeader(
 
 // TITLE ROW: "MY TASKS" + "Filters" pill
 @Composable
-private fun HomeTitleRow(onFilterClick: () -> Unit) {
+private fun HomeTitleRow(
+    onFilterClick: () -> Unit,
+    onFilterLongClick: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -300,6 +307,7 @@ private fun HomeTitleRow(onFilterClick: () -> Unit) {
         FrostedGlassPill(
             modifier = Modifier.height(40.dp),
             onClick = onFilterClick,
+            onLongClick = onFilterLongClick,
             testTag = "home_filters_pill"
         ) {
             Row(

@@ -89,40 +89,16 @@ fun TaskDetailScreen(
     // No sample subtasks
 
     if (task == null) {
-        Box(
+        NotFoundScreen(
+            onBackToHome = {
+                viewModel.selectTab(com.example.ui.viewmodel.NavigationTab.HOME)
+            },
+            onGoBack = onBack,
+            onClose = {
+                viewModel.selectTab(com.example.ui.viewmodel.NavigationTab.HOME)
+            },
             modifier = modifier
-                .fillMaxSize()
-                .background(DetailCreamBg),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Task not found",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = DetailBlack
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                Box(
-                    modifier = Modifier
-                        .height(48.dp)
-                        .clip(CircleShape)
-                        .background(DetailBlack)
-                        .clickable(onClick = onBack)
-                        .padding(horizontal = 24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Go back",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-        }
+        )
         return
     }
 

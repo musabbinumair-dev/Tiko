@@ -31,6 +31,9 @@ sealed class Screen {
     object ErrorSaveFailed : Screen() {
         const val ROUTE = "error_save_failed"
     }
+    object NotFound : Screen() {
+        const val ROUTE = "error_not_found"
+    }
 }
 
 enum class NavigationTab {
@@ -126,6 +129,49 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
             return true
         }
         return false
+    }
+
+    fun navigateToRoute(route: String) {
+        val screen = when (route) {
+            "welcome" -> Screen.Welcome
+            "login" -> Screen.Login
+            "signup" -> Screen.SignUp
+            "home" -> Screen.Main(NavigationTab.HOME)
+            "lists" -> Screen.Main(NavigationTab.LISTS)
+            "calendar" -> Screen.Main(NavigationTab.CALENDAR)
+            "settings" -> Screen.Main(NavigationTab.SETTINGS)
+            "add_task" -> Screen.AddTask
+            Screen.ErrorSaveFailed.ROUTE -> Screen.ErrorSaveFailed
+            Screen.NotFound.ROUTE -> Screen.NotFound
+            else -> {
+                if (route.startsWith("task_detail/")) {
+                    val id = route.substringAfter("task_detail/").toLongOrNull()
+                    if (id != null && allTasks.value.any { it.id == id }) {
+                        Screen.TaskDetail(id)
+                    } else {
+                        Screen.NotFound
+                    }
+                } else if (route.startsWith("edit_task/")) {
+                    val id = route.substringAfter("edit_task/").toLongOrNull()
+                    if (id != null && allTasks.value.any { it.id == id }) {
+                        Screen.EditTask(id)
+                    } else {
+                        Screen.NotFound
+                    }
+                } else {
+                    Screen.NotFound
+                }
+            }
+        }
+        navigateTo(screen)
+    }
+
+    fun handleTaskNotificationIntent(taskId: Long) {
+        if (allTasks.value.any { it.id == taskId }) {
+            navigateTo(Screen.TaskDetail(taskId))
+        } else {
+            navigateTo(Screen.NotFound)
+        }
     }
 
     fun setSearchQuery(query: String) {

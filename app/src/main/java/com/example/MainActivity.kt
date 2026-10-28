@@ -41,7 +41,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.R
+import com.musab.tiko.R
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.AppDialogController
 import com.example.ui.components.AppOverlayHost
@@ -99,10 +99,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     LaunchedEffect(currentUser, hasCheckedAuth) {
         if (!hasCheckedAuth) {
             hasCheckedAuth = true
-            if (currentUser != null) {
+            val user = currentUser
+            if (user != null) {
                 // User is signed in, go to Home
-                val name = currentUser.displayName ?: "User"
-                val email = currentUser.email ?: ""
+                val name = user.displayName ?: "User"
+                val email = user.email ?: ""
                 viewModel.saveUserProfile(name, email)
                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
             }

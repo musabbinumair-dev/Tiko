@@ -48,7 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.R
+import com.musab.tiko.R
 import com.example.data.local.TikoDatabase
 import com.example.data.model.TaskEntity
 import com.example.ui.components.AppBlack

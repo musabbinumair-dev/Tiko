@@ -6,7 +6,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.example.R
+import com.musab.tiko.R
 
 // Real bundled TTF font families with specific weights
 val BricolageGrotesque = FontFamily(

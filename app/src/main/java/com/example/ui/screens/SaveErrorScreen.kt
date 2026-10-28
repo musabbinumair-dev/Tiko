@@ -3,7 +3,7 @@ package com.example.ui.screens
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.R
+import com.musab.tiko.R
 import com.example.ui.components.ErrorPageLayout
 
 const val ROUTE_ERROR_SAVE_FAILED = "error_save_failed"

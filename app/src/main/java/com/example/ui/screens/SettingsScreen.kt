@@ -67,7 +67,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
+import com.musab.tiko.R
 import com.example.ui.components.AppBlack
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.AppCreamBackground
@@ -218,8 +218,8 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         com.example.ui.components.UserInitialsAvatar(
-                            name = if (currentUser != null) {
-                                currentUser.displayName ?: "User"
+                            name = if (user != null) {
+                                user.displayName ?: "User"
                             } else {
                                 "Guest"
                             },
@@ -255,9 +255,10 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Name: Outfit ExtraBold 34sp
+                    val user = currentUser
                     Text(
-                        text = if (currentUser != null) {
-                            currentUser.displayName ?: "User"
+                        text = if (user != null) {
+                            user.displayName ?: "User"
                         } else {
                             "Guest"
                         },
@@ -272,7 +273,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // White pill with email or "Log in" button for guest
-                    if (currentUser != null) {
+                    if (user != null) {
                         Box(
                             modifier = Modifier
                                 .height(34.dp)
@@ -283,7 +284,7 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = currentUser.email ?: "user@example.com",
+                                text = user.email ?: "user@example.com",
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 15.sp,

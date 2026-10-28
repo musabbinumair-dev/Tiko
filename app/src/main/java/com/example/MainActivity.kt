@@ -69,13 +69,7 @@ import com.example.ui.viewmodel.TikoViewModel
 open class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try {
-            if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) {
-                com.google.firebase.FirebaseApp.initializeApp(this)
-            }
-        } catch (e: Throwable) {
-            android.util.Log.e("MainActivity", "FirebaseApp init caught: ${e.message}")
-        }
+        com.example.data.FirebaseInitializer.init(this)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
         setContent {
@@ -88,7 +82,8 @@ open class MainActivity : ComponentActivity() {
 
 @Composable
 fun TikoApp(viewModel: TikoViewModel = viewModel()) {
-    val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepository(context) }
     val currentUser by authRepository.currentUser.collectAsState(initial = null)
     
     val currentScreen by viewModel.currentScreen.collectAsState()
@@ -118,7 +113,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         }
     }
 
-    val context = LocalContext.current
     LaunchedEffect(allTasks) {
         val activity = context as? ComponentActivity
         val intent = activity?.intent

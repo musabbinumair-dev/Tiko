@@ -82,7 +82,8 @@ fun SignUpScreen(
     onNavigateLogin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val authRepository = remember { AuthRepository() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val authRepository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
     
     var fullName by remember { mutableStateOf("") }

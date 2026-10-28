@@ -94,7 +94,8 @@ fun SettingsScreen(
     onNavigate: (Screen) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsState(initial = null)
     
@@ -103,7 +104,6 @@ fun SettingsScreen(
         viewModel.selectTab(NavigationTab.HOME)
     }
 
-    val context = LocalContext.current
     val tasks by viewModel.allTasks.collectAsState()
     val preferences = viewModel.preferences
 

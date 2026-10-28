@@ -73,7 +73,8 @@ fun LoginScreen(
     onSignUp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val authRepository = remember { AuthRepository() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val authRepository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
     
     var email by remember { mutableStateOf("") }

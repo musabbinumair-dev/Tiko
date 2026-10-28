@@ -27,6 +27,12 @@ sealed class AuthResult {
     data class Error(val message: String) : AuthResult()
 }
 
+sealed class GoogleAuthResult {
+    data class Success(val displayName: String = "", val email: String = "") : GoogleAuthResult()
+    data class Error(val message: String) : GoogleAuthResult()
+    data object Cancelled : GoogleAuthResult()
+}
+
 class AuthRepository(private val context: Context? = null) {
     private val TAG = "AuthRepository"
     private val WEB_CLIENT_ID = "542946903408-jumrf8l5mantirmc7j6hnlcqpc6788tq.apps.googleusercontent.com"
@@ -98,18 +104,24 @@ class AuthRepository(private val context: Context? = null) {
         }
     }
 
-    suspend fun signInWithGoogle(activityContext: Context): AuthResult {
-        val auth = getAuth() ?: return AuthResult.Error("Authentication service is unavailable. Please check your internet connection.")
+    suspend fun signInWithGoogle(activityContext: Context): GoogleAuthResult {
+        val auth = getAuth() ?: return GoogleAuthResult.Error("Authentication service is unavailable. Please check your internet connection.")
         return try {
+            val webClientId = try {
+                val resId = activityContext.resources.getIdentifier("default_web_client_id", "string", activityContext.packageName)
+                if (resId != 0) activityContext.getString(resId) else WEB_CLIENT_ID
+            } catch (t: Throwable) {
+                WEB_CLIENT_ID
+            }
+
             val credentialManager = CredentialManager.create(activityContext)
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(WEB_CLIENT_ID)
-                .setAutoSelectEnabled(false)
+            
+            // 1. Prefer GetSignInWithGoogleOption for standard interactive account selection
+            val signInOption = GetSignInWithGoogleOption.Builder(serverClientId = webClientId)
                 .build()
 
             val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
+                .addCredentialOption(signInOption)
                 .build()
 
             val result = try {
@@ -118,8 +130,11 @@ class AuthRepository(private val context: Context? = null) {
                     context = activityContext
                 )
             } catch (e: NoCredentialException) {
-                Log.w(TAG, "GetGoogleIdOption threw NoCredentialException [${e.javaClass.name}]: ${e.message}. Falling back to GetSignInWithGoogleOption.", e)
-                val fallbackOption = GetSignInWithGoogleOption.Builder(serverClientId = WEB_CLIENT_ID)
+                Log.w(TAG, "GetSignInWithGoogleOption threw NoCredentialException [${e.javaClass.name}]: ${e.message}. Trying GetGoogleIdOption fallback.", e)
+                val fallbackOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(webClientId)
+                    .setAutoSelectEnabled(false)
                     .build()
                 val fallbackRequest = GetCredentialRequest.Builder()
                     .addCredentialOption(fallbackOption)
@@ -128,22 +143,6 @@ class AuthRepository(private val context: Context? = null) {
                     request = fallbackRequest,
                     context = activityContext
                 )
-            } catch (e: GetCredentialException) {
-                val msg = e.message ?: ""
-                if (msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) || msg.contains("No accounts", ignoreCase = true)) {
-                    Log.w(TAG, "GetGoogleIdOption threw no credentials error [${e.javaClass.name}]: ${e.message}. Falling back to GetSignInWithGoogleOption.", e)
-                    val fallbackOption = GetSignInWithGoogleOption.Builder(serverClientId = WEB_CLIENT_ID)
-                        .build()
-                    val fallbackRequest = GetCredentialRequest.Builder()
-                        .addCredentialOption(fallbackOption)
-                        .build()
-                    credentialManager.getCredential(
-                        request = fallbackRequest,
-                        context = activityContext
-                    )
-                } else {
-                    throw e
-                }
             }
 
             val credential = result.credential
@@ -169,7 +168,7 @@ class AuthRepository(private val context: Context? = null) {
                                 .build()
                         )?.await()
                     }
-                    AuthResult.Success(displayName = displayName, email = email)
+                    GoogleAuthResult.Success(displayName = displayName, email = email)
                 } catch (collisionEx: FirebaseAuthUserCollisionException) {
                     Log.w(TAG, "Account collision detected during Google Sign-In: [${collisionEx.javaClass.name}] ${collisionEx.message}", collisionEx)
                     val email = collisionEx.email ?: ""
@@ -178,37 +177,51 @@ class AuthRepository(private val context: Context? = null) {
                     } else {
                         "An account already exists with this email. Please log in with your email and password."
                     }
-                    AuthResult.Error(msg)
+                    GoogleAuthResult.Error(msg)
                 }
             } else {
                 Log.e(TAG, "Unable to retrieve Google credentials: credential class=${credential.javaClass.name}, type=${(credential as? CustomCredential)?.type}")
-                AuthResult.Error("Unable to retrieve Google credentials.")
+                GoogleAuthResult.Error("Unable to retrieve Google credentials.")
             }
         } catch (e: GetCredentialCancellationException) {
-            Log.w(TAG, "Google Sign-In cancelled: [${e.javaClass.name}] ${e.message}", e)
-            AuthResult.Error("Google Sign-In was cancelled.")
+            Log.d(TAG, "Google Sign-In cancelled or dismissed by user: [${e.javaClass.name}] ${e.message}")
+            GoogleAuthResult.Cancelled
         } catch (e: NoCredentialException) {
             Log.e(TAG, "Google Sign-In no account: [${e.javaClass.name}] ${e.message}", e)
-            AuthResult.Error("No Google account selected or available on device.")
+            GoogleAuthResult.Error("No Google account selected or available on device. Please add a Google account to your device settings.")
         } catch (e: GetCredentialException) {
             Log.e(TAG, "Google Sign-In GetCredentialException: [${e.javaClass.name}] ${e.message}", e)
             val msg = e.message ?: ""
-            if (msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true)) {
-                AuthResult.Error("Google Sign-In was cancelled.")
-            } else if (msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) || msg.contains("No accounts", ignoreCase = true)) {
-                AuthResult.Error("No Google account selected or available on device.")
-            } else {
-                AuthResult.Error("Google Sign-In failed: ${e.localizedMessage ?: e.message ?: "Unknown error"}")
+            when {
+                msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true) -> {
+                    GoogleAuthResult.Cancelled
+                }
+                msg.contains("10:", ignoreCase = true) || msg.contains("developer error", ignoreCase = true) -> {
+                    GoogleAuthResult.Error("Google Sign-In configuration error: Please register the debug SHA-1 fingerprint in Firebase Console.")
+                }
+                msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) || msg.contains("No accounts", ignoreCase = true) -> {
+                    GoogleAuthResult.Error("No Google account selected or available on device.")
+                }
+                else -> {
+                    GoogleAuthResult.Error("Google Sign-In failed: ${e.localizedMessage ?: e.message ?: "Unknown error"}")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Google Sign-In exception: [${e.javaClass.name}] ${e.message}", e)
             val msg = e.message ?: ""
-            if (msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true)) {
-                AuthResult.Error("Google Sign-In was cancelled.")
-            } else if (msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true)) {
-                AuthResult.Error("No Google account selected or available on device.")
-            } else {
-                AuthResult.Error(mapFirebaseError(e))
+            when {
+                msg.contains("cancel", ignoreCase = true) || msg.contains("16:", ignoreCase = true) -> {
+                    GoogleAuthResult.Cancelled
+                }
+                msg.contains("10:", ignoreCase = true) || msg.contains("developer error", ignoreCase = true) -> {
+                    GoogleAuthResult.Error("Google Sign-In configuration error: Please register the debug SHA-1 fingerprint in Firebase Console.")
+                }
+                msg.contains("no credential", ignoreCase = true) || msg.contains("no account", ignoreCase = true) -> {
+                    GoogleAuthResult.Error("No Google account selected or available on device.")
+                }
+                else -> {
+                    GoogleAuthResult.Error(mapFirebaseError(e))
+                }
             }
         }
     }

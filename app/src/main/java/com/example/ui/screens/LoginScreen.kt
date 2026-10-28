@@ -37,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthResult
+import com.example.data.repository.GoogleAuthResult
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -402,11 +403,14 @@ fun LoginScreen(
                         isGoogleLoading = true
                         scope.launch {
                             when (val result = authRepository.signInWithGoogle(context)) {
-                                is AuthResult.Success -> {
+                                is GoogleAuthResult.Success -> {
                                     AppToastController.show("Signed in with Google!", ToastType.Success)
                                     onLoginSuccess(result.email)
                                 }
-                                is AuthResult.Error -> {
+                                is GoogleAuthResult.Cancelled -> {
+                                    isGoogleLoading = false
+                                }
+                                is GoogleAuthResult.Error -> {
                                     AppToastController.show(result.message, ToastType.Error)
                                     isGoogleLoading = false
                                 }

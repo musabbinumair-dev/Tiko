@@ -92,6 +92,7 @@ fun SignUpScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var agreedToTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
 
     val isFormValid = fullName.isNotBlank() &&
         email.isNotBlank() &&
@@ -545,25 +546,46 @@ fun SignUpScreen(
                     .clip(CircleShape)
                     .background(Color.White)
                     .border(1.dp, SignUpBlack, CircleShape)
-                    .clickable(onClick = { 
-                        AppToastController.show("Coming soon", ToastType.Info)
-                    })
+                    .alpha(if (isLoading || isGoogleLoading) 0.6f else 1.0f)
+                    .clickable(enabled = !isLoading && !isGoogleLoading) {
+                        isGoogleLoading = true
+                        scope.launch {
+                            when (val result = authRepository.signInWithGoogle(context)) {
+                                is AuthResult.Success -> {
+                                    AppToastController.show("Signed in with Google!", ToastType.Success)
+                                    onCreateAccountSuccess(result.displayName, result.email)
+                                }
+                                is AuthResult.Error -> {
+                                    AppToastController.show(result.message, ToastType.Error)
+                                    isGoogleLoading = false
+                                }
+                            }
+                        }
+                    }
                     .testTag("signup_continue_with_google"),
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    GoogleIcon(modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Continue with Google",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = SignUpBlack
+                if (isGoogleLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = SignUpBlack,
+                        strokeWidth = 2.5.dp
                     )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        GoogleIcon(modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Continue with Google",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = SignUpBlack
+                        )
+                    }
                 }
             }
 

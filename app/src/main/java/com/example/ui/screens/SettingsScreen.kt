@@ -44,6 +44,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.zIndex
 import com.example.ui.components.AppDialogController
 import com.example.ui.components.AppToastController
+import com.example.ui.components.AvatarPickerBottomSheet
+import com.example.ui.components.TikoAvatar
 import com.example.ui.components.ToastType
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,12 +111,18 @@ fun SettingsScreen(
 
     val userName by preferences.userName.collectAsState()
     val userEmail by preferences.userEmail.collectAsState()
+    val user = currentUser
+    val displayName = user?.displayName ?: userName.ifBlank { "Guest" }
+    val displayEmail = user?.email ?: userEmail.ifBlank { "user@example.com" }
+    val currentAvatarId by viewModel.userAvatarId.collectAsState()
+    val googlePhotoUrl by viewModel.googlePhotoUrl.collectAsState()
     val notifEnabled by preferences.notificationsEnabled.collectAsState()
 
     var notificationsOn by remember(notifEnabled) { mutableStateOf(notifEnabled) }
     var darkModeOn by remember { mutableStateOf(false) }
     var selectedLanguage by remember { mutableStateOf("English") }
 
+    var showAvatarPicker by remember { mutableStateOf(false) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var editNameInput by remember { mutableStateOf(userName) }
     var editEmailInput by remember { mutableStateOf(userEmail) }
@@ -206,29 +214,31 @@ fun SettingsScreen(
             // AVATAR & USER INFO
             item {
                 Spacer(modifier = Modifier.height(10.dp))
-                val user = currentUser
-                val displayName = user?.displayName ?: userName.ifBlank { "Guest" }
-                val displayEmail = user?.email ?: userEmail.ifBlank { "user@example.com" }
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Centered 110dp avatar with yellow #FFB92E fill and 36dp camera badge
+                    // Centered 110dp avatar with built-in/Google/fallback avatar and 36dp pencil badge
                     Box(
                         modifier = Modifier
                             .size(110.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { showAvatarPicker = true }
+                            )
                             .testTag("profile_avatar_container"),
                         contentAlignment = Alignment.Center
                     ) {
-                        com.example.ui.components.UserInitialsAvatar(
+                        TikoAvatar(
                             name = displayName,
+                            avatarId = currentAvatarId,
+                            googlePhotoUrl = googlePhotoUrl,
                             size = 110.dp,
-                            backgroundColor = CardYellow,
-                            textColor = AppBlack,
-                            fontSize = 40.sp
+                            onClick = { showAvatarPicker = true }
                         )
 
-                        // 36dp purple #6B4EFF camera badge at bottom-right
+                        // 36dp purple #6B4EFF pencil/edit badge at bottom-right
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -236,15 +246,17 @@ fun SettingsScreen(
                                 .clip(CircleShape)
                                 .background(CardPurple)
                                 .border(2.dp, Color.White, CircleShape)
-                                .clickable {
-                                    AppToastController.show("Photo upload coming soon", ToastType.Info)
-                                }
-                                .testTag("profile_camera_badge"),
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { showAvatarPicker = true }
+                                )
+                                .testTag("profile_edit_avatar_badge"),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.PhotoCamera,
-                                contentDescription = "Change photo",
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = "Change avatar",
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -982,6 +994,19 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // Avatar Picker Bottom Sheet
+        AvatarPickerBottomSheet(
+            visible = showAvatarPicker,
+            currentAvatarId = currentAvatarId,
+            googlePhotoUrl = googlePhotoUrl,
+            userName = displayName,
+            onSelectAvatar = { selectedId ->
+                viewModel.selectAvatar(selectedId)
+                AppToastController.show("Avatar updated", ToastType.Success)
+            },
+            onDismiss = { showAvatarPicker = false }
+        )
     }
 }
 

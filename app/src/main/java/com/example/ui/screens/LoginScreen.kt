@@ -40,6 +40,7 @@ import com.example.data.repository.AuthResult
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import com.example.ui.components.AppDialogController
@@ -81,6 +82,7 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
     var isResettingPassword by remember { mutableStateOf(false) }
 
     val backgroundGradient = Brush.verticalGradient(
@@ -395,25 +397,46 @@ fun LoginScreen(
                     .clip(CircleShape)
                     .background(Color.White)
                     .border(1.dp, LoginBlack, CircleShape)
-                    .clickable(onClick = { 
-                        AppToastController.show("Coming soon", ToastType.Info)
-                    })
+                    .alpha(if (isLoading || isGoogleLoading) 0.6f else 1.0f)
+                    .clickable(enabled = !isLoading && !isGoogleLoading) {
+                        isGoogleLoading = true
+                        scope.launch {
+                            when (val result = authRepository.signInWithGoogle(context)) {
+                                is AuthResult.Success -> {
+                                    AppToastController.show("Signed in with Google!", ToastType.Success)
+                                    onLoginSuccess(result.email)
+                                }
+                                is AuthResult.Error -> {
+                                    AppToastController.show(result.message, ToastType.Error)
+                                    isGoogleLoading = false
+                                }
+                            }
+                        }
+                    }
                     .testTag("continue_with_google"),
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    GoogleIcon(modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Continue with Google",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = LoginBlack
+                if (isGoogleLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = LoginBlack,
+                        strokeWidth = 2.5.dp
                     )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        GoogleIcon(modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Continue with Google",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = LoginBlack
+                        )
+                    }
                 }
             }
 

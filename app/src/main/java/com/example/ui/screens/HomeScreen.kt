@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.example.ui.components.TikoAvatar
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -251,6 +252,8 @@ private fun HomeHeader(
 ) {
     val preferences = viewModel.preferences
     val userName by preferences.userName.collectAsState()
+    val avatarId by viewModel.userAvatarId.collectAsState()
+    val googlePhotoUrl by viewModel.googlePhotoUrl.collectAsState()
     val displayName = if (userName.isNotBlank()) userName else "User"
 
     Row(
@@ -262,11 +265,12 @@ private fun HomeHeader(
     ) {
         // Left: Avatar + Name + Greeting
         Row(verticalAlignment = Alignment.CenterVertically) {
-            com.example.ui.components.UserInitialsAvatar(
+            TikoAvatar(
                 name = userName,
+                avatarId = avatarId,
+                googlePhotoUrl = googlePhotoUrl,
                 size = 52.dp,
-                backgroundColor = CardYellow,
-                textColor = HomeBlack
+                onClick = { viewModel.selectTab(com.example.ui.viewmodel.NavigationTab.SETTINGS) }
             )
 
             Spacer(modifier = Modifier.width(12.dp))

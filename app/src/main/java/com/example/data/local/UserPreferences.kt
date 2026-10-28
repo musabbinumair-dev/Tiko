@@ -18,6 +18,12 @@ class UserPreferences(context: Context) {
     private val _userEmail = MutableStateFlow(prefs.getString("user_email", "") ?: "")
     val userEmail: StateFlow<String> = _userEmail.asStateFlow()
 
+    private val _userAvatarId = MutableStateFlow(prefs.getString("user_avatar_id", "") ?: "")
+    val userAvatarId: StateFlow<String> = _userAvatarId.asStateFlow()
+
+    private val _googlePhotoUrl = MutableStateFlow(prefs.getString("google_photo_url", "") ?: "")
+    val googlePhotoUrl: StateFlow<String> = _googlePhotoUrl.asStateFlow()
+
     private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean("notif_enabled", false))
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
 
@@ -47,6 +53,16 @@ class UserPreferences(context: Context) {
     fun setUserEmail(email: String) {
         prefs.edit().putString("user_email", email).apply()
         _userEmail.value = email
+    }
+
+    fun setAvatarId(avatarId: String) {
+        prefs.edit().putString("user_avatar_id", avatarId).apply()
+        _userAvatarId.value = avatarId
+    }
+
+    fun setGooglePhotoUrl(url: String) {
+        prefs.edit().putString("google_photo_url", url).apply()
+        _googlePhotoUrl.value = url
     }
 
     fun setNotificationsEnabled(enabled: Boolean) {
@@ -85,9 +101,16 @@ class UserPreferences(context: Context) {
     }
 
     fun clearUser() {
-        prefs.edit().remove("user_name").remove("user_email").apply()
+        prefs.edit()
+            .remove("user_name")
+            .remove("user_email")
+            .remove("user_avatar_id")
+            .remove("google_photo_url")
+            .apply()
         _userName.value = ""
         _userEmail.value = ""
+        _userAvatarId.value = ""
+        _googlePhotoUrl.value = ""
     }
 
     private val _customCategories = MutableStateFlow(loadCustomCategories())

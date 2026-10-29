@@ -16,3 +16,9 @@
 local.properties
 .env
 .aistudio/
+
+# Keystores and signing artifacts
+*.keystore
+*.jks
+*.base64
+debug.keystore

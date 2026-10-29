@@ -594,22 +594,6 @@ fun SettingsScreen(
                                 )
                             }
                         )
-                        if (false) SettingsRow(icon = Icons.Outlined.Notifications, label = "Notifications",
-                            trailing = {
-                                ProfileSwitch(
-                                    checked = notificationsOn,
-                                    onCheckedChange = { checked ->
-                                        notificationsOn = checked
-                                        preferences.setNotificationsEnabled(checked)
-                                        AppToastController.show(
-                                            if (checked) "Notifications enabled" else "Notifications disabled",
-                                            if (checked) ToastType.Success else ToastType.Info
-                                        )
-                                    },
-                                    testTag = "switch_notifications"
-                                )
-                            }
-                        )
 
                         SettingsDivider()
 
@@ -777,10 +761,10 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .zIndex(1000f)
                 .background(Color.Black.copy(alpha = 0.40f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { showEditProfileDialog = false },
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { showEditProfileDialog = false },
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -889,10 +873,10 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .zIndex(1000f)
                 .background(Color.Black.copy(alpha = 0.40f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { showLanguageDialog = false },
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { showLanguageDialog = false },
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -1301,7 +1285,7 @@ private fun SettingsRow(
                 if (onClick != null) Modifier.clickable(onClick = onClick)
                 else Modifier
             )
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+        .padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

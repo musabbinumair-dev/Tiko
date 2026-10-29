@@ -1,13 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    android:allowBackup="false" is set in the manifest, so Auto Backup
+    is disabled entirely. These rules are kept as an explicit safety net
+    for devices that might still attempt a backup (e.g. vendor forks),
+    and to satisfy lint checks that require a non-empty fullBackupContent.
+    User data lives in Firestore; there is nothing to back up locally.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Exclude Room database -->
+    <exclude domain="database" path="tiko_tasks.db" />
+    <exclude domain="database" path="tiko_tasks.db-shm" />
+    <exclude domain="database" path="tiko_tasks.db-wal" />
+
+    <!-- Exclude shared preferences that contain user data -->
+    <exclude domain="sharedpref" path="tiko_settings_prefs.xml" />
 </full-backup-content>

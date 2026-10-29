@@ -1,11 +1,9 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
@@ -120,7 +118,7 @@ private fun formatDateForDisplay(dateStr: String): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTaskScreen(
-    taskId: Long?,
+    taskId: String?,
     viewModel: TikoViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -943,20 +941,13 @@ fun AddEditTaskScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             // 9. Full-width black pill button "Save task" / "Update task", 56dp high, Outfit Bold 18sp, white text
-            @OptIn(ExperimentalFoundationApi::class)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
                     .background(AddTaskBlack)
-                    .combinedClickable(
-                        onClick = { performSave() },
-                        onLongClick = {
-                            // DEBUG: Testing only - long-press the "Save task" button opens this screen
-                            viewModel.navigateTo(Screen.ErrorSaveFailed)
-                        }
-                    )
+                    .clickable(onClick = { performSave() })
                     .testTag("save_task_button"),
                 contentAlignment = Alignment.Center
             ) {

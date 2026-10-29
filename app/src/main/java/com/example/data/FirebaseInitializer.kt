@@ -1,12 +1,10 @@
 package com.example.data
 
 import android.content.Context
-import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 
 object FirebaseInitializer {
-    private const val TAG = "FirebaseInitializer"
     @Volatile
     private var initialized = false
 
@@ -31,12 +29,9 @@ object FirebaseInitializer {
                     val app = FirebaseApp.initializeApp(context.applicationContext)
                     if (app != null) {
                         initialized = true
-                        Log.i(TAG, "Standard Firebase initialization succeeded")
                         return app
                     }
-                } catch (e: Throwable) {
-                    Log.w(TAG, "Standard Firebase initialization failed, attempting explicit options: ${e.message}")
-                }
+                } catch (_: Throwable) { }
 
                 // 2. Explicit options fallback (resolves applicationId != namespace mismatch)
                 val res = context.resources
@@ -66,10 +61,8 @@ object FirebaseInitializer {
 
                 val app = FirebaseApp.initializeApp(context.applicationContext, options)
                 initialized = true
-                Log.i(TAG, "Firebase initialized successfully with explicit options for project $projectId")
                 app
-            } catch (e: Throwable) {
-                Log.e(TAG, "Failed to initialize FirebaseApp", e)
+            } catch (_: Throwable) {
                 null
             }
         }

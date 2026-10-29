@@ -69,7 +69,6 @@ import com.example.ui.viewmodel.TikoViewModel
 open class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        com.example.data.FirebaseInitializer.init(this)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
 
@@ -93,33 +92,68 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val allTasks by viewModel.allTasks.collectAsState()
     val stats by viewModel.todayStats.collectAsState()
     val notifEnabled by viewModel.preferences.notificationsEnabled.collectAsState()
+    val isGuestMode by viewModel.preferences.isGuestMode.collectAsState()
+    val hasSeenWelcome by viewModel.preferences.hasSeenWelcome.collectAsState()
     val haptic = LocalHapticFeedback.current
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
-    var hasCheckedAuth by rememberSaveable { mutableStateOf(false) }
+    var hasInitialized by rememberSaveable { mutableStateOf(false) }
+    var lastKnownUserId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    // Check auth state and navigate appropriately
-    LaunchedEffect(currentUser, hasCheckedAuth) {
-        if (!hasCheckedAuth) {
-            hasCheckedAuth = true
+    // Decide initial screen based on auth state
+    LaunchedEffect(currentUser, hasInitialized) {
+        if (!hasInitialized) {
+            hasInitialized = true
             val user = currentUser
-            if (user != null) {
-                // User is signed in, go to Home
-                val name = user.displayName ?: "User"
-                val email = user.email ?: ""
-                viewModel.saveUserProfile(name, email)
-                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+            lastKnownUserId = user?.uid
+            when {
+                user != null -> {
+                    // User is signed in, go to Home
+                    val name = user.displayName ?: "User"
+                    val email = user.email ?: ""
+                    viewModel.saveUserProfile(name, email)
+                    viewModel.preferences.setGuestMode(false)
+                    viewModel.preferences.setHasSeenWelcome(true)
+                    viewModel.startSync(user.uid, isFirstPullAfterLogin = false)
+                    viewModel.setInitialScreen(Screen.Main(NavigationTab.HOME))
+                }
+                isGuestMode || hasSeenWelcome -> {
+                    // Guest mode or has seen welcome -> go to Home
+                    viewModel.setInitialScreen(Screen.Main(NavigationTab.HOME))
+                }
+                else -> {
+                    // First time user -> show Welcome
+                    viewModel.setInitialScreen(Screen.Welcome)
+                }
             }
-            // If currentUser is null, stay on Welcome screen (default)
+        } else if (hasInitialized) {
+            val user = currentUser
+            when {
+                lastKnownUserId != null && user == null -> {
+                    // User was signed in but now signed out (token expired or account deleted)
+                    lastKnownUserId = null
+                    viewModel.stopSync()
+                    viewModel.preferences.clearUser()
+                    viewModel.setInitialScreen(Screen.Welcome)
+                    AppToastController.show("Please log in again", ToastType.Info)
+                }
+                user != null && lastKnownUserId != user.uid -> {
+                    // Different user signed in
+                    lastKnownUserId = user.uid
+                }
+            }
         }
     }
 
     LaunchedEffect(allTasks) {
         val activity = context as? ComponentActivity
         val intent = activity?.intent
-        val notifTaskId = intent?.getLongExtra("task_id", -1L)?.takeIf { it != -1L }
-            ?: intent?.getLongExtra("TASK_ID", -1L)?.takeIf { it != -1L }
-            ?: intent?.getLongExtra("taskId", -1L)?.takeIf { it != -1L }
+        val notifTaskId = intent?.getStringExtra("task_id")
+            ?: intent?.getStringExtra("TASK_ID")
+            ?: intent?.getStringExtra("taskId")
+            ?: intent?.getLongExtra("task_id", -1L)?.takeIf { it != -1L }?.toString()
+            ?: intent?.getLongExtra("TASK_ID", -1L)?.takeIf { it != -1L }?.toString()
+            ?: intent?.getLongExtra("taskId", -1L)?.takeIf { it != -1L }?.toString()
         val route = intent?.getStringExtra("route")
         if (notifTaskId != null) {
             intent?.removeExtra("task_id")
@@ -133,10 +167,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     }
 
     LaunchedEffect(currentScreen, notifEnabled) {
-        val isWelcomeOrAuth = currentScreen is Screen.Welcome ||
-            currentScreen is Screen.Login ||
-            currentScreen is Screen.SignUp
-        val isProfilePage = currentScreen is Screen.Main && (currentScreen as Screen.Main).tab == NavigationTab.SETTINGS
+        val screen = currentScreen
+        val isWelcomeOrAuth = screen is Screen.Welcome ||
+            screen is Screen.Login ||
+            screen is Screen.SignUp
+        val isProfilePage = screen is Screen.Main && (screen as Screen.Main).tab == NavigationTab.SETTINGS
 
         if (!hasShownNotificationPopup && !notifEnabled && !isWelcomeOrAuth && !isProfilePage) {
             hasShownNotificationPopup = true
@@ -179,7 +214,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         }
     }
 
-    val currentTab = (currentScreen as? Screen.Main)?.tab
+    val screen = currentScreen
+    val currentTab = (screen as? Screen.Main)?.tab
     val hasCustomFloatingNav = currentTab == NavigationTab.HOME ||
         currentTab == NavigationTab.LISTS ||
         currentTab == NavigationTab.CALENDAR ||
@@ -251,15 +287,26 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 label = "screen_transition"
             ) { screen ->
                 when (screen) {
+                    is Screen.Loading -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFEFEBDD))
+                        )
+                    }
                     is Screen.Welcome -> {
                         WelcomeScreen(
                             onNavigateHome = {
+                                viewModel.preferences.setGuestMode(true)
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
                             },
                             onNavigateLogin = {
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.Login)
                             },
                             onNavigateSignUp = {
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.SignUp)
                             }
                         )
@@ -274,6 +321,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val name = user?.displayName?.ifBlank { null }
                                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
                                 viewModel.saveUserProfile(name, email)
+                                viewModel.preferences.setGuestMode(false)
+                                viewModel.preferences.setHasSeenWelcome(true)
+                                if (user != null) {
+                                    viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
+                                }
                                 viewModel.navigateToHomeClearingAuth()
                             },
                             onSignUp = {
@@ -290,6 +342,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: currentUser
                                 val finalName = name.ifBlank { user?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() } }
                                 viewModel.saveUserProfile(finalName, email)
+                                viewModel.preferences.setGuestMode(false)
+                                viewModel.preferences.setHasSeenWelcome(true)
+                                if (user != null) {
+                                    viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
+                                }
                                 viewModel.navigateToHomeClearingAuth()
                             },
                             onNavigateLogin = {

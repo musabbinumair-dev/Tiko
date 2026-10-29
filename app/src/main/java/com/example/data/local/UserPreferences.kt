@@ -39,6 +39,12 @@ class UserPreferences(context: Context) {
     private val _firstDayOfWeek = MutableStateFlow(prefs.getString("first_day_of_week", "Monday") ?: "Monday")
     val firstDayOfWeek: StateFlow<String> = _firstDayOfWeek.asStateFlow()
 
+    private val _isGuestMode = MutableStateFlow(prefs.getBoolean("is_guest_mode", false))
+    val isGuestMode: StateFlow<Boolean> = _isGuestMode.asStateFlow()
+
+    private val _hasSeenWelcome = MutableStateFlow(prefs.getBoolean("has_seen_welcome", false))
+    val hasSeenWelcome: StateFlow<Boolean> = _hasSeenWelcome.asStateFlow()
+
     fun setUserName(name: String) {
         prefs.edit().putString("user_name", name).apply()
         _userName.value = name
@@ -84,10 +90,25 @@ class UserPreferences(context: Context) {
         _firstDayOfWeek.value = day
     }
 
+    fun setGuestMode(isGuest: Boolean) {
+        prefs.edit().putBoolean("is_guest_mode", isGuest).apply()
+        _isGuestMode.value = isGuest
+    }
+
+    fun setHasSeenWelcome(seen: Boolean) {
+        prefs.edit().putBoolean("has_seen_welcome", seen).apply()
+        _hasSeenWelcome.value = seen
+    }
+
     fun clearUser() {
-        prefs.edit().remove("user_name").remove("user_email").apply()
+        prefs.edit()
+            .remove("user_name")
+            .remove("user_email")
+            .remove("is_guest_mode")
+            .apply()
         _userName.value = ""
         _userEmail.value = ""
+        _isGuestMode.value = false
     }
 
     private val _customCategories = MutableStateFlow(loadCustomCategories())

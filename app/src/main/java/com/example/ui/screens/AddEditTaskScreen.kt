@@ -118,7 +118,7 @@ private fun formatDateForDisplay(dateStr: String): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTaskScreen(
-    taskId: Long?,
+    taskId: String?,
     viewModel: TikoViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier

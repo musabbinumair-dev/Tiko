@@ -117,9 +117,12 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     LaunchedEffect(allTasks) {
         val activity = context as? ComponentActivity
         val intent = activity?.intent
-        val notifTaskId = intent?.getLongExtra("task_id", -1L)?.takeIf { it != -1L }
-            ?: intent?.getLongExtra("TASK_ID", -1L)?.takeIf { it != -1L }
-            ?: intent?.getLongExtra("taskId", -1L)?.takeIf { it != -1L }
+        val notifTaskId = intent?.getStringExtra("task_id")
+            ?: intent?.getStringExtra("TASK_ID")
+            ?: intent?.getStringExtra("taskId")
+            ?: intent?.getLongExtra("task_id", -1L)?.takeIf { it != -1L }?.toString()
+            ?: intent?.getLongExtra("TASK_ID", -1L)?.takeIf { it != -1L }?.toString()
+            ?: intent?.getLongExtra("taskId", -1L)?.takeIf { it != -1L }?.toString()
         val route = intent?.getStringExtra("route")
         if (notifTaskId != null) {
             intent?.removeExtra("task_id")

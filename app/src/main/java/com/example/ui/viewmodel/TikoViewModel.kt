@@ -8,7 +8,9 @@ import com.example.data.model.CategoryModel
 import com.example.data.model.DefaultCategories
 import com.example.data.model.SubtaskItem
 import com.example.data.model.TaskEntity
+import com.example.data.reminder.ReminderScheduler
 import com.example.data.repository.TaskRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -47,12 +49,31 @@ data class TodayStats(
 
 class TikoViewModel(application: Application) : AndroidViewModel(application) {
     private val database = TikoDatabase.getInstance(application)
-    private val repository = TaskRepository(database.taskDao())
+    private val repository = TaskRepository(application, database.taskDao())
     val preferences = com.example.data.local.UserPreferences(application)
     val syncManager = com.example.data.sync.SyncManager(application, database.taskDao())
     val syncStatus: StateFlow<String> = syncManager.syncStatus
 
+    init {
+        rescheduleAllReminders()
+    }
+
+    fun rescheduleAllReminders() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val activeTasks = database.taskDao().getAllTasksRaw().filter { !it.done && !it.deleted }
+            ReminderScheduler.rescheduleAllFutureReminders(getApplication(), activeTasks)
+        }
+    }
+
+    fun cancelAllReminders() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val allTasks = database.taskDao().getAllTasksRaw()
+            ReminderScheduler.cancelAll(getApplication(), allTasks)
+        }
+    }
+
     fun startSync(userId: String, isFirstPullAfterLogin: Boolean = false) {
+        rescheduleAllReminders()
         syncManager.start(userId, isFirstPullAfterLogin)
     }
 

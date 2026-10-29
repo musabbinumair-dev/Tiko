@@ -1,6 +1,7 @@
 package com.example.data.reminder
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -45,6 +46,17 @@ object ReminderScheduler {
             alarmManager.cancel(pendingIntent)
             pendingIntent.cancel()
         } catch (_: Exception) {}
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        notificationManager?.cancel(taskId.hashCode())
+    }
+
+    fun cancelAll(context: Context, tasks: List<TaskEntity>) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        notificationManager?.cancelAll()
+        for (task in tasks) {
+            cancel(context, task.id)
+        }
     }
 
     fun scheduleSnooze(context: Context, taskId: String, delayMillis: Long = 10 * 60 * 1000L) {
@@ -164,3 +176,4 @@ object ReminderScheduler {
         }
     }
 }
+

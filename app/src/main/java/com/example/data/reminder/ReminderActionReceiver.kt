@@ -28,7 +28,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val database = TikoDatabase.getInstance(context)
-                        val repository = TaskRepository(database.taskDao())
+                        val repository = TaskRepository(context, database.taskDao())
                         repository.completeTask(taskId)
                         ReminderScheduler.cancel(context, taskId)
                     } finally {
@@ -47,3 +47,4 @@ class ReminderActionReceiver : BroadcastReceiver() {
         const val ACTION_SNOOZE = "com.musab.tiko.action.SNOOZE"
     }
 }
+

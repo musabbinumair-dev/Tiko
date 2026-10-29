@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.viewmodel.NavigationTab
 
@@ -116,6 +117,7 @@ fun RoundIconButton(
     testTag: String = "round_icon_button",
     isDark: Boolean = false
 ) {
+    val tikoColors = LocalTikoThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -172,10 +174,10 @@ fun RoundIconButton(
                 ambientColor = Color.Black.copy(alpha = if (isDark) 0.12f else 0.04f)
             )
             .clip(CircleShape)
-            .background(bgBrush)
+            .background(tikoColors.roundButtonBg)
             .border(
                 1.dp,
-                borderBrush,
+                tikoColors.roundButtonBorder,
                 CircleShape
             )
             .clickable(
@@ -189,7 +191,7 @@ fun RoundIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+            tint = tikoColors.roundButtonTint,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -213,6 +215,7 @@ fun FrostedGlassPill(
     isDark: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val tikoColors = LocalTikoThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -267,10 +270,10 @@ fun FrostedGlassPill(
             ambientColor = Color.Black.copy(alpha = if (isDark) 0.10f else 0.04f)
         )
         .clip(CircleShape)
-        .background(bgBrush)
+        .background(tikoColors.cardBg)
         .border(
             borderWidth,
-            borderBrush,
+            tikoColors.cardBorder,
             CircleShape
         )
 
@@ -390,7 +393,8 @@ fun AppBottomNav(
         label = "capsule_trail"
     )
 
-    val navBarBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF).copy(alpha = 0.96f)
+    val tikoColors = LocalTikoThemeColors.current
+    val navBarBg = tikoColors.bottomNavBg
     val navBorderBrush = if (isDark) {
         Brush.verticalGradient(
             colors = listOf(
@@ -420,7 +424,7 @@ fun AppBottomNav(
             )
             .clip(CircleShape)
             .background(navBarBg)
-            .border(1.dp, navBorderBrush, CircleShape),
+            .border(1.dp, tikoColors.cardBorder, CircleShape),
         contentAlignment = Alignment.CenterStart
     ) {
         val totalWidth = maxWidth
@@ -438,7 +442,7 @@ fun AppBottomNav(
         val squishY = (1f - stretchRatio * 0.05f).coerceIn(0.92f, 1f)
 
         // Dark: cream pill (#F5F1E6). Light: solid black (#111111) rounded capsule
-        val capsuleColor = if (isDark) Color(0xFFF5F1E6) else Color(0xFF111111)
+        val capsuleColor = tikoColors.bottomNavCapsule
 
         Box(
             modifier = Modifier
@@ -523,6 +527,7 @@ private fun GlassNavTab(
     testTag: String = "",
     isDark: Boolean = false
 ) {
+    val tikoColors = LocalTikoThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -545,13 +550,13 @@ private fun GlassNavTab(
 
     val iconColor by animateColorAsState(
         targetValue = targetIconColor,
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = tween(durationMillis = 300),
         label = "tab_icon_color"
     )
 
     val labelColor by animateColorAsState(
         targetValue = targetLabelColor,
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = tween(durationMillis = 300),
         label = "tab_label_color"
     )
 
@@ -576,7 +581,7 @@ private fun GlassNavTab(
         ) {
             Crossfade(
                 targetState = isActive,
-                animationSpec = tween(durationMillis = 180),
+                animationSpec = tween(durationMillis = 300),
                 label = "tab_icon_crossfade"
             ) { active ->
                 Icon(

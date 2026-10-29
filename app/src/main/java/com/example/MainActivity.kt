@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,8 +73,10 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SignUpScreen
 import com.example.ui.screens.TaskDetailScreen
 import com.example.ui.screens.WelcomeScreen
+import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.TikoBackground
+import com.example.ui.theme.rememberAnimatedTikoColors
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
@@ -109,6 +112,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val isSystemDark = isSystemInDarkTheme()
     val darkModePref by viewModel.preferences.darkModeEnabled.collectAsState()
     val isDark = darkModePref ?: isSystemDark
+    val tikoColors = rememberAnimatedTikoColors(isDark)
     val haptic = LocalHapticFeedback.current
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -302,7 +306,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         currentTab == NavigationTab.SETTINGS
     val creamBackground = Color(0xFFEFEBDD)
     val activeBackgroundColor = if (hasCustomFloatingNav) {
-        if (isDark) Color(0xFF141414) else creamBackground
+        tikoColors.screenBg
     } else {
         if (isDark) Color(0xFF121212) else TikoBackground
     }
@@ -310,15 +314,16 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     // Determine transition direction: push (forward) vs pop (back) vs tab switch
     val stackSize = screenStack.size
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        containerColor = activeBackgroundColor
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(activeBackgroundColor)
-        ) {
+    CompositionLocalProvider(LocalTikoThemeColors provides tikoColors) {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0),
+            containerColor = activeBackgroundColor
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(activeBackgroundColor)
+            ) {
             AnimatedContent(
                 targetState = currentScreen,
                 modifier = Modifier.fillMaxSize(),
@@ -376,7 +381,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(if (isDark) Color(0xFF121212) else Color(0xFFEFEBDD))
+                                .background(tikoColors.screenBg)
                         )
                     }
                     is Screen.Welcome -> {
@@ -597,4 +602,5 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
             AppOverlayHost()
         }
     }
+}
 }

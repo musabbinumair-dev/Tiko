@@ -151,10 +151,12 @@ fun HomeScreen(
         }
     }
 
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) Color(0xFF141414) else HomeCreamBackground)
+            .background(tikoColors.screenBg)
     ) {
         // Main scrollable content
         LazyColumn(
@@ -242,7 +244,7 @@ fun HomeScreen(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            (if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
+                            tikoColors.scrim
                         )
                     )
                 )
@@ -279,13 +281,14 @@ private fun HomeHeader(
 
             Spacer(modifier = Modifier.width(12.dp))
 
+            val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
             Column {
                 Text(
                     text = displayName,
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+                    color = tikoColors.textPrimary
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -293,7 +296,7 @@ private fun HomeHeader(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 16.sp,
-                    color = if (isDark) Color(0xFFA8A39A) else HomeGray
+                    color = tikoColors.textSecondary
                 )
             }
         }
@@ -321,6 +324,7 @@ private fun HomeTitleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
         Text(
             text = "MY TASKS",
             fontFamily = OutfitFontFamily,
@@ -328,7 +332,7 @@ private fun HomeTitleRow(
             fontSize = 44.sp,
             lineHeight = 44.sp,
             letterSpacing = (-1).sp,
-            color = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
+            color = tikoColors.textPrimary,
             modifier = Modifier.testTag("home_title_my_tasks")
         )
 
@@ -367,8 +371,9 @@ private fun HomeTitleRow(
 // STAT PILLS: 3 frosted glassmorphic pills equal gap 8dp, height 40dp
 @Composable
 private fun HomeStatPills(stats: TodayStats, isDark: Boolean = false) {
-    val pillIconTint = if (isDark) Color(0xFFF5F1E6) else HomeBlack
-    val pillTextColor = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+    val pillIconTint = tikoColors.textPrimary
+    val pillTextColor = tikoColors.textPrimary
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -506,8 +511,11 @@ private fun SingleOverlappingCard(
     val overlapPx = 18.dp
 
     val isCardBlack = card.backgroundColor == CardBlack || card.backgroundColor == Color(0xFF151515)
-    val effectiveBg = if (isDark && isCardBlack) Color(0xFF2B2B2B) else card.backgroundColor
+    val targetBg = if (isDark && isCardBlack) Color(0xFF2B2B2B) else card.backgroundColor
+    val effectiveBg by androidx.compose.animation.animateColorAsState(targetBg, androidx.compose.animation.core.tween(380), label = "card_bg")
     val borderModifier = if (isDark && isCardBlack) Modifier.border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(28.dp)) else Modifier
+    val pillBg by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFF1E1E1E) else Color.White, androidx.compose.animation.core.tween(380), label = "pill_bg")
+    val pillTint by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else HomeBlack, androidx.compose.animation.core.tween(380), label = "pill_tint")
 
     Box(
         modifier = modifier
@@ -549,7 +557,7 @@ private fun SingleOverlappingCard(
                     modifier = Modifier
                         .height(32.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
+                        .background(pillBg)
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -560,7 +568,7 @@ private fun SingleOverlappingCard(
                         Icon(
                             imageVector = card.categoryIcon,
                             contentDescription = card.category,
-                            tint = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
+                            tint = pillTint,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -569,7 +577,7 @@ private fun SingleOverlappingCard(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+                            color = pillTint
                         )
                     }
                 }
@@ -579,13 +587,13 @@ private fun SingleOverlappingCard(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
+                        .background(pillBg)
                         .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
                         size = 22.dp,
-                        color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+                        color = pillTint
                     )
                 }
             }

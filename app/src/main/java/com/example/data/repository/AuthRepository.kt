@@ -151,13 +151,12 @@ class AuthRepository(private val context: Context? = null) {
             }
 
             if (idToken.isNullOrEmpty()) {
-                val errorMsg = "Google ID token is null"
-                return GoogleAuthResult.Error(errorMsg)
+                return GoogleAuthResult.Error("Google sign-in failed. Please try again.")
             }
 
             try {
                 val authCredential = GoogleAuthProvider.getCredential(idToken, null)
-                val authResult = FirebaseAuth.getInstance().signInWithCredential(authCredential).await()
+                val authResult = auth.signInWithCredential(authCredential).await()
                 val user = authResult.user
 
                 val displayName = user?.displayName?.ifBlank { null }
@@ -166,12 +165,16 @@ class AuthRepository(private val context: Context? = null) {
                 val email = user?.email ?: ""
                 GoogleAuthResult.Success(displayName = displayName, email = email, uid = user?.uid ?: "")
             } catch (e: Exception) {
-                GoogleAuthResult.Error(e.message ?: e.toString())
+                GoogleAuthResult.Error(mapFirebaseError(e))
             }
         } catch (_: GetCredentialCancellationException) {
             GoogleAuthResult.Cancelled
         } catch (e: Exception) {
-            GoogleAuthResult.Error(e.message ?: e.toString())
+            if (e.message?.contains("cancel", ignoreCase = true) == true) {
+                GoogleAuthResult.Cancelled
+            } else {
+                GoogleAuthResult.Error(mapFirebaseError(e))
+            }
         }
     }
 
@@ -219,8 +222,10 @@ class AuthRepository(private val context: Context? = null) {
     private fun mapFirebaseError(e: Exception): String {
         val message = e.message ?: ""
         return when {
+            e is FirebaseAuthUserCollisionException ||
             message.contains("email address is already in use", ignoreCase = true) ||
-            message.contains("The email address is already in use by another account", ignoreCase = true) ->
+            message.contains("The email address is already in use by another account", ignoreCase = true) ||
+            message.contains("account-exists-with-different-credential", ignoreCase = true) ->
                 "This email already has an account. Try logging in."
             message.contains("password is invalid", ignoreCase = true) ||
             message.contains("no user record", ignoreCase = true) ||
@@ -242,7 +247,11 @@ class AuthRepository(private val context: Context? = null) {
                 "Please sign in again to continue."
             message.contains("CONFIGURATION_NOT_FOUND", ignoreCase = true) ->
                 "Email/Password authentication provider is not enabled in Firebase Console."
-            else -> e.localizedMessage ?: "Something went wrong. Please try again."
+            e is NoCredentialException ||
+            message.contains("NoCredentialException", ignoreCase = true) ||
+            message.contains("Cannot find a matching credential", ignoreCase = true) ->
+                "No Google account found on this device."
+            else -> "Something went wrong. Please try again."
         }
     }
 }

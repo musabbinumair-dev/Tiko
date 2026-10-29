@@ -1,9 +1,11 @@
 package com.example.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,11 +33,14 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowCompat
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthResult
 import com.example.data.repository.GoogleAuthResult
@@ -69,14 +74,42 @@ private val LoginGrayPlaceholder = Color(0xFF8E8E93)
 private val LoginDividerLine = Color(0xFFCCCCCC)
 private val LoginDividerText = Color(0xFF6B6B6B)
 
+// Dark theme colors matching dark mockup
+private val LoginDarkGoldenBrown = Color(0xFF4B3512)
+private val LoginDarkNearBlack = Color(0xFF0E0E0E)
+private val LoginDarkCream = Color(0xFFF0EADC)
+private val LoginDarkBackButtonBg = Color(0xFF1E1E1E)
+private val LoginDarkPillBg = Color(0xFF1C1C1C)
+private val LoginDarkPillBorder = Color(0xFF2E2E2E)
+private val LoginDarkIconTint = Color(0xFFD4CFBF)
+private val LoginDarkSubtitle = Color(0xFFD4CFBF)
+private val LoginDarkDividerLine = Color(0xFF333333)
+private val LoginDarkDividerText = Color(0xFF8E8E93)
+
 @Composable
 fun LoginScreen(
     onBack: () -> Unit,
     onLoginSuccess: (String) -> Unit,
     onSignUp: () -> Unit,
+    isDark: Boolean = isSystemInDarkTheme(),
     modifier: Modifier = Modifier
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
+    val activity = context as? Activity
+    DisposableEffect(isDark) {
+        val window = activity?.window
+        if (window != null) {
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            val original = controller.isAppearanceLightStatusBars
+            controller.isAppearanceLightStatusBars = !isDark
+            onDispose {
+                controller.isAppearanceLightStatusBars = original
+            }
+        } else {
+            onDispose {}
+        }
+    }
+
     val authRepository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
     
@@ -88,11 +121,51 @@ fun LoginScreen(
     var isResettingPassword by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val backgroundGradient = Brush.verticalGradient(
-        0.0f to LoginYellow,
-        0.35f to LoginCream,
-        1.0f to LoginCream
-    )
+    val backgroundGradient = if (isDark) {
+        Brush.verticalGradient(
+            0.0f to LoginDarkGoldenBrown,
+            0.45f to LoginDarkNearBlack,
+            1.0f to LoginDarkNearBlack
+        )
+    } else {
+        Brush.verticalGradient(
+            0.0f to LoginYellow,
+            0.35f to LoginCream,
+            1.0f to LoginCream
+        )
+    }
+
+    val backBg = if (isDark) LoginDarkBackButtonBg else Color.White
+    val backBorder = if (isDark) LoginDarkCream else LoginBlack
+    val backArrowTint = if (isDark) LoginDarkCream else LoginBlack
+
+    val headingColor = if (isDark) LoginDarkCream else LoginBlack
+    val subtitleColor = if (isDark) LoginDarkSubtitle else LoginBlack
+
+    val inputBg = if (isDark) LoginDarkPillBg else Color.White
+    val inputBorder = if (isDark) LoginDarkPillBorder else Color.Transparent
+    val inputIconTint = if (isDark) LoginDarkIconTint else LoginBlack
+    val inputPlaceholderColor = if (isDark) LoginDarkSubtitle else LoginGrayPlaceholder
+    val inputTextColor = if (isDark) LoginDarkCream else LoginBlack
+    val inputCursorBrush = SolidColor(if (isDark) LoginDarkCream else LoginBlack)
+    val passwordToggleTint = if (isDark) LoginDarkIconTint else LoginBlack
+
+    val forgotPasswordColor = if (isDark) LoginDarkSubtitle else LoginBlack
+
+    val loginButtonBg = if (isDark) LoginDarkCream else LoginBlack
+    val loginButtonTextColor = if (isDark) LoginBlack else Color.White
+    val loginIndicatorColor = if (isDark) LoginBlack else Color.White
+
+    val dividerLineColor = if (isDark) LoginDarkDividerLine else LoginDividerLine
+    val dividerTextColor = if (isDark) LoginDarkDividerText else LoginDividerText
+
+    val googleButtonBg = if (isDark) LoginDarkNearBlack else Color.White
+    val googleButtonBorder = if (isDark) LoginDarkCream else LoginBlack
+    val googleButtonTextColor = if (isDark) LoginDarkCream else LoginBlack
+    val googleIndicatorColor = if (isDark) LoginDarkCream else LoginBlack
+
+    val bottomPromptColor = if (isDark) LoginDarkSubtitle else LoginBlack
+    val bottomLinkColor = if (isDark) LoginDarkCream else LoginBlack
 
     Box(
         modifier = modifier
@@ -107,14 +180,14 @@ fun LoginScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // 1. Back button: 48dp white circle, 1dp #151515 outline, back arrow icon
+            // 1. Back button: 48dp circle, back arrow icon
             Box(
                 modifier = Modifier
                     .padding(top = 10.dp)
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, LoginBlack, CircleShape)
+                    .background(backBg)
+                    .border(1.dp, backBorder, CircleShape)
                     .clickable(onClick = onBack)
                     .testTag("login_back_button"),
                 contentAlignment = Alignment.Center
@@ -122,14 +195,14 @@ fun LoginScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = LoginBlack,
+                    tint = backArrowTint,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. Heading "WELCOME BACK" on 2 lines, Outfit Black 48sp, uppercase, black, letter spacing -1sp
+            // 2. Heading "WELCOME BACK" on 2 lines, Outfit Black 48sp, uppercase, letter spacing -1sp
             Text(
                 text = "WELCOME\nBACK",
                 fontFamily = OutfitFontFamily,
@@ -137,7 +210,7 @@ fun LoginScreen(
                 fontSize = 48.sp,
                 lineHeight = 48.sp,
                 letterSpacing = (-1).sp,
-                color = LoginBlack
+                color = headingColor
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -148,18 +221,19 @@ fun LoginScreen(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 18.sp,
-                color = LoginBlack
+                color = subtitleColor
             )
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // 3. Email input: white fill, fully rounded (56dp high), no outline, mail icon 24dp at left, gray placeholder "Email" Outfit Regular 17sp
+            // 3. Email input: 56dp high, mail icon 24dp at left, placeholder "Email" Outfit Regular 17sp
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(inputBg)
+                    .then(if (isDark) Modifier.border(1.dp, inputBorder, CircleShape) else Modifier)
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
@@ -170,7 +244,7 @@ fun LoginScreen(
                     Icon(
                         imageVector = Icons.Outlined.Email,
                         contentDescription = null,
-                        tint = LoginBlack,
+                        tint = inputIconTint,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(14.dp))
@@ -181,7 +255,7 @@ fun LoginScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 17.sp,
-                                color = LoginGrayPlaceholder
+                                color = inputPlaceholderColor
                             )
                         }
                         BasicTextField(
@@ -191,10 +265,10 @@ fun LoginScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 17.sp,
-                                color = LoginBlack
+                                color = inputTextColor
                             ),
                             singleLine = true,
-                            cursorBrush = SolidColor(LoginBlack),
+                            cursorBrush = inputCursorBrush,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("login_email_input")
@@ -205,13 +279,14 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 4. Password input: same style, lock icon at left, eye icon at right toggling show/hide, placeholder "Password", 12dp below
+            // 4. Password input: lock icon at left, eye icon at right toggling show/hide, placeholder "Password", 12dp below
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(inputBg)
+                    .then(if (isDark) Modifier.border(1.dp, inputBorder, CircleShape) else Modifier)
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
@@ -222,7 +297,7 @@ fun LoginScreen(
                     Icon(
                         imageVector = Icons.Outlined.Lock,
                         contentDescription = null,
-                        tint = LoginBlack,
+                        tint = inputIconTint,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(14.dp))
@@ -233,7 +308,7 @@ fun LoginScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 17.sp,
-                                color = LoginGrayPlaceholder
+                                color = inputPlaceholderColor
                             )
                         }
                         BasicTextField(
@@ -243,11 +318,11 @@ fun LoginScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 17.sp,
-                                color = LoginBlack
+                                color = inputTextColor
                             ),
                             singleLine = true,
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            cursorBrush = SolidColor(LoginBlack),
+                            cursorBrush = inputCursorBrush,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("login_password_input")
@@ -257,7 +332,7 @@ fun LoginScreen(
                     Icon(
                         imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                         contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                        tint = LoginBlack,
+                        tint = passwordToggleTint,
                         modifier = Modifier
                             .size(24.dp)
                             .clickable { passwordVisible = !passwordVisible }
@@ -268,13 +343,13 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 5. Right-aligned link "Forgot password?" Outfit Medium 15sp, black, 10dp below
+            // 5. Right-aligned link "Forgot password?" Outfit Medium 15sp, 10dp below
             Text(
                 text = "Forgot password?",
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 15.sp,
-                color = LoginBlack,
+                color = forgotPasswordColor,
                 modifier = Modifier
                     .align(Alignment.End)
                     .clickable(enabled = !isResettingPassword) {
@@ -304,13 +379,13 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 6. Full-width black pill button "Log in", 56dp high, Outfit Bold 18sp, white text, 24dp below
+            // 6. Full-width pill button "Log in", 56dp high, Outfit Bold 18sp, 24dp below
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(LoginBlack)
+                    .background(loginButtonBg)
                     .clickable(enabled = !isLoading) {
                         val trimmedEmail = email.trim()
                         val trimmedPassword = password.trim()
@@ -348,7 +423,7 @@ fun LoginScreen(
                 if (isLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = Color.White,
+                        color = loginIndicatorColor,
                         strokeWidth = 2.5.dp
                     )
                 } else {
@@ -357,12 +432,12 @@ fun LoginScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color.White
+                        color = loginButtonTextColor
                     )
                 }
             }
 
-            // 7. Divider: thin gray lines with "or" centered, Outfit Regular 15sp
+            // 7. Divider: thin lines with "or" centered, Outfit Regular 15sp
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -373,21 +448,21 @@ fun LoginScreen(
                     modifier = Modifier
                         .weight(1f)
                         .height(1.dp)
-                        .background(LoginDividerLine)
+                        .background(dividerLineColor)
                 )
                 Text(
                     text = "or",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 15.sp,
-                    color = LoginDividerText,
+                    color = dividerTextColor,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(1.dp)
-                        .background(LoginDividerLine)
+                        .background(dividerLineColor)
                 )
             }
 
@@ -396,8 +471,8 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFFFEBEE))
-                        .border(1.5.dp, Color(0xFFD32F2F), RoundedCornerShape(14.dp))
+                        .background(if (isDark) Color(0xFF2C1517) else Color(0xFFFFEBEE))
+                        .border(1.5.dp, if (isDark) Color(0xFFEF5350) else Color(0xFFD32F2F), RoundedCornerShape(14.dp))
                         .padding(14.dp)
                         .testTag("login_error_banner")
                 ) {
@@ -406,21 +481,20 @@ fun LoginScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = Color(0xFFD32F2F)
+                        color = if (isDark) Color(0xFFFFB4AB) else Color(0xFFD32F2F)
                     )
                 }
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // 8. Two full-width pills, 56dp high, white fill, 1dp #151515 outline, centered icon + text Outfit Bold 17sp:
-            // "Continue with Google" (multicolor G icon)
+            // 8. Full-width pill "Continue with Google"
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, LoginBlack, CircleShape)
+                    .background(googleButtonBg)
+                    .border(1.dp, googleButtonBorder, CircleShape)
                     .alpha(if (isLoading || isGoogleLoading) 0.6f else 1.0f)
                     .clickable(enabled = !isLoading && !isGoogleLoading) {
                         isGoogleLoading = true
@@ -449,7 +523,7 @@ fun LoginScreen(
                 if (isGoogleLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = LoginBlack,
+                        color = googleIndicatorColor,
                         strokeWidth = 2.5.dp
                     )
                 } else {
@@ -464,7 +538,7 @@ fun LoginScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = LoginBlack
+                            color = googleButtonTextColor
                         )
                     }
                 }
@@ -485,14 +559,14 @@ fun LoginScreen(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 16.sp,
-                    color = LoginBlack
+                    color = bottomPromptColor
                 )
                 Text(
                     text = "Sign up",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = LoginBlack,
+                    color = bottomLinkColor,
                     modifier = Modifier
                         .clickable(onClick = onSignUp)
                         .testTag("login_signup_link")

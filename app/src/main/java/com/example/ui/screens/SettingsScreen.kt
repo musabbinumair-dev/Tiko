@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -105,6 +106,7 @@ private data class WeeklyBarData(
 fun SettingsScreen(
     viewModel: TikoViewModel,
     onNavigate: (Screen) -> Unit = {},
+    isDark: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -163,7 +165,9 @@ fun SettingsScreen(
             viewModel.cancelAllReminders()
         }
     }
-    var darkModeOn by remember { mutableStateOf(false) }
+    val isSystemDark = isSystemInDarkTheme()
+    val darkModePref by preferences.darkModeEnabled.collectAsState()
+    val darkModeOn = darkModePref ?: (if (isDark) true else isSystemDark)
     var selectedLanguage by remember { mutableStateOf("English") }
 
     var showEditProfileDialog by remember { mutableStateOf(false) }
@@ -202,19 +206,26 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppCreamBackground)
+            .background(if (darkModeOn) Color(0xFF141414) else AppCreamBackground)
     ) {
-        // Header Gradient #FFCF4D to cream
+        // Header Gradient: in dark mode golden-brown #4B3512 to #141414, in light mode #FFCF4D to cream
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(280.dp)
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFFFCF4D).copy(alpha = 0.85f),
-                            AppCreamBackground
-                        )
+                        colors = if (darkModeOn) {
+                            listOf(
+                                Color(0xFF4B3512),
+                                Color(0xFF141414)
+                            )
+                        } else {
+                            listOf(
+                                Color(0xFFFFCF4D).copy(alpha = 0.85f),
+                                AppCreamBackground
+                            )
+                        }
                     )
                 )
         )
@@ -240,6 +251,7 @@ fun SettingsScreen(
                         icon = Icons.Outlined.ChevronLeft,
                         onClick = { viewModel.selectTab(NavigationTab.HOME) },
                         contentDescription = "Back",
+                        isDark = darkModeOn,
                         testTag = "profile_back_button"
                     )
 
@@ -251,6 +263,7 @@ fun SettingsScreen(
                             showEditProfileDialog = true
                         },
                         contentDescription = "Edit Profile",
+                        isDark = darkModeOn,
                         testTag = "profile_edit_button"
                     )
                 }
@@ -288,7 +301,7 @@ fun SettingsScreen(
                                 .align(Alignment.BottomEnd)
                                 .clip(CircleShape)
                                 .background(CardPurple)
-                                .border(2.dp, Color.White, CircleShape)
+                                .border(2.dp, if (darkModeOn) Color(0xFF141414) else Color.White, CircleShape)
                                 .clickable {
                                     AppToastController.show("Photo upload coming soon", ToastType.Info)
                                 }
@@ -312,21 +325,21 @@ fun SettingsScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 34.sp,
-                        color = AppBlack,
+                        color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack,
                         textAlign = TextAlign.Center,
                         letterSpacing = (-0.5).sp
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // White pill with email or "Log in" button for guest
+                    // Pill with email or "Log in" button for guest
                     if (user != null || userEmail.isNotBlank()) {
                         Box(
                             modifier = Modifier
                                 .height(34.dp)
                                 .clip(CircleShape)
-                                .background(Color.White)
-                                .border(1.dp, Color(0xFFDCD8CB), CircleShape)
+                                .background(if (darkModeOn) Color(0xFF242424) else Color.White)
+                                .border(1.dp, if (darkModeOn) Color(0xFF383838) else Color(0xFFDCD8CB), CircleShape)
                                 .padding(horizontal = 20.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -335,7 +348,7 @@ fun SettingsScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 15.sp,
-                                color = AppBlack
+                                color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
                             )
                         }
                         if (user != null) {
@@ -347,7 +360,7 @@ fun SettingsScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 13.sp,
-                                    color = Color(0xFF5B5F66),
+                                    color = if (darkModeOn) Color(0xFFA8A39A) else Color(0xFF5B5F66),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -358,7 +371,7 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .height(34.dp)
                                 .clip(CircleShape)
-                                .background(AppBlack)
+                                .background(if (darkModeOn) Color(0xFFF5F1E6) else AppBlack)
                                 .clickable {
                                     onNavigate(Screen.Login)
                                 }
@@ -370,7 +383,7 @@ fun SettingsScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = Color.White
+                                color = if (darkModeOn) Color(0xFF151515) else Color.White
                             )
                         }
                     }
@@ -394,6 +407,7 @@ fun SettingsScreen(
                         contentColor = Color.White,
                         icon = Icons.Outlined.Check,
                         testTag = "stat_card_done",
+                        isDark = darkModeOn,
                         modifier = Modifier.weight(1f)
                     )
 
@@ -405,6 +419,7 @@ fun SettingsScreen(
                         contentColor = AppBlack,
                         icon = Icons.Outlined.LocalFireDepartment,
                         testTag = "stat_card_streak",
+                        isDark = darkModeOn,
                         modifier = Modifier.weight(1f)
                     )
 
@@ -416,6 +431,7 @@ fun SettingsScreen(
                         contentColor = AppBlack,
                         icon = Icons.Outlined.TrackChanges,
                         testTag = "stat_card_ontime",
+                        isDark = darkModeOn,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -424,7 +440,7 @@ fun SettingsScreen(
             // "This week" SECTION
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                // White pill label "This week"
+                // Pill label "This week"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -434,8 +450,8 @@ fun SettingsScreen(
                         modifier = Modifier
                             .height(34.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
+                            .background(if (darkModeOn) Color(0xFF242424) else Color.White)
+                            .border(1.dp, if (darkModeOn) Color(0xFF383838) else AppBlack, CircleShape)
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -444,20 +460,20 @@ fun SettingsScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = AppBlack
+                            color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // White card, 28dp radius, 7-bar chart (Mon to Sun)
+                // Card, 28dp radius, 7-bar chart (Mon to Sun)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
+                        .background(if (darkModeOn) Color(0xFF242424) else Color.White)
                         .padding(horizontal = 16.dp, vertical = 20.dp)
                 ) {
                     val maxValue = 9
@@ -478,7 +494,7 @@ fun SettingsScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
-                                    color = AppBlack
+                                    color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
                                 )
 
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -501,7 +517,7 @@ fun SettingsScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
-                                    color = AppBlack
+                                    color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
                                 )
                             }
                         }
@@ -512,7 +528,7 @@ fun SettingsScreen(
             // "Settings" SECTION
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                // White pill label "Settings"
+                // Pill label "Settings"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -522,8 +538,8 @@ fun SettingsScreen(
                         modifier = Modifier
                             .height(34.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
+                            .background(if (darkModeOn) Color(0xFF242424) else Color.White)
+                            .border(1.dp, if (darkModeOn) Color(0xFF383838) else AppBlack, CircleShape)
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -532,26 +548,27 @@ fun SettingsScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = AppBlack
+                            color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // White card, 28dp radius, 4 rows separated by thin #E8E8E8 lines
+                // Card, 28dp radius, 4 rows separated by thin lines
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
+                        .background(if (darkModeOn) Color(0xFF242424) else Color.White)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         // 1. Notifications (purple toggle, on)
                         SettingsRow(
                             icon = Icons.Outlined.Notifications,
                             label = "Notifications",
+                            isDark = darkModeOn,
                             trailing = {
                                 ProfileSwitch(
                                     checked = notificationsOn,
@@ -590,17 +607,19 @@ fun SettingsScreen(
                                             AppToastController.show("Notifications disabled", ToastType.Info)
                                         }
                                     },
+                                    isDark = darkModeOn,
                                     testTag = "switch_notifications"
                                 )
                             }
                         )
 
-                        SettingsDivider()
+                        SettingsDivider(isDark = darkModeOn)
 
                         // 2. Reminders (chevron)
                         SettingsRow(
                             icon = Icons.Outlined.CalendarToday,
                             label = "Reminders",
+                            isDark = darkModeOn,
                             onClick = {
                                 AppDialogController.alert(
                                     title = "Reminders & Alerts",
@@ -611,36 +630,39 @@ fun SettingsScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                     contentDescription = "Open reminders",
-                                    tint = AppBlack,
+                                    tint = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
                         )
 
-                        SettingsDivider()
+                        SettingsDivider(isDark = darkModeOn)
 
                         // 3. Dark mode (gray toggle, off)
                         SettingsRow(
                             icon = Icons.Outlined.DarkMode,
                             label = "Dark mode",
+                            isDark = darkModeOn,
                             trailing = {
                                 ProfileSwitch(
                                     checked = darkModeOn,
                                     onCheckedChange = { checked ->
-                                        darkModeOn = checked
+                                        preferences.setDarkModeEnabled(checked)
                                         AppToastController.show(if (checked) "Dark mode enabled" else "Dark mode disabled", ToastType.Success)
                                     },
+                                    isDark = darkModeOn,
                                     testTag = "switch_dark_mode"
                                 )
                             }
                         )
 
-                        SettingsDivider()
+                        SettingsDivider(isDark = darkModeOn)
 
                         // 4. Language ("English" + chevron)
                         SettingsRow(
                             icon = Icons.Outlined.Language,
                             label = "Language",
+                            isDark = darkModeOn,
                             onClick = { showLanguageDialog = true },
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -649,13 +671,13 @@ fun SettingsScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 15.sp,
-                                        color = Color(0xFF6B6B6B)
+                                        color = if (darkModeOn) Color(0xFFA8A39A) else Color(0xFF6B6B6B)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                         contentDescription = "Choose language",
-                                        tint = AppBlack,
+                                        tint = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -675,7 +697,8 @@ fun SettingsScreen(
                             .padding(horizontal = 20.dp)
                             .height(52.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF151515))
+                            .background(if (darkModeOn) Color(0xFF242424) else Color(0xFF151515))
+                            .border(1.dp, if (darkModeOn) Color(0xFF383838) else Color.Transparent, CircleShape)
                             .clickable {
                                 AppDialogController.confirm(
                                     title = "Log Out",
@@ -700,7 +723,7 @@ fun SettingsScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color.White
+                            color = if (darkModeOn) Color(0xFFF5F1E6) else Color.White
                         )
                     }
                 }
@@ -734,7 +757,7 @@ fun SettingsScreen(
             }
         }
 
-        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        // Soft fade scrim behind the bar (90dp gradient, transparent to near-black or cream at 80%)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -744,7 +767,7 @@ fun SettingsScreen(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                            (if (darkModeOn) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
                         )
                     )
                 )
@@ -1156,8 +1179,12 @@ private fun ProfileStatCard(
     contentColor: Color,
     icon: ImageVector,
     testTag: String,
+    isDark: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val circleBg = if (isDark) Color(0xFF1E1E1E) else Color.White
+    val circleIconColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
@@ -1172,33 +1199,33 @@ private fun ProfileStatCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left 30dp white circle with icon
+                // Left 30dp circle with icon
                 Box(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(circleBg),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = AppBlack,
+                        tint = circleIconColor,
                         modifier = Modifier.size(16.dp)
                     )
                 }
 
-                // Right 30dp white circle with diagonal arrow
+                // Right 30dp circle with diagonal arrow
                 Box(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(circleBg),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
                         size = 14.dp,
-                        color = AppBlack
+                        color = circleIconColor
                     )
                 }
             }
@@ -1231,13 +1258,14 @@ private fun ProfileStatCard(
 
 /**
  * Smooth custom toggle switch matching the mockup exactly:
- * Purple #6B4EFF when on, Gray #E0E0E0 when off, with white sliding circular thumb.
+ * Purple #6B4EFF when on, Gray #E0E0E0 (or #383838 in dark) when off, with white sliding circular thumb.
  */
 @Composable
 private fun ProfileSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    isDark: Boolean = false,
     testTag: String = "profile_switch"
 ) {
     val thumbOffset by animateDpAsState(
@@ -1245,12 +1273,18 @@ private fun ProfileSwitch(
         label = "switch_thumb"
     )
 
+    val trackColor = if (checked) {
+        CardPurple
+    } else {
+        if (isDark) Color(0xFF383838) else Color(0xFFE0E0E0)
+    }
+
     Box(
         modifier = modifier
             .width(52.dp)
             .height(30.dp)
             .clip(CircleShape)
-            .background(if (checked) CardPurple else Color(0xFFE0E0E0))
+            .background(trackColor)
             .clickable { onCheckedChange(!checked) }
             .padding(vertical = 3.dp)
             .testTag(testTag),
@@ -1267,7 +1301,7 @@ private fun ProfileSwitch(
 }
 
 /**
- * Settings Row Component inside the white 28dp card:
+ * Settings Row Component inside the 28dp card:
  * Icon (24dp outlined), Label (Outfit Medium 17sp), Trailing item (Switch or Chevron).
  */
 @Composable
@@ -1276,6 +1310,7 @@ private fun SettingsRow(
     label: String,
     trailing: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    isDark: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     Row(
@@ -1296,7 +1331,7 @@ private fun SettingsRow(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = AppBlack,
+                tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(14.dp))
@@ -1305,7 +1340,7 @@ private fun SettingsRow(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 17.sp,
-                color = AppBlack
+                color = if (isDark) Color(0xFFF5F1E6) else AppBlack
             )
         }
 
@@ -1314,14 +1349,14 @@ private fun SettingsRow(
 }
 
 /**
- * Thin #E8E8E8 horizontal divider between settings rows
+ * Horizontal divider between settings rows
  */
 @Composable
-private fun SettingsDivider() {
+private fun SettingsDivider(isDark: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(Color(0xFFE8E8E8))
+            .background(if (isDark) Color(0xFF383838) else Color(0xFFE8E8E8))
     )
 }

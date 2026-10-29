@@ -113,7 +113,8 @@ fun RoundIconButton(
     onClick: () -> Unit,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    testTag: String = "round_icon_button"
+    testTag: String = "round_icon_button",
+    isDark: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -122,6 +123,40 @@ fun RoundIconButton(
         animationSpec = tween(durationMillis = 100),
         label = "glass_button_press_scale"
     )
+
+    val bgBrush = if (isDark) {
+        Brush.verticalGradient(
+            colors = if (isPressed) {
+                listOf(Color(0xFF1E1E1E), Color(0xFF1A1A1A))
+            } else {
+                listOf(Color(0xFF242424), Color(0xFF242424))
+            }
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = if (isPressed) {
+                listOf(Color(0xFFF0EFEF), Color(0xFFE5E4DE))
+            } else {
+                listOf(Color(0xFFFFFFFF), Color(0xFFF6F5F2))
+            }
+        )
+    }
+
+    val borderBrush = if (isDark) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF383838),
+                Color(0xFF2E2E2E)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White,
+                Color(0xFFDCDAD4).copy(alpha = 0.8f)
+            )
+        )
+    }
 
     Box(
         modifier = modifier
@@ -133,27 +168,14 @@ fun RoundIconButton(
             .shadow(
                 elevation = 6.dp,
                 shape = CircleShape,
-                spotColor = Color.Black.copy(alpha = 0.10f),
-                ambientColor = Color.Black.copy(alpha = 0.04f)
+                spotColor = Color.Black.copy(alpha = if (isDark) 0.25f else 0.10f),
+                ambientColor = Color.Black.copy(alpha = if (isDark) 0.12f else 0.04f)
             )
             .clip(CircleShape)
-            .background(
-                Brush.verticalGradient(
-                    colors = if (isPressed) {
-                        listOf(Color(0xFFF0EFEF), Color(0xFFE5E4DE))
-                    } else {
-                        listOf(Color(0xFFFFFFFF), Color(0xFFF6F5F2))
-                    }
-                )
-            )
+            .background(bgBrush)
             .border(
                 1.dp,
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White,
-                        Color(0xFFDCDAD4).copy(alpha = 0.8f)
-                    )
-                ),
+                borderBrush,
                 CircleShape
             )
             .clickable(
@@ -167,7 +189,7 @@ fun RoundIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = AppBlack,
+            tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -188,6 +210,7 @@ fun FrostedGlassPill(
     testTag: String = "",
     elevation: Dp = 4.dp,
     borderWidth: Dp = 1.dp,
+    isDark: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -198,6 +221,40 @@ fun FrostedGlassPill(
         label = "glass_pill_press_scale"
     )
 
+    val bgBrush = if (isDark) {
+        Brush.verticalGradient(
+            colors = if (isPressed && (onClick != null || onLongClick != null)) {
+                listOf(Color(0xFF1E1E1E), Color(0xFF1A1A1A))
+            } else {
+                listOf(Color(0xFF242424), Color(0xFF242424))
+            }
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = if (isPressed && (onClick != null || onLongClick != null)) {
+                listOf(Color(0xFFF0EFEF), Color(0xFFE8E7E2))
+            } else {
+                listOf(Color(0xFFFFFFFF), Color(0xFFF6F5F2))
+            }
+        )
+    }
+
+    val borderBrush = if (isDark) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF383838),
+                Color(0xFF2E2E2E)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White,
+                Color(0xFFDCDAD4).copy(alpha = 0.8f)
+            )
+        )
+    }
+
     val baseModifier = modifier
         .graphicsLayer {
             scaleX = scale
@@ -206,27 +263,14 @@ fun FrostedGlassPill(
         .shadow(
             elevation = elevation,
             shape = CircleShape,
-            spotColor = Color.Black.copy(alpha = 0.08f),
-            ambientColor = Color.Black.copy(alpha = 0.04f)
+            spotColor = Color.Black.copy(alpha = if (isDark) 0.20f else 0.08f),
+            ambientColor = Color.Black.copy(alpha = if (isDark) 0.10f else 0.04f)
         )
         .clip(CircleShape)
-        .background(
-            Brush.verticalGradient(
-                colors = if (isPressed && (onClick != null || onLongClick != null)) {
-                    listOf(Color(0xFFF0EFEF), Color(0xFFE8E7E2))
-                } else {
-                    listOf(Color(0xFFFFFFFF), Color(0xFFF6F5F2))
-                }
-            )
-        )
+        .background(bgBrush)
         .border(
             borderWidth,
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color.White,
-                    Color(0xFFDCDAD4).copy(alpha = 0.8f)
-                )
-            ),
+            borderBrush,
             CircleShape
         )
 
@@ -257,49 +301,65 @@ fun FrostedGlassPill(
 fun Modifier.frostedGlass(
     shape: androidx.compose.ui.graphics.Shape = CircleShape,
     elevation: Dp = 4.dp,
-    borderWidth: Dp = 1.dp
-): Modifier = this
-    .shadow(
-        elevation = elevation,
-        shape = shape,
-        spotColor = Color.Black.copy(alpha = 0.08f),
-        ambientColor = Color.Black.copy(alpha = 0.04f)
-    )
-    .clip(shape)
-    .background(
-        Brush.verticalGradient(
-            listOf(
-                Color(0xFFFFFFFF),
-                Color(0xFFF6F5F2)
+    borderWidth: Dp = 1.dp,
+    isDark: Boolean = false
+): Modifier = if (isDark) {
+    this
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            spotColor = Color.Black.copy(alpha = 0.20f),
+            ambientColor = Color.Black.copy(alpha = 0.10f)
+        )
+        .clip(shape)
+        .background(Color(0xFF242424))
+        .border(
+            borderWidth,
+            Color(0xFF383838),
+            shape
+        )
+} else {
+    this
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            spotColor = Color.Black.copy(alpha = 0.08f),
+            ambientColor = Color.Black.copy(alpha = 0.04f)
+        )
+        .clip(shape)
+        .background(
+            Brush.verticalGradient(
+                listOf(
+                    Color(0xFFFFFFFF),
+                    Color(0xFFF6F5F2)
+                )
             )
         )
-    )
-    .border(
-        borderWidth,
-        Brush.verticalGradient(
-            listOf(
-                Color.White,
-                Color(0xFFDCDAD4).copy(alpha = 0.8f)
-            )
-        ),
-        shape
-    )
+        .border(
+            borderWidth,
+            Brush.verticalGradient(
+                listOf(
+                    Color.White,
+                    Color(0xFFDCDAD4).copy(alpha = 0.8f)
+                )
+            ),
+            shape
+        )
+}
 
 /**
  * Shared AppBottomNav:
  * Floating pill bar (68dp height, fully rounded, floating soft shadow).
- * Luminous Foodpanda-style milky frosted porcelain surface (95% opacity), never washed-out transparent.
- * 1dp frosted specular reflection rim border.
- * Hardware-accelerated sliding black (#111111) capsule behind the active tab (spring 0.85 damping, 380 stiffness).
- * Silky-smooth 120 FPS performance with zero frame drops or lag.
- * 5 equal tabs with 24dp icons, 2dp gap, 11sp Outfit Medium label.
+ * Dark theme uses #1E1E1E container with cream pill (#F5F1E6) active tab and #A8A39A inactive icons.
+ * Light theme preserves the luminous Foodpanda-style milky frosted porcelain surface with #111111 capsule.
  */
 @Composable
 fun AppBottomNav(
     activeTab: NavigationTab,
     onTabSelected: (NavigationTab) -> Unit,
     onAddClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     val activeIndex = when (activeTab) {
         NavigationTab.HOME -> 0
@@ -330,20 +390,22 @@ fun AppBottomNav(
         label = "capsule_trail"
     )
 
-    // Luminous milky frosted porcelain glass (Foodpanda style, never washed out or transparent)
-    val frostedGlassBrush = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFFFFFFF).copy(alpha = 0.96f),
-            Color(0xFFF6F5F2).copy(alpha = 0.92f)
+    val navBarBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF).copy(alpha = 0.96f)
+    val navBorderBrush = if (isDark) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF333333),
+                Color(0xFF242424)
+            )
         )
-    )
-
-    val frostedBorderBrush = Brush.verticalGradient(
-        colors = listOf(
-            Color.White,
-            Color(0xFFE0DDD5).copy(alpha = 0.80f)
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White,
+                Color(0xFFE0DDD5).copy(alpha = 0.80f)
+            )
         )
-    )
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -353,12 +415,12 @@ fun AppBottomNav(
             .shadow(
                 elevation = 16.dp,
                 shape = CircleShape,
-                spotColor = Color.Black.copy(alpha = 0.14f),
-                ambientColor = Color.Black.copy(alpha = 0.08f)
+                spotColor = Color.Black.copy(alpha = if (isDark) 0.35f else 0.14f),
+                ambientColor = Color.Black.copy(alpha = if (isDark) 0.18f else 0.08f)
             )
             .clip(CircleShape)
-            .background(frostedGlassBrush)
-            .border(1.dp, frostedBorderBrush, CircleShape),
+            .background(navBarBg)
+            .border(1.dp, navBorderBrush, CircleShape),
         contentAlignment = Alignment.CenterStart
     ) {
         val totalWidth = maxWidth
@@ -375,7 +437,9 @@ fun AppBottomNav(
         val stretchRatio = (maxIdx - minIdx).coerceIn(0f, 1.5f)
         val squishY = (1f - stretchRatio * 0.05f).coerceIn(0.92f, 1f)
 
-        // ONE solid black (#111111) rounded capsule that dynamically stretches and snaps smoothly
+        // Dark: cream pill (#F5F1E6). Light: solid black (#111111) rounded capsule
+        val capsuleColor = if (isDark) Color(0xFFF5F1E6) else Color(0xFF111111)
+
         Box(
             modifier = Modifier
                 .offset(x = leftOffset)
@@ -386,7 +450,7 @@ fun AppBottomNav(
                 }
                 .align(Alignment.CenterStart)
                 .clip(CircleShape)
-                .background(Color(0xFF111111))
+                .background(capsuleColor)
         )
 
         // 5 Equal Tab Items
@@ -401,6 +465,7 @@ fun AppBottomNav(
                 outlinedIcon = Icons.Outlined.Home,
                 onClick = { onTabSelected(NavigationTab.HOME) },
                 testTag = "nav_home_button",
+                isDark = isDark,
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
@@ -410,6 +475,7 @@ fun AppBottomNav(
                 outlinedIcon = Icons.Outlined.FormatListBulleted,
                 onClick = { onTabSelected(NavigationTab.LISTS) },
                 testTag = "nav_list_button",
+                isDark = isDark,
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
@@ -419,6 +485,7 @@ fun AppBottomNav(
                 outlinedIcon = Icons.Outlined.Add,
                 onClick = onAddClick,
                 testTag = "nav_add_button",
+                isDark = isDark,
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
@@ -428,6 +495,7 @@ fun AppBottomNav(
                 outlinedIcon = Icons.Outlined.CalendarToday,
                 onClick = { onTabSelected(NavigationTab.CALENDAR) },
                 testTag = "nav_calendar_button",
+                isDark = isDark,
                 modifier = Modifier.weight(1f)
             )
             GlassNavTab(
@@ -437,6 +505,7 @@ fun AppBottomNav(
                 outlinedIcon = Icons.Outlined.Person,
                 onClick = { onTabSelected(NavigationTab.SETTINGS) },
                 testTag = "nav_profile_button",
+                isDark = isDark,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -451,7 +520,8 @@ private fun GlassNavTab(
     outlinedIcon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    testTag: String = ""
+    testTag: String = "",
+    isDark: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -461,14 +531,26 @@ private fun GlassNavTab(
         label = "tab_press_scale"
     )
 
+    val targetIconColor = if (isDark) {
+        if (isActive) Color(0xFF151515) else Color(0xFFA8A39A)
+    } else {
+        if (isActive) Color.White else Color(0xFF111111).copy(alpha = 0.80f)
+    }
+
+    val targetLabelColor = if (isDark) {
+        if (isActive) Color(0xFF151515) else Color(0xFFA8A39A)
+    } else {
+        if (isActive) Color.White else Color(0xFF111111)
+    }
+
     val iconColor by animateColorAsState(
-        targetValue = if (isActive) Color.White else Color(0xFF111111).copy(alpha = 0.80f),
+        targetValue = targetIconColor,
         animationSpec = tween(durationMillis = 180),
         label = "tab_icon_color"
     )
 
     val labelColor by animateColorAsState(
-        targetValue = if (isActive) Color.White else Color(0xFF111111),
+        targetValue = targetLabelColor,
         animationSpec = tween(durationMillis = 180),
         label = "tab_label_color"
     )

@@ -1,9 +1,11 @@
 package com.example.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,11 +36,14 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowCompat
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthResult
 import com.example.data.repository.GoogleAuthResult
@@ -76,14 +81,43 @@ private val SignUpGrayPlaceholder = Color(0xFF8E8E93)
 private val SignUpDividerLine = Color(0xFFCCCCCC)
 private val SignUpDividerText = Color(0xFF6B6B6B)
 
+// Dark theme colors matching dark mockup styles
+private val SignUpDarkGoldenBrown = Color(0xFF4B3512)
+private val SignUpDarkNearBlack = Color(0xFF0E0E0E)
+private val SignUpDarkCream = Color(0xFFF0EADC)
+private val SignUpDarkBackButtonBg = Color(0xFF1E1E1E)
+private val SignUpDarkCardPillBg = Color(0xFF1E1E1E)
+private val SignUpDarkPillBg = Color(0xFF1C1C1C)
+private val SignUpDarkPillBorder = Color(0xFF2E2E2E)
+private val SignUpDarkIconTint = Color(0xFFD4CFBF)
+private val SignUpDarkSubtitle = Color(0xFFD4CFBF)
+private val SignUpDarkDividerLine = Color(0xFF333333)
+private val SignUpDarkDividerText = Color(0xFF8E8E93)
+
 @Composable
 fun SignUpScreen(
     onBack: () -> Unit,
     onCreateAccountSuccess: (String, String) -> Unit,
     onNavigateLogin: () -> Unit,
+    isDark: Boolean = isSystemInDarkTheme(),
     modifier: Modifier = Modifier
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
+    val activity = context as? Activity
+    DisposableEffect(isDark) {
+        val window = activity?.window
+        if (window != null) {
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            val original = controller.isAppearanceLightStatusBars
+            controller.isAppearanceLightStatusBars = !isDark
+            onDispose {
+                controller.isAppearanceLightStatusBars = original
+            }
+        } else {
+            onDispose {}
+        }
+    }
+
     val authRepository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
     
@@ -102,11 +136,65 @@ fun SignUpScreen(
         agreedToTerms &&
         !isLoading
 
-    val backgroundGradient = Brush.verticalGradient(
-        0.0f to SignUpYellow,
-        0.35f to SignUpCream,
-        1.0f to SignUpCream
-    )
+    val backgroundGradient = if (isDark) {
+        Brush.verticalGradient(
+            0.0f to SignUpDarkGoldenBrown,
+            0.45f to SignUpDarkNearBlack,
+            1.0f to SignUpDarkNearBlack
+        )
+    } else {
+        Brush.verticalGradient(
+            0.0f to SignUpYellow,
+            0.35f to SignUpCream,
+            1.0f to SignUpCream
+        )
+    }
+
+    val backBg = if (isDark) SignUpDarkBackButtonBg else Color.White
+    val backBorder = if (isDark) SignUpDarkCream else SignUpBlack
+    val backArrowTint = if (isDark) SignUpDarkCream else SignUpBlack
+
+    val headingColor = if (isDark) SignUpDarkCream else SignUpBlack
+    val subtitleColor = if (isDark) SignUpDarkSubtitle else SignUpBlack
+
+    val cardPillBg = if (isDark) SignUpDarkCardPillBg else Color.White
+    val cardPillText = if (isDark) SignUpDarkCream else SignUpBlack
+    val cardArrowColor = if (isDark) SignUpDarkCream else SignUpBlack
+
+    val inputBg = if (isDark) SignUpDarkPillBg else Color.White
+    val inputBorder = if (isDark) SignUpDarkPillBorder else Color.Transparent
+    val inputIconTint = if (isDark) SignUpDarkIconTint else SignUpBlack
+    val inputPlaceholderColor = if (isDark) SignUpDarkSubtitle else SignUpGrayPlaceholder
+    val inputTextColor = if (isDark) SignUpDarkCream else SignUpBlack
+    val inputCursorBrush = SolidColor(if (isDark) SignUpDarkCream else SignUpBlack)
+    val passwordToggleTint = if (isDark) SignUpDarkIconTint else SignUpBlack
+
+    val checkboxBorder = if (isDark) SignUpDarkCream else SignUpBlack
+    val checkboxBg = if (agreedToTerms) {
+        if (isDark) SignUpDarkCream else SignUpBlack
+    } else {
+        Color.Transparent
+    }
+    val checkIconTint = if (isDark) SignUpBlack else Color.White
+
+    val termsRegularColor = if (isDark) SignUpDarkSubtitle else SignUpBlack
+    val termsBoldColor = if (isDark) SignUpDarkCream else SignUpBlack
+
+    val createAccountBg = if (isDark) SignUpDarkCream else SignUpBlack
+    val createAccountBorder = if (isDark) SignUpDarkCream else SignUpBlack
+    val createAccountTextColor = if (isDark) SignUpBlack else Color.White
+    val createAccountIndicatorColor = if (isDark) SignUpBlack else Color.White
+
+    val dividerLineColor = if (isDark) SignUpDarkDividerLine else SignUpDividerLine
+    val dividerTextColor = if (isDark) SignUpDarkDividerText else SignUpDividerText
+
+    val googleButtonBg = if (isDark) SignUpDarkNearBlack else Color.White
+    val googleButtonBorder = if (isDark) SignUpDarkCream else SignUpBlack
+    val googleButtonTextColor = if (isDark) SignUpDarkCream else SignUpBlack
+    val googleIndicatorColor = if (isDark) SignUpDarkCream else SignUpBlack
+
+    val bottomPromptColor = if (isDark) SignUpDarkSubtitle else SignUpBlack
+    val bottomLinkColor = if (isDark) SignUpDarkCream else SignUpBlack
 
     Box(
         modifier = modifier
@@ -128,8 +216,8 @@ fun SignUpScreen(
                     .padding(top = 10.dp)
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, SignUpBlack, CircleShape)
+                    .background(backBg)
+                    .border(1.dp, backBorder, CircleShape)
                     .clickable(onClick = onBack)
                     .testTag("signup_back_button"),
                 contentAlignment = Alignment.Center
@@ -137,7 +225,7 @@ fun SignUpScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = SignUpBlack,
+                    tint = backArrowTint,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -152,7 +240,7 @@ fun SignUpScreen(
                 fontSize = 48.sp,
                 lineHeight = 48.sp,
                 letterSpacing = (-1).sp,
-                color = SignUpBlack
+                color = headingColor
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -163,7 +251,7 @@ fun SignUpScreen(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 18.sp,
-                color = SignUpBlack
+                color = subtitleColor
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -177,25 +265,25 @@ fun SignUpScreen(
                     .padding(16.dp)
             ) {
                 Column {
-                    // Top row: pill tag "Your details" + 44dp white circle with arrow_outward
+                    // Top row: pill tag "Your details" + 44dp circle with arrow_outward
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // White pill tag "Your details" (32dp high, person icon, Outfit Medium 14sp)
+                        // Pill tag "Your details" (32dp high, person icon, Outfit Medium 14sp)
                         Row(
                             modifier = Modifier
                                 .height(32.dp)
                                 .clip(CircleShape)
-                                .background(Color.White)
+                                .background(cardPillBg)
                                 .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Person,
                                 contentDescription = null,
-                                tint = SignUpBlack,
+                                tint = cardPillText,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -204,32 +292,33 @@ fun SignUpScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
-                                color = SignUpBlack
+                                color = cardPillText
                             )
                         }
 
-                        // 44dp white circle with arrow_outward icon at top right
+                        // 44dp circle with arrow_outward icon at top right
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(cardPillBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            ArrowOutwardIcon(size = 20.dp, color = SignUpBlack)
+                            ArrowOutwardIcon(size = 20.dp, color = cardArrowColor)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 3 stacked white inputs with 10dp gaps
+                    // 3 stacked inputs with 10dp gaps
                     // Input 1: Full name (person icon)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(inputBg)
+                            .then(if (isDark) Modifier.border(1.dp, inputBorder, CircleShape) else Modifier)
                             .padding(horizontal = 20.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
@@ -240,7 +329,7 @@ fun SignUpScreen(
                             Icon(
                                 imageVector = Icons.Outlined.Person,
                                 contentDescription = null,
-                                tint = SignUpBlack,
+                                tint = inputIconTint,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(14.dp))
@@ -251,7 +340,7 @@ fun SignUpScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = SignUpGrayPlaceholder
+                                        color = inputPlaceholderColor
                                     )
                                 }
                                 BasicTextField(
@@ -261,10 +350,10 @@ fun SignUpScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = SignUpBlack
+                                        color = inputTextColor
                                     ),
                                     singleLine = true,
-                                    cursorBrush = SolidColor(SignUpBlack),
+                                    cursorBrush = inputCursorBrush,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("signup_fullname_input")
@@ -281,7 +370,8 @@ fun SignUpScreen(
                             .fillMaxWidth()
                             .height(56.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(inputBg)
+                            .then(if (isDark) Modifier.border(1.dp, inputBorder, CircleShape) else Modifier)
                             .padding(horizontal = 20.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
@@ -292,7 +382,7 @@ fun SignUpScreen(
                             Icon(
                                 imageVector = Icons.Outlined.Email,
                                 contentDescription = null,
-                                tint = SignUpBlack,
+                                tint = inputIconTint,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(14.dp))
@@ -303,7 +393,7 @@ fun SignUpScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = SignUpGrayPlaceholder
+                                        color = inputPlaceholderColor
                                     )
                                 }
                                 BasicTextField(
@@ -313,10 +403,10 @@ fun SignUpScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = SignUpBlack
+                                        color = inputTextColor
                                     ),
                                     singleLine = true,
-                                    cursorBrush = SolidColor(SignUpBlack),
+                                    cursorBrush = inputCursorBrush,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("signup_email_input")
@@ -333,7 +423,8 @@ fun SignUpScreen(
                             .fillMaxWidth()
                             .height(56.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(inputBg)
+                            .then(if (isDark) Modifier.border(1.dp, inputBorder, CircleShape) else Modifier)
                             .padding(horizontal = 20.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
@@ -344,7 +435,7 @@ fun SignUpScreen(
                             Icon(
                                 imageVector = Icons.Outlined.Lock,
                                 contentDescription = null,
-                                tint = SignUpBlack,
+                                tint = inputIconTint,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(14.dp))
@@ -355,7 +446,7 @@ fun SignUpScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = SignUpGrayPlaceholder
+                                        color = inputPlaceholderColor
                                     )
                                 }
                                 BasicTextField(
@@ -365,11 +456,11 @@ fun SignUpScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = SignUpBlack
+                                        color = inputTextColor
                                     ),
                                     singleLine = true,
                                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    cursorBrush = SolidColor(SignUpBlack),
+                                    cursorBrush = inputCursorBrush,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("signup_password_input")
@@ -379,7 +470,7 @@ fun SignUpScreen(
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                                 contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                tint = SignUpBlack,
+                                tint = passwordToggleTint,
                                 modifier = Modifier
                                     .size(24.dp)
                                     .clickable { passwordVisible = !passwordVisible }
@@ -392,7 +483,7 @@ fun SignUpScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 4. Row below card: square checkbox (24dp, 1.5dp black outline, black fill with white check when selected)
+            // 4. Row below card: square checkbox (24dp, outline, fill with check when selected)
             // + text "I agree to the Terms and Privacy Policy"
             Row(
                 modifier = Modifier
@@ -405,8 +496,8 @@ fun SignUpScreen(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(if (agreedToTerms) SignUpBlack else Color.Transparent)
-                        .border(1.5.dp, SignUpBlack, RoundedCornerShape(4.dp))
+                        .background(checkboxBg)
+                        .border(1.5.dp, checkboxBorder, RoundedCornerShape(4.dp))
                         .testTag("signup_terms_checkbox"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -414,7 +505,7 @@ fun SignUpScreen(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Checked",
-                            tint = Color.White,
+                            tint = checkIconTint,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -423,12 +514,16 @@ fun SignUpScreen(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 val termsText = buildAnnotatedString {
-                    append("I agree to the ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    withStyle(SpanStyle(color = termsRegularColor)) {
+                        append("I agree to the ")
+                    }
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = termsBoldColor)) {
                         append("Terms")
                     }
-                    append(" and ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    withStyle(SpanStyle(color = termsRegularColor)) {
+                        append(" and ")
+                    }
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = termsBoldColor)) {
                         append("Privacy Policy")
                     }
                 }
@@ -437,8 +532,7 @@ fun SignUpScreen(
                     text = termsText,
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
-                    fontSize = 15.sp,
-                    color = SignUpBlack
+                    fontSize = 15.sp
                 )
             }
 
@@ -451,8 +545,8 @@ fun SignUpScreen(
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(SignUpBlack)
-                    .border(1.dp, SignUpBlack, CircleShape)
+                    .background(createAccountBg)
+                    .border(1.dp, createAccountBorder, CircleShape)
                     .clickable(enabled = !isLoading) {
                         val trimmedName = fullName.trim()
                         val trimmedEmail = email.trim()
@@ -497,7 +591,7 @@ fun SignUpScreen(
                 if (isLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = Color.White,
+                        color = createAccountIndicatorColor,
                         strokeWidth = 2.5.dp
                     )
                 } else {
@@ -506,7 +600,7 @@ fun SignUpScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color.White
+                        color = createAccountTextColor
                     )
                 }
             }
@@ -522,21 +616,21 @@ fun SignUpScreen(
                     modifier = Modifier
                         .weight(1f)
                         .height(1.dp)
-                        .background(SignUpDividerLine)
+                        .background(dividerLineColor)
                 )
                 Text(
                     text = "or",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 15.sp,
-                    color = SignUpDividerText,
+                    color = dividerTextColor,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(1.dp)
-                        .background(SignUpDividerLine)
+                        .background(dividerLineColor)
                 )
             }
 
@@ -545,8 +639,8 @@ fun SignUpScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFFFEBEE))
-                        .border(1.5.dp, Color(0xFFD32F2F), RoundedCornerShape(14.dp))
+                        .background(if (isDark) Color(0xFF2C1517) else Color(0xFFFFEBEE))
+                        .border(1.5.dp, if (isDark) Color(0xFFEF5350) else Color(0xFFD32F2F), RoundedCornerShape(14.dp))
                         .padding(14.dp)
                         .testTag("signup_error_banner")
                 ) {
@@ -555,7 +649,7 @@ fun SignUpScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = Color(0xFFD32F2F)
+                        color = if (isDark) Color(0xFFFFB4AB) else Color(0xFFD32F2F)
                     )
                 }
                 Spacer(modifier = Modifier.height(14.dp))
@@ -567,8 +661,8 @@ fun SignUpScreen(
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, SignUpBlack, CircleShape)
+                    .background(googleButtonBg)
+                    .border(1.dp, googleButtonBorder, CircleShape)
                     .alpha(if (isLoading || isGoogleLoading) 0.6f else 1.0f)
                     .clickable(enabled = !isLoading && !isGoogleLoading) {
                         isGoogleLoading = true
@@ -597,7 +691,7 @@ fun SignUpScreen(
                 if (isGoogleLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = SignUpBlack,
+                        color = googleIndicatorColor,
                         strokeWidth = 2.5.dp
                     )
                 } else {
@@ -612,7 +706,7 @@ fun SignUpScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = SignUpBlack
+                            color = googleButtonTextColor
                         )
                     }
                 }
@@ -633,14 +727,14 @@ fun SignUpScreen(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 16.sp,
-                    color = SignUpBlack
+                    color = bottomPromptColor
                 )
                 Text(
                     text = "Log in",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = SignUpBlack,
+                    color = bottomLinkColor,
                     modifier = Modifier
                         .clickable(onClick = onNavigateLogin)
                         .testTag("signup_login_link")

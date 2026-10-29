@@ -18,6 +18,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
@@ -95,7 +96,20 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val notifEnabled by viewModel.preferences.notificationsEnabled.collectAsState()
     val isGuestMode by viewModel.preferences.isGuestMode.collectAsState()
     val hasSeenWelcome by viewModel.preferences.hasSeenWelcome.collectAsState()
+    val isSystemDark = isSystemInDarkTheme()
+    val darkModePref by viewModel.preferences.darkModeEnabled.collectAsState()
+    val isDark = darkModePref ?: isSystemDark
     val haptic = LocalHapticFeedback.current
+
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (context as? ComponentActivity)?.window
+            if (window != null) {
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
+            }
+        }
+    }
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
     var hasInitialized by rememberSaveable { mutableStateOf(false) }
@@ -185,7 +199,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
+                        .background(if (isDark) Color(0xFF242424) else Color.White)
                         .padding(20.dp)
                 ) {
                     EmptyState(
@@ -202,7 +216,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         secondaryButtonText = "Not now",
                         onSecondaryButton = {
                             AppDialogController.dismiss()
-                        }
+                        },
+                        isDark = isDark
                     )
                 }
             }
@@ -224,18 +239,23 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         currentTab == NavigationTab.CALENDAR ||
         currentTab == NavigationTab.SETTINGS
     val creamBackground = Color(0xFFEFEBDD)
+    val activeBackgroundColor = if (hasCustomFloatingNav) {
+        if (isDark) Color(0xFF141414) else creamBackground
+    } else {
+        if (isDark) Color(0xFF121212) else TikoBackground
+    }
 
     // Determine transition direction: push (forward) vs pop (back) vs tab switch
     val stackSize = screenStack.size
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
-        containerColor = if (hasCustomFloatingNav) creamBackground else TikoBackground
+        containerColor = activeBackgroundColor
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (hasCustomFloatingNav) creamBackground else TikoBackground)
+                .background(activeBackgroundColor)
         ) {
             AnimatedContent(
                 targetState = currentScreen,
@@ -294,7 +314,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color(0xFFEFEBDD))
+                                .background(if (isDark) Color(0xFF121212) else Color(0xFFEFEBDD))
                         )
                     }
                     is Screen.Welcome -> {
@@ -311,7 +331,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             onNavigateSignUp = {
                                 viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.SignUp)
-                            }
+                            },
+                            isDark = isDark
                         )
                     }
                     is Screen.Login -> {
@@ -333,7 +354,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             },
                             onSignUp = {
                                 viewModel.navigateTo(Screen.SignUp)
-                            }
+                            },
+                            isDark = isDark
                         )
                     }
                     is Screen.SignUp -> {
@@ -354,7 +376,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             },
                             onNavigateLogin = {
                                 viewModel.navigateTo(Screen.Login)
-                            }
+                            },
+                            isDark = isDark
                         )
                     }
                     is Screen.Main -> {
@@ -363,19 +386,23 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 viewModel = viewModel,
                                 tasks = allTasks,
                                 stats = stats,
-                                onNavigate = { viewModel.navigateTo(it) }
+                                onNavigate = { viewModel.navigateTo(it) },
+                                isDark = isDark
                             )
                             NavigationTab.LISTS -> ListsScreen(
                                 viewModel = viewModel,
-                                onNavigate = { viewModel.navigateTo(it) }
+                                onNavigate = { viewModel.navigateTo(it) },
+                                isDark = isDark
                             )
                             NavigationTab.CALENDAR -> CalendarScreen(
                                 viewModel = viewModel,
-                                onNavigate = { viewModel.navigateTo(it) }
+                                onNavigate = { viewModel.navigateTo(it) },
+                                isDark = isDark
                             )
                             NavigationTab.SETTINGS -> SettingsScreen(
                                 viewModel = viewModel,
-                                onNavigate = { viewModel.navigateTo(it) }
+                                onNavigate = { viewModel.navigateTo(it) },
+                                isDark = isDark
                             )
                         }
                     }
@@ -499,7 +526,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.selectTab(it)
                         },
-                        onAddClick = { viewModel.navigateTo(Screen.AddTask) }
+                        onAddClick = { viewModel.navigateTo(Screen.AddTask) },
+                        isDark = isDark
                     )
                 }
             }

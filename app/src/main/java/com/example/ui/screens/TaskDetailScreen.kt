@@ -113,12 +113,14 @@ fun TaskDetailScreen(
     val timeDisplay = if (task.dueTime.isNotBlank()) task.dueTime else "10:00 AM"
     val priorityDisplay = if (task.priority.isNotBlank()) task.priority else "High"
 
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DetailCreamBg)
+            .background(tikoColors.screenBg)
     ) {
-        // Background gradient: #FFCF4D at the top fading to cream #EFEBDD
+        // Background gradient
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -126,8 +128,8 @@ fun TaskDetailScreen(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFFFFCF4D).copy(alpha = 0.90f),
-                            DetailCreamBg
+                            tikoColors.gradientStart,
+                            tikoColors.gradientEnd
                         )
                     )
                 )

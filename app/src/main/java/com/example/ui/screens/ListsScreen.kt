@@ -159,10 +159,12 @@ fun ListsScreen(
         }
     }
 
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) Color(0xFF141414) else AppCreamBackground)
+            .background(tikoColors.screenBg)
     ) {
         // Main scrollable content
         LazyColumn(
@@ -239,7 +241,7 @@ fun ListsScreen(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            (if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
+                            tikoColors.scrim
                         )
                     )
                 )
@@ -350,6 +352,7 @@ private fun ListsTitleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
         Text(
             text = "MY LISTS",
             fontFamily = OutfitFontFamily,
@@ -357,7 +360,7 @@ private fun ListsTitleRow(
             fontSize = 44.sp,
             lineHeight = 44.sp,
             letterSpacing = (-1).sp,
-            color = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+            color = tikoColors.textPrimary,
             modifier = Modifier.testTag("lists_title_my_lists")
         )
 
@@ -376,7 +379,7 @@ private fun ListsTitleRow(
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = "New list",
-                    tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+                    tint = tikoColors.textPrimary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -385,7 +388,7 @@ private fun ListsTitleRow(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                    color = tikoColors.textPrimary
                 )
             }
         }
@@ -416,9 +419,9 @@ private fun ListsFilterPills(
     ) {
         filters.forEach { (key, label) ->
             val isSelected = (selectedFilter == key) || (selectedFilter == "All" && key == "All")
-            val selectedBg = if (isDark) Color(0xFFF5F1E6) else AppBlack
-            val selectedTextColor = if (isDark) Color(0xFF151515) else Color.White
-            val unselectedTextColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
+            val selectedBg by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else AppBlack, androidx.compose.animation.core.tween(380), label = "filter_sel_bg")
+            val selectedTextColor by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFF151515) else Color.White, androidx.compose.animation.core.tween(380), label = "filter_sel_txt")
+            val unselectedTextColor by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else AppBlack, androidx.compose.animation.core.tween(380), label = "filter_unsel_txt")
 
             Box(
                 modifier = Modifier
@@ -492,8 +495,11 @@ private fun SingleOverlappingListCard(
     val showNextTaskFooter = isLast && card.nextPendingTask != null
 
     val isBlackCard = card.backgroundColor == Color(0xFF151515) || card.backgroundColor == CardBlack || card.categoryName.equals("Personal", ignoreCase = true)
-    val effectiveBg = if (isDark && isBlackCard) Color(0xFF2B2B2B) else card.backgroundColor
+    val targetBg = if (isDark && isBlackCard) Color(0xFF2B2B2B) else card.backgroundColor
+    val effectiveBg by androidx.compose.animation.animateColorAsState(targetBg, androidx.compose.animation.core.tween(380), label = "list_card_bg")
     val cardBorderModifier = if (isDark && isBlackCard) Modifier.border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(32.dp)) else Modifier
+    val pillBg by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFF1E1E1E) else Color.White, androidx.compose.animation.core.tween(380), label = "list_pill_bg")
+    val pillTint by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else AppBlack, androidx.compose.animation.core.tween(380), label = "list_pill_tint")
 
     Box(
         modifier = Modifier
@@ -534,7 +540,7 @@ private fun SingleOverlappingListCard(
                     modifier = Modifier
                         .height(30.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
+                        .background(pillBg)
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -545,7 +551,7 @@ private fun SingleOverlappingListCard(
                         CategoryOutlinedIcon(
                             categoryName = card.categoryName,
                             icon = card.icon,
-                            color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                            color = pillTint
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -553,7 +559,7 @@ private fun SingleOverlappingListCard(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                            color = pillTint
                         )
                     }
                 }
@@ -563,13 +569,13 @@ private fun SingleOverlappingListCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
+                        .background(pillBg)
                         .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
                         size = 20.dp,
-                        color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                        color = pillTint
                     )
                 }
             }

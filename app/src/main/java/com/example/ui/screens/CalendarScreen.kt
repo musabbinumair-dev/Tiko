@@ -224,25 +224,18 @@ fun CalendarScreen(
         weeks
     }
 
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) Color(0xFF141414) else AppCreamBackground)
+            .background(tikoColors.screenBg)
     ) {
-        // Top header gradient: In dark mode golden-brown #4B3512 fading smoothly to near-black #141414
-        val headerGradient = if (isDark) {
-            Brush.verticalGradient(
-                0.0f to Color(0xFF4B3512),
-                0.55f to Color(0xFF141414),
-                1.0f to Color(0xFF141414)
-            )
-        } else {
-            Brush.verticalGradient(
-                0.0f to Color(0xFFFFCF4D),
-                0.45f to Color(0xFFFFDB78).copy(alpha = 0.5f),
-                1.0f to AppCreamBackground
-            )
-        }
+        // Top header gradient
+        val headerGradient = Brush.verticalGradient(
+            0.0f to tikoColors.gradientStart,
+            1.0f to tikoColors.gradientEnd
+        )
 
         Box(
             modifier = Modifier
@@ -296,7 +289,7 @@ fun CalendarScreen(
                             Icon(
                                 imageVector = Icons.Outlined.CalendarToday,
                                 contentDescription = null,
-                                tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+                                tint = tikoColors.textPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -305,7 +298,7 @@ fun CalendarScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 16.sp,
-                                color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                                color = tikoColors.textPrimary
                             )
                         }
                     }
@@ -321,7 +314,7 @@ fun CalendarScreen(
                     fontWeight = FontWeight.Black,
                     fontSize = 44.sp,
                     letterSpacing = (-1).sp,
-                    color = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+                    color = tikoColors.textPrimary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -353,7 +346,7 @@ fun CalendarScreen(
                         Icon(
                             imageVector = Icons.Outlined.ChevronLeft,
                             contentDescription = "Previous Month",
-                            tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+                            tint = tikoColors.textPrimary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -371,7 +364,7 @@ fun CalendarScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                            color = tikoColors.textPrimary
                         )
                     }
 
@@ -391,7 +384,7 @@ fun CalendarScreen(
                         Icon(
                             imageVector = Icons.Outlined.ChevronRight,
                             contentDescription = "Next Month",
-                            tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+                            tint = tikoColors.textPrimary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -406,7 +399,7 @@ fun CalendarScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(if (isDark) Color(0xFF242424) else Color.White)
+                        .background(tikoColors.cardBg)
                         .padding(horizontal = 14.dp, vertical = 20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -426,7 +419,7 @@ fun CalendarScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
-                                        color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                                        color = tikoColors.textPrimary
                                     )
                                 }
                             }
@@ -525,7 +518,7 @@ fun CalendarScreen(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            (if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
+                            tikoColors.scrim
                         )
                     )
                 )
@@ -546,10 +539,10 @@ private fun CalendarDayItem(
     isDark: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val selectedBg = if (isDark) Color(0xFFF5F1E6) else AppBlack
-    val selectedTextColor = if (isDark) Color(0xFF151515) else Color.White
-    val normalTextColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
-    val inactiveTextColor = if (isDark) Color(0xFF706D66) else Color(0xFF9E9E9E)
+    val selectedBg by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else AppBlack, androidx.compose.animation.core.tween(380), label = "cal_sel_bg")
+    val selectedTextColor by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFF151515) else Color.White, androidx.compose.animation.core.tween(380), label = "cal_sel_txt")
+    val normalTextColor by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else AppBlack, androidx.compose.animation.core.tween(380), label = "cal_norm_txt")
+    val inactiveTextColor by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFF706D66) else Color(0xFF9E9E9E), androidx.compose.animation.core.tween(380), label = "cal_inact_txt")
 
     Box(
         modifier = modifier
@@ -659,15 +652,16 @@ private fun SingleCalendarOverlappingCard(
     val overlapPx = 18.dp
 
     val isBlackCard = card.backgroundColor == CardBlack || card.backgroundColor == Color(0xFF151515)
-    val actualBg = if (isDark && isBlackCard) Color(0xFF2B2B2B) else card.backgroundColor
+    val targetBg = if (isDark && isBlackCard) Color(0xFF2B2B2B) else card.backgroundColor
+    val actualBg by androidx.compose.animation.animateColorAsState(targetBg, androidx.compose.animation.core.tween(380), label = "cal_card_bg")
     val cardBorderModifier = if (isDark && isBlackCard) {
         Modifier.border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(28.dp))
     } else {
         Modifier
     }
 
-    val pillAndCircleBg = if (isDark) Color(0xFF1E1E1E) else Color.White
-    val pillAndCircleContentColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
+    val pillAndCircleBg by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFF1E1E1E) else Color.White, androidx.compose.animation.core.tween(380), label = "cal_pill_bg")
+    val pillAndCircleContentColor by androidx.compose.animation.animateColorAsState(if (isDark) Color(0xFFF5F1E6) else AppBlack, androidx.compose.animation.core.tween(380), label = "cal_pill_tint")
     val titleTextColor = if (isDark && isBlackCard) Color(0xFFF5F1E6) else card.contentColor
     val timeTextColor = if (isDark && isBlackCard) Color(0xFFD4CFC4) else card.contentColor
 

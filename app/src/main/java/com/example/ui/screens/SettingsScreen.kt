@@ -1,7 +1,10 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import com.example.ui.theme.LocalTikoThemeColors
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -109,6 +112,7 @@ fun SettingsScreen(
     isDark: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
     val context = LocalContext.current
     val authRepository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
@@ -207,7 +211,7 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (darkModeOn) Color(0xFF141414) else AppCreamBackground)
+            .background(tikoColors.screenBg)
     ) {
         // Header Gradient: in dark mode golden-brown #4B3512 to #141414, in light mode #FFCF4D to cream
         Box(
@@ -216,17 +220,7 @@ fun SettingsScreen(
                 .height(280.dp)
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = if (darkModeOn) {
-                            listOf(
-                                Color(0xFF4B3512),
-                                Color(0xFF141414)
-                            )
-                        } else {
-                            listOf(
-                                Color(0xFFFFCF4D).copy(alpha = 0.85f),
-                                AppCreamBackground
-                            )
-                        }
+                        colors = listOf(tikoColors.gradientStart, tikoColors.gradientEnd)
                     )
                 )
         )
@@ -326,7 +320,7 @@ fun SettingsScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 34.sp,
-                        color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack,
+                        color = tikoColors.textPrimary,
                         textAlign = TextAlign.Center,
                         letterSpacing = (-0.5).sp
                     )
@@ -339,8 +333,8 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .height(34.dp)
                                 .clip(CircleShape)
-                                .background(if (darkModeOn) Color(0xFF242424) else Color.White)
-                                .border(1.dp, if (darkModeOn) Color(0xFF383838) else Color(0xFFDCD8CB), CircleShape)
+                                .background(tikoColors.cardBg)
+                                .border(1.dp, tikoColors.cardBorder, CircleShape)
                                 .padding(horizontal = 20.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -349,7 +343,7 @@ fun SettingsScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 15.sp,
-                                color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
+                                color = tikoColors.textPrimary
                             )
                         }
                         if (user != null) {
@@ -451,8 +445,8 @@ fun SettingsScreen(
                         modifier = Modifier
                             .height(34.dp)
                             .clip(CircleShape)
-                            .background(if (darkModeOn) Color(0xFF242424) else Color.White)
-                            .border(1.dp, if (darkModeOn) Color(0xFF383838) else AppBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, tikoColors.cardBorder, CircleShape)
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -461,7 +455,7 @@ fun SettingsScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
+                            color = tikoColors.textPrimary
                         )
                     }
                 }
@@ -474,7 +468,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(if (darkModeOn) Color(0xFF242424) else Color.White)
+                        .background(tikoColors.cardBg)
                         .padding(horizontal = 16.dp, vertical = 20.dp)
                 ) {
                     val maxValue = 9
@@ -539,8 +533,8 @@ fun SettingsScreen(
                         modifier = Modifier
                             .height(34.dp)
                             .clip(CircleShape)
-                            .background(if (darkModeOn) Color(0xFF242424) else Color.White)
-                            .border(1.dp, if (darkModeOn) Color(0xFF383838) else AppBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, tikoColors.cardBorder, CircleShape)
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -549,7 +543,7 @@ fun SettingsScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
+                            color = tikoColors.textPrimary
                         )
                     }
                 }
@@ -562,7 +556,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(if (darkModeOn) Color(0xFF242424) else Color.White)
+                        .background(tikoColors.cardBg)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         // 1. Notifications (purple toggle, on)
@@ -1274,11 +1268,16 @@ private fun ProfileSwitch(
         label = "switch_thumb"
     )
 
-    val trackColor = if (checked) {
+    val targetTrackColor = if (checked) {
         CardPurple
     } else {
         if (isDark) Color(0xFF383838) else Color(0xFFE0E0E0)
     }
+    val trackColor by animateColorAsState(
+        targetValue = targetTrackColor,
+        animationSpec = tween(durationMillis = 350),
+        label = "switch_track_color"
+    )
 
     Box(
         modifier = modifier
@@ -1329,10 +1328,11 @@ private fun SettingsRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
         ) {
+            val tikoColors = LocalTikoThemeColors.current
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
+                tint = tikoColors.textPrimary,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(14.dp))
@@ -1341,7 +1341,7 @@ private fun SettingsRow(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 17.sp,
-                color = if (isDark) Color(0xFFF5F1E6) else AppBlack
+                color = tikoColors.textPrimary
             )
         }
 
@@ -1354,10 +1354,11 @@ private fun SettingsRow(
  */
 @Composable
 private fun SettingsDivider(isDark: Boolean = false) {
+    val tikoColors = LocalTikoThemeColors.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(if (isDark) Color(0xFF383838) else Color(0xFFE8E8E8))
+            .background(tikoColors.divider)
     )
 }

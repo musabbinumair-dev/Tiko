@@ -311,10 +311,12 @@ fun AddEditTaskScreen(
         }
     }
 
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+
     val backgroundGradient = Brush.verticalGradient(
-        0.0f to AddTaskYellow,
-        0.35f to AddTaskCream,
-        1.0f to AddTaskCream
+        0.0f to tikoColors.gradientStart,
+        0.35f to tikoColors.gradientEnd,
+        1.0f to tikoColors.gradientEnd
     )
 
     Box(

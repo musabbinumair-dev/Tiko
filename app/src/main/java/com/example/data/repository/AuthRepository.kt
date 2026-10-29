@@ -1,7 +1,6 @@
 package com.example.data.repository
 
 import android.content.Context
-import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -35,8 +34,6 @@ sealed class GoogleAuthResult {
 }
 
 class AuthRepository(private val context: Context? = null) {
-    private val TAG = "AuthRepository"
-
     private fun getAuth(): FirebaseAuth? {
         return try {
             FirebaseAuth.getInstance()
@@ -44,8 +41,7 @@ class AuthRepository(private val context: Context? = null) {
             context?.let { FirebaseInitializer.init(it) }
             try {
                 FirebaseAuth.getInstance()
-            } catch (e2: Throwable) {
-                Log.e(TAG, "Failed to obtain FirebaseAuth", e2)
+            } catch (_: Throwable) {
                 null
             }
         }
@@ -86,7 +82,6 @@ class AuthRepository(private val context: Context? = null) {
             )?.await()
             AuthResult.Success(displayName = name, email = email)
         } catch (e: Exception) {
-            Log.e(TAG, "signUp error", e)
             AuthResult.Error(mapFirebaseError(e))
         }
     }
@@ -99,7 +94,6 @@ class AuthRepository(private val context: Context? = null) {
             val name = user?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
             AuthResult.Success(displayName = name, email = user?.email ?: email)
         } catch (e: Exception) {
-            Log.e(TAG, "signIn error", e)
             AuthResult.Error(mapFirebaseError(e))
         }
     }
@@ -124,8 +118,7 @@ class AuthRepository(private val context: Context? = null) {
                     request = request,
                     context = activityContext
                 )
-            } catch (e: NoCredentialException) {
-                Log.w(TAG, "GetSignInWithGoogleOption threw NoCredentialException [${e.javaClass.name}]: ${e.message}. Trying GetGoogleIdOption fallback.", e)
+            } catch (_: NoCredentialException) {
                 val fallbackOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId)
@@ -141,8 +134,6 @@ class AuthRepository(private val context: Context? = null) {
             }
 
             val credential = result.credential
-            Log.d("TikoGoogle", "credential received: ${credential.type}")
-
             val idToken: String? = try {
                 when {
                     credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL -> {
@@ -155,16 +146,12 @@ class AuthRepository(private val context: Context? = null) {
                     }
                     else -> null
                 }
-            } catch (e: Exception) {
-                Log.d("TikoGoogle", "Error extracting idToken: ${e.message}")
+            } catch (_: Exception) {
                 null
             }
 
-            Log.d("TikoGoogle", if (idToken != null) "idToken is not null" else "idToken is null")
-
             if (idToken.isNullOrEmpty()) {
                 val errorMsg = "Google ID token is null"
-                Log.d("TikoGoogle", "Firebase sign-in failure: $errorMsg")
                 return GoogleAuthResult.Error(errorMsg)
             }
 
@@ -172,8 +159,6 @@ class AuthRepository(private val context: Context? = null) {
                 val authCredential = GoogleAuthProvider.getCredential(idToken, null)
                 val authResult = FirebaseAuth.getInstance().signInWithCredential(authCredential).await()
                 val user = authResult.user
-                Log.d("TikoGoogle", "Firebase sign-in success")
-                Log.d("TikoGoogle", "uid: ${user?.uid}")
 
                 val displayName = user?.displayName?.ifBlank { null }
                     ?: user?.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
@@ -181,14 +166,11 @@ class AuthRepository(private val context: Context? = null) {
                 val email = user?.email ?: ""
                 GoogleAuthResult.Success(displayName = displayName, email = email, uid = user?.uid ?: "")
             } catch (e: Exception) {
-                Log.d("TikoGoogle", "Firebase sign-in failure: ${e.message}")
                 GoogleAuthResult.Error(e.message ?: e.toString())
             }
-        } catch (e: GetCredentialCancellationException) {
-            Log.d("TikoGoogle", "CredentialManager cancelled: ${e.message}")
+        } catch (_: GetCredentialCancellationException) {
             GoogleAuthResult.Cancelled
         } catch (e: Exception) {
-            Log.d("TikoGoogle", "CredentialManager failure: ${e.message}")
             GoogleAuthResult.Error(e.message ?: e.toString())
         }
     }
@@ -199,7 +181,6 @@ class AuthRepository(private val context: Context? = null) {
             auth.sendPasswordResetEmail(email).await()
             AuthResult.Success()
         } catch (e: Exception) {
-            Log.e(TAG, "sendPasswordReset error", e)
             AuthResult.Error(mapFirebaseError(e))
         }
     }
@@ -218,7 +199,6 @@ class AuthRepository(private val context: Context? = null) {
             auth.currentUser?.delete()?.await()
             AuthResult.Success()
         } catch (e: Exception) {
-            Log.e(TAG, "deleteAccount error", e)
             AuthResult.Error(mapFirebaseError(e))
         }
     }
@@ -232,7 +212,6 @@ class AuthRepository(private val context: Context? = null) {
             user.reauthenticate(credential).await()
             AuthResult.Success()
         } catch (e: Exception) {
-            Log.e(TAG, "reauthenticate error", e)
             AuthResult.Error(mapFirebaseError(e))
         }
     }

@@ -6,8 +6,6 @@ import androidx.compose.ui.unit.dp
 import com.musab.tiko.R
 import com.example.ui.components.ErrorPageLayout
 
-const val ROUTE_ERROR_SAVE_FAILED = "error_save_failed"
-
 @Composable
 fun SaveErrorScreen(
     onTryAgain: () -> Unit,

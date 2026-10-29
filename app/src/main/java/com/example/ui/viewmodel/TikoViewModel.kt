@@ -28,9 +28,7 @@ sealed class Screen {
     data class TaskDetail(val taskId: Long) : Screen()
     object AddTask : Screen()
     data class EditTask(val taskId: Long) : Screen()
-    object ErrorSaveFailed : Screen() {
-        const val ROUTE = "error_save_failed"
-    }
+    object ErrorSaveFailed : Screen()
     object NotFound : Screen() {
         const val ROUTE = "error_not_found"
     }
@@ -147,7 +145,6 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
             "calendar" -> Screen.Main(NavigationTab.CALENDAR)
             "settings" -> Screen.Main(NavigationTab.SETTINGS)
             "add_task" -> Screen.AddTask
-            Screen.ErrorSaveFailed.ROUTE -> Screen.ErrorSaveFailed
             Screen.NotFound.ROUTE -> Screen.NotFound
             else -> {
                 if (route.startsWith("task_detail/")) {

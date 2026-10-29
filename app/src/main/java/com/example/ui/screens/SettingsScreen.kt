@@ -139,6 +139,7 @@ fun SettingsScreen(
                     preferences.setNotificationsEnabled(false)
                     viewModel.cancelAllReminders()
                 } else if (granted && preferences.notificationsEnabled.value) {
+                    viewModel.rescheduleAllReminders()
                     NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
                 }
             }

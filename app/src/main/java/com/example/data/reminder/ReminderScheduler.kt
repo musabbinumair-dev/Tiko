@@ -10,6 +10,7 @@ import android.util.Log
 import com.example.data.model.TaskEntity
 import com.musab.tiko.BuildConfig
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
@@ -148,9 +149,23 @@ object ReminderScheduler {
 
     fun parseDueTimestamp(dueDate: String, dueTime: String): Long? {
         if (dueDate.isBlank()) return null
-        val effectiveTime = if (dueTime.isBlank()) TaskEntity.DEFAULT_DUE_TIME else dueTime.trim()
+        val rawDate = dueDate.trim()
+        val effectiveDate = if (rawDate.equals("today", ignoreCase = true)) {
+            val sdfToday = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            }
+            sdfToday.format(Date())
+        } else rawDate
+
+        val rawTime = if (dueTime.isBlank()) TaskEntity.DEFAULT_DUE_TIME else dueTime.trim()
+        val effectiveTime = rawTime.replace('\u00A0', ' ').replace('\u202F', ' ').trim()
         val timeZone = TimeZone.getDefault()
-        val patterns = listOf("yyyy-MM-dd h:mm a", "yyyy-MM-dd hh:mm a", "yyyy-MM-dd HH:mm")
+        val patterns = listOf(
+            "yyyy-MM-dd h:mm a",
+            "yyyy-MM-dd hh:mm a",
+            "yyyy-MM-dd H:mm",
+            "yyyy-MM-dd HH:mm"
+        )
 
         for (pattern in patterns) {
             try {
@@ -158,7 +173,7 @@ object ReminderScheduler {
                     this.timeZone = timeZone
                     this.isLenient = false
                 }
-                val date = sdf.parse("$dueDate $effectiveTime")
+                val date = sdf.parse("$effectiveDate $effectiveTime")
                 if (date != null) {
                     return date.time
                 }
@@ -171,10 +186,10 @@ object ReminderScheduler {
         val normalized = reminder.trim().lowercase(Locale.US)
         return when (normalized) {
             "", "none" -> null
-            "15 min before" -> 15 * 60 * 1000L
-            "30 min before" -> 30 * 60 * 1000L
-            "1 hour before" -> 60 * 60 * 1000L
-            "at time", "at time of task", "at time of event", "0 min before" -> 0L
+            "15 min before", "15 minutes before" -> 15 * 60 * 1000L
+            "30 min before", "30 minutes before" -> 30 * 60 * 1000L
+            "1 hour before", "1 hr before", "60 min before" -> 60 * 60 * 1000L
+            "at time", "at time of task", "at time of event", "0 min before", "at due time" -> 0L
             else -> {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Unrecognized reminder value '$reminder', treating as None")
@@ -184,4 +199,3 @@ object ReminderScheduler {
         }
     }
 }
-

@@ -16,6 +16,9 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 | `5f1975d` | Mapped Google sign-in errors to friendly messages in `AuthRepository` |
 | `e5a3e01` | **Blocker 4** ✅ — Data Layer V2: migrated task IDs to String UUIDs, added soft deletes, timestamps, sync tracking; enabled Room schema export (`room.schemaLocation`), bumped version to 4 with final destructive migration policy |
 | `f652a64` | **Blocker 5** ✅ — Firestore Sync: re-enabled Firestore dependency; bidirectional sync in `SyncManager` with offline-first Room cache, pending write echo suppression, cloud task deletion on account deletion, and `firestore.rules` restored |
+| `4691ba2` | **Blocker 6 (Part 1)** — Add reminder scheduler, receiver, actions, and boot receiver |
+| `fea37db` | **Blocker 6 (Part 2)** — Wire reminders to repository, sync manager, app start, login, and logout |
+| HEAD | **Blocker 6** ✅ — Reminder permissions flow, rationale dialog, exact-alarm notice, and settings synchronization |
 
 ## Firestore sync status (investigated 2026-10-29)
 
@@ -81,7 +84,7 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 
 ## Screens or flows that can crash or mislead
 
-- **Blocker** — Notifications are only a preference toggle: `UserPreferences.kt:21-22,52-54`, `MainActivity.kt:141-161`, and `SettingsScreen.kt:491-504`. There is no notification permission flow, notification channel, scheduler, worker/alarm, or receiver. The UI can tell users that reminders are enabled even though no reminders can fire.
+- **DONE** ✅ — **Blocker 6** resolved: Built production notification reminders system with `ReminderScheduler`, `ReminderReceiver` (channel `"task_reminders"`, monochrome icon, #6B4EFF, auto-cancel, mark-done & snooze actions), `ReminderActionReceiver`, and `BootReceiver`. Connected to `TaskRepository` for CRUD, `SyncManager` for multi-device sync, app startup/login, and logout/account deletion. Wired permissions flow: `POST_NOTIFICATIONS` runtime request, rationale dialogs via `AppDialogController`, permanent denial redirection to settings, exact-alarm warnings with settings fallback, and accurate toggle state reflecting both app preference and system permission.
 - **Important** — `TaskEntity.kt:42-59` swallows all malformed-subtask JSON errors and silently returns an empty list, losing visible data with no recovery path or user-facing error.
 - **Important** — `TikoViewModel.kt:207-223, 260-295` catches task-save exceptions but offers no structured error state, retry identity, or failure persistence. `AddEditTaskScreen.kt:211-233` can navigate to an error page, but its retry depends on volatile UI state and can lose the attempted edit after process death.
 - **DONE** ✅ — `SettingsScreen.kt:1005-1044` now deletes user task documents from Firestore prior to account deletion (`f652a64`).
@@ -98,7 +101,6 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 | # | Description |
 |---|-------------|
 | Blocker | Release build: minification disabled, no signed AAB, no upload keystore in CI |
-| Blocker | Notifications: preference toggle exists but no permission flow, channel, scheduler, or receiver |
 
 ## Recommended order
 
@@ -106,6 +108,6 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 2. ~~Put approved Firebase config in the standard build location through a secure CI process, then make `assembleDebug` pass.~~ ✅ Done
 3. ~~Replace destructive Room migration with tested, real migrations and enable schema export.~~ ✅ Done (`e5a3e01`)
 4. ~~Decide and implement Firestore sync plus account-data deletion, or remove cross-device/account claims.~~ ✅ Done (`f652a64`)
-5. Build real notification permission/scheduling or remove the reminder-enabled UX.
+5. ~~Build real notification permission/scheduling or remove the reminder-enabled UX.~~ ✅ Done (Blocker 6)
 6. Establish signed release/AAB CI with least-privilege workflow permissions and R8 verification.
 7. Add meaningful automated tests before feature work resumes.

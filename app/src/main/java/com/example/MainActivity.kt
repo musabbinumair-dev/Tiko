@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -133,6 +134,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                     // User was signed in but now signed out (token expired or account deleted)
                     lastKnownUserId = null
                     viewModel.stopSync()
+                    viewModel.cancelAllReminders()
                     viewModel.preferences.clearUser()
                     viewModel.setInitialScreen(Screen.Welcome)
                     AppToastController.show("Please log in again", ToastType.Info)
@@ -193,6 +195,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         buttonText = "Turn on",
                         onButton = {
                             viewModel.preferences.setNotificationsEnabled(true)
+                            viewModel.rescheduleAllReminders()
                             AppToastController.show("Notifications enabled", ToastType.Success)
                             AppDialogController.dismiss()
                         },

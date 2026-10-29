@@ -6,6 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import com.example.data.local.TaskDao
 import com.example.data.model.TaskEntity
+import com.example.data.reminder.ReminderScheduler
 import com.example.ui.components.AppToastController
 import com.example.ui.components.ToastType
 import com.google.firebase.firestore.DocumentChange
@@ -210,6 +211,7 @@ class SyncManager(
 
                     if (change.type == DocumentChange.Type.REMOVED) {
                         taskDao.hardDeleteById(docId)
+                        ReminderScheduler.cancel(context, docId)
                         continue
                     }
 
@@ -219,15 +221,28 @@ class SyncManager(
 
                     if (localTask == null) {
                         if (!remoteTask.deleted) {
-                            taskDao.insertTask(remoteTask.copy(synced = true))
+                            val toInsert = remoteTask.copy(synced = true)
+                            taskDao.insertTask(toInsert)
+                            if (!toInsert.done) {
+                                ReminderScheduler.schedule(context, toInsert)
+                            } else {
+                                ReminderScheduler.cancel(context, docId)
+                            }
                         }
                     } else {
                         // Newest updatedAt wins
                         if (remoteTask.updatedAt > localTask.updatedAt) {
                             if (remoteTask.deleted) {
                                 taskDao.hardDeleteById(docId)
+                                ReminderScheduler.cancel(context, docId)
                             } else {
-                                taskDao.insertTask(remoteTask.copy(synced = true))
+                                val toUpdate = remoteTask.copy(synced = true)
+                                taskDao.insertTask(toUpdate)
+                                if (!toUpdate.done) {
+                                    ReminderScheduler.schedule(context, toUpdate)
+                                } else {
+                                    ReminderScheduler.cancel(context, docId)
+                                }
                             }
                         }
                     }

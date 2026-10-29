@@ -81,7 +81,8 @@ object AppDialogController {
         confirmText: String,
         cancelText: String = "Cancel",
         destructive: Boolean = false,
-        onConfirm: () -> Unit
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit = {}
     ) {
         currentDialog = DialogData.Confirm(
             title = title,
@@ -94,6 +95,7 @@ object AppDialogController {
                 onConfirm()
             },
             onCancel = {
+                onCancel()
                 currentDialog = null
             }
         )

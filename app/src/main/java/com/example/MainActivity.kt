@@ -126,16 +126,22 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                     viewModel.setInitialScreen(Screen.Welcome)
                 }
             }
-        } else if (hasInitialized && lastKnownUserId != null && currentUser == null) {
-            // User was signed in but now signed out (token expired or account deleted)
-            lastKnownUserId = null
-            viewModel.stopSync()
-            viewModel.preferences.clearUser()
-            viewModel.setInitialScreen(Screen.Welcome)
-            AppToastController.show("Please log in again", ToastType.Info)
-        } else if (hasInitialized && currentUser != null && lastKnownUserId != currentUser.uid) {
-            // Different user signed in
-            lastKnownUserId = currentUser.uid
+        } else if (hasInitialized) {
+            val user = currentUser
+            when {
+                lastKnownUserId != null && user == null -> {
+                    // User was signed in but now signed out (token expired or account deleted)
+                    lastKnownUserId = null
+                    viewModel.stopSync()
+                    viewModel.preferences.clearUser()
+                    viewModel.setInitialScreen(Screen.Welcome)
+                    AppToastController.show("Please log in again", ToastType.Info)
+                }
+                user != null && lastKnownUserId != user.uid -> {
+                    // Different user signed in
+                    lastKnownUserId = user.uid
+                }
+            }
         }
     }
 
@@ -161,10 +167,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     }
 
     LaunchedEffect(currentScreen, notifEnabled) {
-        val isWelcomeOrAuth = currentScreen is Screen.Welcome ||
-            currentScreen is Screen.Login ||
-            currentScreen is Screen.SignUp
-        val isProfilePage = currentScreen is Screen.Main && (currentScreen as Screen.Main).tab == NavigationTab.SETTINGS
+        val screen = currentScreen
+        val isWelcomeOrAuth = screen is Screen.Welcome ||
+            screen is Screen.Login ||
+            screen is Screen.SignUp
+        val isProfilePage = screen is Screen.Main && (screen as Screen.Main).tab == NavigationTab.SETTINGS
 
         if (!hasShownNotificationPopup && !notifEnabled && !isWelcomeOrAuth && !isProfilePage) {
             hasShownNotificationPopup = true
@@ -207,7 +214,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         }
     }
 
-    val currentTab = (currentScreen as? Screen.Main)?.tab
+    val screen = currentScreen
+    val currentTab = (screen as? Screen.Main)?.tab
     val hasCustomFloatingNav = currentTab == NavigationTab.HOME ||
         currentTab == NavigationTab.LISTS ||
         currentTab == NavigationTab.CALENDAR ||

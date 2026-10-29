@@ -15,8 +15,8 @@ data class TaskEntity(
     val category: String = "Work",
     val priority: String = "Medium", // "Low", "Medium", "High"
     val dueDate: String = "", // e.g. "2026-10-15"
-    val dueTime: String = "10:00 AM",
-    val reminder: String = "30 min before", // "None", "15 min before", "30 min before", "1 hour before"
+    val dueTime: String = DEFAULT_DUE_TIME,
+    val reminder: String = DEFAULT_REMINDER, // "None", "15 min before", "30 min before", "1 hour before"
     val done: Boolean = false,
     val completedAt: Long? = null,
     val subtasksJson: String = "[]",
@@ -95,6 +95,8 @@ data class TaskEntity(
     }
 
     companion object {
+        const val DEFAULT_DUE_TIME = "9:00 AM"
+        const val DEFAULT_REMINDER = "30 min before"
         fun fromFirestoreMap(data: Map<String, Any?>, documentId: String): TaskEntity {
             val rawSubtasks = data["subtasks"] as? List<*>
             val subtaskList = mutableListOf<SubtaskItem>()
@@ -116,8 +118,8 @@ data class TaskEntity(
                 category = data["category"] as? String ?: "Work",
                 priority = data["priority"] as? String ?: "Medium",
                 dueDate = data["dueDate"] as? String ?: "",
-                dueTime = data["dueTime"] as? String ?: "10:00 AM",
-                reminder = data["reminder"] as? String ?: "30 min before",
+                dueTime = data["dueTime"] as? String ?: DEFAULT_DUE_TIME,
+                reminder = data["reminder"] as? String ?: DEFAULT_REMINDER,
                 done = data["done"] as? Boolean ?: false,
                 completedAt = (data["completedAt"] as? Number)?.toLong(),
                 subtasksJson = serializeSubtasks(subtaskList),

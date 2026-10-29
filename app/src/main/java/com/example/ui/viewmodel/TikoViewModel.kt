@@ -280,7 +280,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
                     category = category,
                     priority = priority,
                     dueDate = if (dueDate.isBlank()) TikoDatabase.getTodayDateString() else dueDate,
-                    dueTime = if (dueTime.isBlank()) "10:00 AM" else dueTime,
+                    dueTime = if (dueTime.isBlank()) TaskEntity.DEFAULT_DUE_TIME else dueTime,
                     reminder = reminder,
                     done = false,
                     subtasksJson = TaskEntity.serializeSubtasks(subtasks)
@@ -336,7 +336,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
                     category = category,
                     priority = priority,
                     dueDate = if (dueDate.isBlank()) TikoDatabase.getTodayDateString() else dueDate,
-                    dueTime = if (dueTime.isBlank()) "10:00 AM" else dueTime,
+                    dueTime = if (dueTime.isBlank()) TaskEntity.DEFAULT_DUE_TIME else dueTime,
                     reminder = reminder,
                     done = done,
                     subtasksJson = TaskEntity.serializeSubtasks(subtasks)

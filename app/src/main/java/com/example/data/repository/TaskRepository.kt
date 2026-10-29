@@ -46,6 +46,11 @@ class TaskRepository(private val taskDao: TaskDao) {
         taskDao.setTaskDone(task.id, newDone, completedAt, now)
     }
 
+    suspend fun completeTask(taskId: String) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        taskDao.setTaskDone(taskId, true, now, now)
+    }
+
     suspend fun toggleSubtask(taskId: String, subtaskId: String) = withContext(Dispatchers.IO) {
         val task = taskDao.getTaskByIdOnce(taskId) ?: return@withContext
         val updated = task.copyWithToggledSubtask(subtaskId)

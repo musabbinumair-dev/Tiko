@@ -80,6 +80,7 @@ import com.example.data.model.CategoryColors
 import com.example.data.model.CategoryIcons
 import com.example.data.model.CategoryModel
 import com.example.data.model.SubtaskItem
+import com.example.data.model.TaskEntity
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.components.CreateCategoryDialog
 import com.example.ui.components.RoundIconButton
@@ -135,8 +136,8 @@ fun AddEditTaskScreen(
     var category by remember(existingTask) { mutableStateOf(existingTask?.category ?: viewModel.preselectedCategoryForNewTask ?: "Work") }
     var priority by remember(existingTask) { mutableStateOf(existingTask?.priority ?: "Medium") }
     var dueDate by remember(existingTask) { mutableStateOf(existingTask?.dueDate ?: TikoDatabase.getTodayDateString()) }
-    var dueTime by remember(existingTask) { mutableStateOf(existingTask?.dueTime ?: "9:00 AM") }
-    var reminder by remember(existingTask) { mutableStateOf(existingTask?.reminder ?: "30 min before") }
+    var dueTime by remember(existingTask) { mutableStateOf(existingTask?.dueTime ?: TaskEntity.DEFAULT_DUE_TIME) }
+    var reminder by remember(existingTask) { mutableStateOf(existingTask?.reminder ?: TaskEntity.DEFAULT_REMINDER) }
     val subtasks = remember(existingTask) {
         mutableStateListOf<SubtaskItem>().apply {
             if (existingTask != null) {

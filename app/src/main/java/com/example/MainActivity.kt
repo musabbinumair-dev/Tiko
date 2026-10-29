@@ -111,7 +111,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val isDark = darkModePref ?: isSystemDark
     val haptic = LocalHapticFeedback.current
 
-
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
@@ -145,6 +144,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
 
     val view = androidx.compose.ui.platform.LocalView.current
     if (!view.isInEditMode) {
@@ -154,7 +154,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
             }
         }
-
     }
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }

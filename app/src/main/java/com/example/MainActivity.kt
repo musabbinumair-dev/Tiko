@@ -1,11 +1,16 @@
 package com.example
 
+import android.Manifest
+import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -26,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,6 +39,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.data.reminder.NotificationPermissionHelper
 import com.example.data.repository.AuthRepository
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,6 +106,41 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val isGuestMode by viewModel.preferences.isGuestMode.collectAsState()
     val hasSeenWelcome by viewModel.preferences.hasSeenWelcome.collectAsState()
     val haptic = LocalHapticFeedback.current
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.preferences.setNotificationsEnabled(true)
+            viewModel.rescheduleAllReminders()
+            NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, viewModel.preferences)
+            AppToastController.show("Notifications enabled", ToastType.Success)
+        } else {
+            viewModel.preferences.setNotificationsEnabled(false)
+            viewModel.cancelAllReminders()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val hasSystemPermission = NotificationPermissionHelper.hasNotificationPermission(context)
+                if (hasSystemPermission && viewModel.preferences.notificationsEnabled.value) {
+                    viewModel.rescheduleAllReminders()
+                    NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, viewModel.preferences)
+                } else if (!hasSystemPermission && viewModel.preferences.notificationsEnabled.value) {
+                    viewModel.preferences.setNotificationsEnabled(false)
+                    viewModel.cancelAllReminders()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
     var hasInitialized by rememberSaveable { mutableStateOf(false) }
@@ -194,10 +239,27 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         caption = "Turn them on so you never miss a task.",
                         buttonText = "Turn on",
                         onButton = {
-                            viewModel.preferences.setNotificationsEnabled(true)
-                            viewModel.rescheduleAllReminders()
-                            AppToastController.show("Notifications enabled", ToastType.Success)
                             AppDialogController.dismiss()
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val activity = context as? Activity
+                                if (activity != null && NotificationPermissionHelper.isPermanentlyDenied(activity, viewModel.preferences)) {
+                                    viewModel.preferences.setNotificationsEnabled(true)
+                                    NotificationPermissionHelper.openNotificationSettings(context)
+                                } else {
+                                    viewModel.preferences.setHasRequestedNotificationPermission(true)
+                                    notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            } else {
+                                if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
+                                    viewModel.preferences.setNotificationsEnabled(true)
+                                    NotificationPermissionHelper.openNotificationSettings(context)
+                                } else {
+                                    viewModel.preferences.setNotificationsEnabled(true)
+                                    viewModel.rescheduleAllReminders()
+                                    NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, viewModel.preferences)
+                                    AppToastController.show("Notifications enabled", ToastType.Success)
+                                }
+                            }
                         },
                         secondaryButtonText = "Not now",
                         onSecondaryButton = {

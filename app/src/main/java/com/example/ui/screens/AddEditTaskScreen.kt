@@ -265,6 +265,7 @@ fun AddEditTaskScreen(
             onConfirm = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (activity != null && NotificationPermissionHelper.isPermanentlyDenied(activity, preferences)) {
+                        preferences.setNotificationsEnabled(true)
                         NotificationPermissionHelper.openNotificationSettings(context)
                         executeActualSave()
                     } else {
@@ -273,6 +274,7 @@ fun AddEditTaskScreen(
                     }
                 } else {
                     if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
+                        preferences.setNotificationsEnabled(true)
                         NotificationPermissionHelper.openNotificationSettings(context)
                     } else {
                         preferences.setNotificationsEnabled(true)

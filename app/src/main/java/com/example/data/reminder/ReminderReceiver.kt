@@ -1,5 +1,6 @@
 package com.example.data.reminder
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -25,14 +26,11 @@ class ReminderReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val database = TikoDatabase.getInstance(context)
-                val task = database.taskDao().getTaskByIdOnce(taskId)
-                val prefs = context.getSharedPreferences("tiko_settings_prefs", Context.MODE_PRIVATE)
-                val notifEnabled = prefs.getBoolean("notif_enabled", false)
-                val hasPermission = NotificationPermissionHelper.hasNotificationPermission(context)
-                if (!notifEnabled || !hasPermission) {
+                if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
                     return@launch
                 }
+                val database = TikoDatabase.getInstance(context)
+                val task = database.taskDao().getTaskByIdOnce(taskId)
                 if (task == null || task.done || task.deleted) {
                     return@launch
                 }
@@ -102,6 +100,7 @@ class ReminderReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(0, "Mark done", donePendingIntent)
             .addAction(0, "Snooze 10 min", snoozePendingIntent)
             .build()
@@ -111,14 +110,23 @@ class ReminderReceiver : BroadcastReceiver() {
 
     private fun createChannelIfNeeded(notificationManager: NotificationManager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Reminders for scheduled tasks"
+            val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
+            if (existing == null) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Reminders for scheduled tasks"
+                    enableLights(true)
+                    lightColor = Color.parseColor("#6B4EFF")
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 250, 250, 250)
+                    setShowBadge(true)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                }
+                notificationManager.createNotificationChannel(channel)
             }
-            notificationManager.createNotificationChannel(channel)
         }
     }
 
@@ -127,6 +135,29 @@ class ReminderReceiver : BroadcastReceiver() {
         const val CHANNEL_NAME = "Task reminders"
         const val EXTRA_TASK_ID = "task_id"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
+
+        fun createChannel(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                    ?: return
+                val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
+                if (existing == null) {
+                    val channel = NotificationChannel(
+                        CHANNEL_ID,
+                        CHANNEL_NAME,
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = "Reminders for scheduled tasks"
+                        enableLights(true)
+                        lightColor = Color.parseColor("#6B4EFF")
+                        enableVibration(true)
+                        vibrationPattern = longArrayOf(0, 250, 250, 250)
+                        setShowBadge(true)
+                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    }
+                    notificationManager.createNotificationChannel(channel)
+                }
+            }
+        }
     }
 }
-

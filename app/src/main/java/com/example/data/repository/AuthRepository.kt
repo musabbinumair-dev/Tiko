@@ -9,6 +9,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.example.data.FirebaseInitializer
+import com.musab.tiko.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -35,7 +36,6 @@ sealed class GoogleAuthResult {
 
 class AuthRepository(private val context: Context? = null) {
     private val TAG = "AuthRepository"
-    private val WEB_CLIENT_ID = "542946903408-jumrf8l5mantirmc7j6hnlcqpc6788tq.apps.googleusercontent.com"
 
     private fun getAuth(): FirebaseAuth? {
         return try {
@@ -107,12 +107,7 @@ class AuthRepository(private val context: Context? = null) {
     suspend fun signInWithGoogle(activityContext: Context): GoogleAuthResult {
         val auth = getAuth() ?: return GoogleAuthResult.Error("Authentication service is unavailable. Please check your internet connection.")
         return try {
-            val webClientId = try {
-                val resId = activityContext.resources.getIdentifier("default_web_client_id", "string", activityContext.packageName)
-                if (resId != 0) activityContext.getString(resId) else WEB_CLIENT_ID
-            } catch (t: Throwable) {
-                WEB_CLIENT_ID
-            }
+            val webClientId = activityContext.getString(R.string.default_web_client_id)
 
             val credentialManager = CredentialManager.create(activityContext)
             

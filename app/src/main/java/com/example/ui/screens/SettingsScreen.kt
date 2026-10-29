@@ -52,6 +52,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import android.Manifest
+import android.app.Activity
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.data.reminder.NotificationPermissionHelper
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthResult
 import kotlinx.coroutines.launch
@@ -114,7 +124,45 @@ fun SettingsScreen(
     val userEmail by preferences.userEmail.collectAsState()
     val notifEnabled by preferences.notificationsEnabled.collectAsState()
 
-    var notificationsOn by remember(notifEnabled) { mutableStateOf(notifEnabled) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val activity = context as? Activity
+    var systemNotifGranted by remember { mutableStateOf(NotificationPermissionHelper.hasNotificationPermission(context)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = NotificationPermissionHelper.hasNotificationPermission(context)
+                systemNotifGranted = granted
+                if (!granted && preferences.notificationsEnabled.value) {
+                    preferences.setNotificationsEnabled(false)
+                    viewModel.cancelAllReminders()
+                } else if (granted && preferences.notificationsEnabled.value) {
+                    NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val notificationsOn = notifEnabled && systemNotifGranted
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        systemNotifGranted = isGranted
+        if (isGranted) {
+            preferences.setNotificationsEnabled(true)
+            viewModel.rescheduleAllReminders()
+            NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
+            AppToastController.show("Notifications enabled", ToastType.Success)
+        } else {
+            preferences.setNotificationsEnabled(false)
+            viewModel.cancelAllReminders()
+        }
+    }
     var darkModeOn by remember { mutableStateOf(false) }
     var selectedLanguage by remember { mutableStateOf("English") }
 
@@ -504,6 +552,49 @@ fun SettingsScreen(
                         SettingsRow(
                             icon = Icons.Outlined.Notifications,
                             label = "Notifications",
+                            trailing = {
+                                ProfileSwitch(
+                                    checked = notificationsOn,
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            AppDialogController.confirm(
+                                                title = "Allow reminders?",
+                                                message = "Tiko needs notification access to remind you about tasks.",
+                                                confirmText = "Allow",
+                                                cancelText = "Not now",
+                                                onConfirm = {
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                        if (activity != null && NotificationPermissionHelper.isPermanentlyDenied(activity, preferences)) {
+                                                            NotificationPermissionHelper.openNotificationSettings(context)
+                                                        } else {
+                                                            preferences.setHasRequestedNotificationPermission(true)
+                                                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                        }
+                                                    } else {
+                                                        if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
+                                                            NotificationPermissionHelper.openNotificationSettings(context)
+                                                        } else {
+                                                            preferences.setNotificationsEnabled(true)
+                                                            systemNotifGranted = true
+                                                            viewModel.rescheduleAllReminders()
+                                                            NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
+                                                            AppToastController.show("Notifications enabled", ToastType.Success)
+                                                        }
+                                                    }
+                                                },
+                                                onCancel = {}
+                                            )
+                                        } else {
+                                            preferences.setNotificationsEnabled(false)
+                                            viewModel.cancelAllReminders()
+                                            AppToastController.show("Notifications disabled", ToastType.Info)
+                                        }
+                                    },
+                                    testTag = "switch_notifications"
+                                )
+                            }
+                        )
+                        if (false) SettingsRow(icon = Icons.Outlined.Notifications, label = "Notifications",
                             trailing = {
                                 ProfileSwitch(
                                     checked = notificationsOn,

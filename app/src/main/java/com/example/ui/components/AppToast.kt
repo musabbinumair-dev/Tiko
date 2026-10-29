@@ -62,7 +62,9 @@ enum class ToastType {
 data class ToastData(
     val id: Long,
     val message: String,
-    val type: ToastType
+    val type: ToastType,
+    val actionLabel: String? = null,
+    val onAction: (() -> Unit)? = null
 )
 
 object AppToastController {
@@ -71,11 +73,18 @@ object AppToastController {
 
     private var nextId = 0L
 
-    fun show(message: String, type: ToastType = ToastType.Info) {
+    fun show(
+        message: String,
+        type: ToastType = ToastType.Info,
+        actionLabel: String? = null,
+        onAction: (() -> Unit)? = null
+    ) {
         currentToast = ToastData(
             id = ++nextId,
             message = message,
-            type = type
+            type = type,
+            actionLabel = actionLabel,
+            onAction = onAction
         )
     }
 
@@ -90,7 +99,7 @@ fun AppToastHost(modifier: Modifier = Modifier) {
 
     LaunchedEffect(toast?.id) {
         if (toast != null) {
-            val duration = if (toast.type == ToastType.Error) 3800L else 2800L
+            val duration = if (toast.onAction != null) 6000L else if (toast.type == ToastType.Error) 3800L else 2800L
             delay(duration)
             if (AppToastController.currentToast?.id == toast.id) {
                 AppToastController.dismiss()
@@ -164,6 +173,29 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (toast.actionLabel != null && toast.onAction != null) {
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF2C2C2E))
+                                .clickable {
+                                    val act = toast.onAction
+                                    AppToastController.dismiss()
+                                    act?.invoke()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = toast.actionLabel,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFFFFB92E)
+                            )
+                        }
+                    }
                 }
             }
         }

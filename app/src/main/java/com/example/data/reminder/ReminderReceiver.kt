@@ -27,6 +27,12 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 val database = TikoDatabase.getInstance(context)
                 val task = database.taskDao().getTaskByIdOnce(taskId)
+                val prefs = context.getSharedPreferences("tiko_settings_prefs", Context.MODE_PRIVATE)
+                val notifEnabled = prefs.getBoolean("notif_enabled", false)
+                val hasPermission = NotificationPermissionHelper.hasNotificationPermission(context)
+                if (!notifEnabled || !hasPermission) {
+                    return@launch
+                }
                 if (task == null || task.done || task.deleted) {
                     return@launch
                 }

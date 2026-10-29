@@ -80,6 +80,12 @@ import com.example.data.model.CategoryColors
 import com.example.data.model.CategoryIcons
 import com.example.data.model.CategoryModel
 import com.example.data.model.SubtaskItem
+import android.Manifest
+import android.app.Activity
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.data.reminder.NotificationPermissionHelper
 import com.example.data.model.TaskEntity
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.components.CreateCategoryDialog
@@ -185,7 +191,12 @@ fun AddEditTaskScreen(
 
     BackHandler(onBack = handleBack)
 
-    val performSave = {
+    val activity = context as? Activity
+    val preferences = viewModel.preferences
+    val notifPrefEnabled by preferences.notificationsEnabled.collectAsState()
+    val isRealNotificationActive = notifPrefEnabled && NotificationPermissionHelper.hasNotificationPermission(context)
+
+    val executeActualSave = {
         if (title.isBlank()) {
             titleError = true
             AppToastController.show("Please enter a task title", ToastType.Error)
@@ -230,6 +241,63 @@ fun AddEditTaskScreen(
                 }
             } catch (e: Throwable) {
                 viewModel.navigateTo(Screen.ErrorSaveFailed)
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            preferences.setNotificationsEnabled(true)
+            viewModel.rescheduleAllReminders()
+            NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
+        }
+        executeActualSave()
+    }
+
+    val requestRemindersThenSave = {
+        AppDialogController.confirm(
+            title = "Allow reminders?",
+            message = "Tiko needs notification access to remind you about tasks.",
+            confirmText = "Allow",
+            cancelText = "Not now",
+            onConfirm = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (activity != null && NotificationPermissionHelper.isPermanentlyDenied(activity, preferences)) {
+                        NotificationPermissionHelper.openNotificationSettings(context)
+                        executeActualSave()
+                    } else {
+                        preferences.setHasRequestedNotificationPermission(true)
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                } else {
+                    if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
+                        NotificationPermissionHelper.openNotificationSettings(context)
+                    } else {
+                        preferences.setNotificationsEnabled(true)
+                        viewModel.rescheduleAllReminders()
+                        NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
+                    }
+                    executeActualSave()
+                }
+            },
+            onCancel = {
+                executeActualSave()
+            }
+        )
+    }
+
+    val performSave = {
+        if (title.isBlank()) {
+            titleError = true
+            AppToastController.show("Please enter a task title", ToastType.Error)
+        } else {
+            val hasReminder = !reminder.equals("None", ignoreCase = true) && reminder.isNotBlank()
+            if (hasReminder && !isRealNotificationActive) {
+                requestRemindersThenSave()
+            } else {
+                executeActualSave()
             }
         }
     }

@@ -45,6 +45,12 @@ class UserPreferences(context: Context) {
     private val _hasSeenWelcome = MutableStateFlow(prefs.getBoolean("has_seen_welcome", false))
     val hasSeenWelcome: StateFlow<Boolean> = _hasSeenWelcome.asStateFlow()
 
+    private val _hasRequestedNotificationPermission = MutableStateFlow(prefs.getBoolean("has_requested_notif_perm", false))
+    val hasRequestedNotificationPermission: StateFlow<Boolean> = _hasRequestedNotificationPermission.asStateFlow()
+
+    private val _hasShownExactAlarmNotice = MutableStateFlow(prefs.getBoolean("has_shown_exact_alarm_notice", false))
+    val hasShownExactAlarmNotice: StateFlow<Boolean> = _hasShownExactAlarmNotice.asStateFlow()
+
     fun setUserName(name: String) {
         prefs.edit().putString("user_name", name).apply()
         _userName.value = name
@@ -98,6 +104,16 @@ class UserPreferences(context: Context) {
     fun setHasSeenWelcome(seen: Boolean) {
         prefs.edit().putBoolean("has_seen_welcome", seen).apply()
         _hasSeenWelcome.value = seen
+    }
+
+    fun setHasRequestedNotificationPermission(requested: Boolean) {
+        prefs.edit().putBoolean("has_requested_notif_perm", requested).apply()
+        _hasRequestedNotificationPermission.value = requested
+    }
+
+    fun setHasShownExactAlarmNotice(shown: Boolean) {
+        prefs.edit().putBoolean("has_shown_exact_alarm_notice", shown).apply()
+        _hasShownExactAlarmNotice.value = shown
     }
 
     fun clearUser() {

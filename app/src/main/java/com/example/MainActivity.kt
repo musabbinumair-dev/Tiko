@@ -195,6 +195,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         buttonText = "Turn on",
                         onButton = {
                             viewModel.preferences.setNotificationsEnabled(true)
+                            viewModel.rescheduleAllReminders()
                             AppToastController.show("Notifications enabled", ToastType.Success)
                             AppDialogController.dismiss()
                         },

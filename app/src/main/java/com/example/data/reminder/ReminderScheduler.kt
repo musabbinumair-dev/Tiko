@@ -22,6 +22,14 @@ object ReminderScheduler {
             return
         }
 
+        val prefs = context.getSharedPreferences("tiko_settings_prefs", Context.MODE_PRIVATE)
+        val notifEnabled = prefs.getBoolean("notif_enabled", false)
+        val hasPermission = NotificationPermissionHelper.hasNotificationPermission(context)
+        if (!notifEnabled || !hasPermission) {
+            cancel(context, task.id)
+            return
+        }
+
         val triggerTime = computeTriggerTime(task.dueDate, task.dueTime, task.reminder)
         if (triggerTime == null) {
             cancel(context, task.id)

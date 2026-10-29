@@ -84,6 +84,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.musab.tiko.BuildConfig
 import com.musab.tiko.R
 import com.example.ui.components.AppBlack
 import com.example.ui.components.AppBottomNav
@@ -749,6 +750,21 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "Version ${BuildConfig.VERSION_NAME}",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = tikoColors.textMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_app_version")
+                )
             }
         }
 

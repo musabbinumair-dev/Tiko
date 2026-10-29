@@ -55,7 +55,8 @@ fun EmptyState(
     onButton: (() -> Unit)? = null,
     secondaryButtonText: String? = null,
     onSecondaryButton: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -94,7 +95,7 @@ fun EmptyState(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 24.sp,
-                color = Color(0xFF151515),
+                color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515),
                 textAlign = TextAlign.Center
             )
 
@@ -105,7 +106,7 @@ fun EmptyState(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
-                color = Color(0xFF5B5F66),
+                color = if (isDark) Color(0xFFA8A39A) else Color(0xFF5B5F66),
                 textAlign = TextAlign.Center,
                 maxLines = 2
             )
@@ -116,7 +117,7 @@ fun EmptyState(
                     modifier = Modifier
                         .height(52.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF151515))
+                        .background(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515))
                         .clickable(onClick = onButton)
                         .padding(horizontal = 28.dp),
                     contentAlignment = Alignment.Center
@@ -126,7 +127,7 @@ fun EmptyState(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
-                        color = Color.White
+                        color = if (isDark) Color(0xFF151515) else Color.White
                     )
                 }
             }
@@ -146,7 +147,7 @@ fun EmptyState(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 15.sp,
-                        color = Color(0xFF5B5F66)
+                        color = if (isDark) Color(0xFFA8A39A) else Color(0xFF5B5F66)
                     )
                 }
             }

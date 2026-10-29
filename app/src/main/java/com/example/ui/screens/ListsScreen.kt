@@ -118,7 +118,8 @@ private data class ListCardUiModel(
 fun ListsScreen(
     viewModel: TikoViewModel,
     onNavigate: (Screen) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     // Hardware/gesture back press navigates to Home
     BackHandler {
@@ -161,7 +162,7 @@ fun ListsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppCreamBackground)
+            .background(if (isDark) Color(0xFF141414) else AppCreamBackground)
     ) {
         // Main scrollable content
         LazyColumn(
@@ -176,7 +177,8 @@ fun ListsScreen(
             item {
                 ListsTopBar(
                     onBackClick = { viewModel.selectTab(NavigationTab.HOME) },
-                    onSearchClick = { showSearchDialog = true }
+                    onSearchClick = { showSearchDialog = true },
+                    isDark = isDark
                 )
             }
 
@@ -184,7 +186,8 @@ fun ListsScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 ListsTitleRow(
-                    onNewListClick = { showNewListDialog = true }
+                    onNewListClick = { showNewListDialog = true },
+                    isDark = isDark
                 )
             }
 
@@ -194,7 +197,8 @@ fun ListsScreen(
                 ListsFilterPills(
                     selectedFilter = selectedFilter,
                     totalListsCount = allCardModels.size,
-                    onSelectFilter = { selectedFilter = it }
+                    onSelectFilter = { selectedFilter = it },
+                    isDark = isDark
                 )
             }
 
@@ -207,7 +211,8 @@ fun ListsScreen(
                         title = "No matches",
                         caption = "Try a different word or clear the filters.",
                         buttonText = "Clear filters",
-                        onButton = { selectedFilter = "All" }
+                        onButton = { selectedFilter = "All" },
+                        isDark = isDark
                     )
                 } else {
                     OverlappingListCards(
@@ -217,13 +222,14 @@ fun ListsScreen(
                         },
                         onTaskClick = { task ->
                             onNavigate(Screen.TaskDetail(task.id))
-                        }
+                        },
+                        isDark = isDark
                     )
                 }
             }
         }
 
-        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        // Soft fade scrim behind the bar (90dp gradient, transparent to near-black or cream at 80%)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -233,7 +239,7 @@ fun ListsScreen(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                            (if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
                         )
                     )
                 )
@@ -255,7 +261,8 @@ fun ListsScreen(
                     selectedCategoryForSheet = null
                     viewModel.preselectedCategoryForNewTask = categoryName
                     onNavigate(Screen.AddTask)
-                }
+                },
+                isDark = isDark
             )
         }
 
@@ -298,7 +305,8 @@ fun ListsScreen(
 @Composable
 private fun ListsTopBar(
     onBackClick: () -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    isDark: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -312,7 +320,8 @@ private fun ListsTopBar(
             icon = Icons.Outlined.ChevronLeft,
             onClick = onBackClick,
             contentDescription = "Back",
-            testTag = "lists_back_button"
+            testTag = "lists_back_button",
+            isDark = isDark
         )
 
         // Right: Search button (RoundIconButton with search icon)
@@ -320,7 +329,8 @@ private fun ListsTopBar(
             icon = Icons.Outlined.Search,
             onClick = onSearchClick,
             contentDescription = "Search",
-            testTag = "lists_search_button"
+            testTag = "lists_search_button",
+            isDark = isDark
         )
     }
 }
@@ -332,7 +342,8 @@ private fun ListsTopBar(
  */
 @Composable
 private fun ListsTitleRow(
-    onNewListClick: () -> Unit
+    onNewListClick: () -> Unit,
+    isDark: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -346,7 +357,7 @@ private fun ListsTitleRow(
             fontSize = 44.sp,
             lineHeight = 44.sp,
             letterSpacing = (-1).sp,
-            color = AppBlack,
+            color = if (isDark) Color(0xFFF5F1E6) else AppBlack,
             modifier = Modifier.testTag("lists_title_my_lists")
         )
 
@@ -354,7 +365,8 @@ private fun ListsTitleRow(
         FrostedGlassPill(
             modifier = Modifier.height(40.dp),
             onClick = onNewListClick,
-            testTag = "lists_new_list_pill"
+            testTag = "lists_new_list_pill",
+            isDark = isDark
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -364,7 +376,7 @@ private fun ListsTitleRow(
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = "New list",
-                    tint = AppBlack,
+                    tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -373,7 +385,7 @@ private fun ListsTitleRow(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = AppBlack
+                    color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                 )
             }
         }
@@ -389,7 +401,8 @@ private fun ListsTitleRow(
 private fun ListsFilterPills(
     selectedFilter: String,
     totalListsCount: Int,
-    onSelectFilter: (String) -> Unit
+    onSelectFilter: (String) -> Unit,
+    isDark: Boolean = false
 ) {
     val filters = listOf(
         "All" to "All $totalListsCount",
@@ -403,6 +416,10 @@ private fun ListsFilterPills(
     ) {
         filters.forEach { (key, label) ->
             val isSelected = (selectedFilter == key) || (selectedFilter == "All" && key == "All")
+            val selectedBg = if (isDark) Color(0xFFF5F1E6) else AppBlack
+            val selectedTextColor = if (isDark) Color(0xFF151515) else Color.White
+            val unselectedTextColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
+
             Box(
                 modifier = Modifier
                     .height(40.dp)
@@ -410,9 +427,9 @@ private fun ListsFilterPills(
                         if (isSelected) {
                             Modifier
                                 .clip(CircleShape)
-                                .background(AppBlack)
+                                .background(selectedBg)
                         } else {
-                            Modifier.frostedGlass()
+                            Modifier.frostedGlass(isDark = isDark)
                         }
                     )
                     .clickable { onSelectFilter(key) }
@@ -425,7 +442,7 @@ private fun ListsFilterPills(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 15.sp,
-                    color = if (isSelected) Color.White else AppBlack
+                    color = if (isSelected) selectedTextColor else unselectedTextColor
                 )
             }
         }
@@ -442,7 +459,8 @@ private fun ListsFilterPills(
 private fun OverlappingListCards(
     cards: List<ListCardUiModel>,
     onCardClick: (String) -> Unit,
-    onTaskClick: (TaskEntity) -> Unit
+    onTaskClick: (TaskEntity) -> Unit,
+    isDark: Boolean = false
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         cards.forEachIndexed { index, card ->
@@ -453,7 +471,8 @@ private fun OverlappingListCards(
                 isLast = isLast,
                 zIndex = index.toFloat(),
                 onClick = { onCardClick(card.categoryName) },
-                onTaskClick = onTaskClick
+                onTaskClick = onTaskClick,
+                isDark = isDark
             )
         }
     }
@@ -466,10 +485,15 @@ private fun SingleOverlappingListCard(
     isLast: Boolean,
     zIndex: Float,
     onClick: () -> Unit,
-    onTaskClick: (TaskEntity) -> Unit
+    onTaskClick: (TaskEntity) -> Unit,
+    isDark: Boolean = false
 ) {
     val overlapPx = 16.dp
     val showNextTaskFooter = isLast && card.nextPendingTask != null
+
+    val isBlackCard = card.backgroundColor == Color(0xFF151515) || card.backgroundColor == CardBlack || card.categoryName.equals("Personal", ignoreCase = true)
+    val effectiveBg = if (isDark && isBlackCard) Color(0xFF2B2B2B) else card.backgroundColor
+    val cardBorderModifier = if (isDark && isBlackCard) Modifier.border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(32.dp)) else Modifier
 
     Box(
         modifier = Modifier
@@ -487,7 +511,8 @@ private fun SingleOverlappingListCard(
                 }
             }
             .clip(RoundedCornerShape(32.dp))
-            .background(card.backgroundColor)
+            .background(effectiveBg)
+            .then(cardBorderModifier)
             .clickable(onClick = onClick)
             .padding(
                 start = 20.dp,
@@ -504,12 +529,12 @@ private fun SingleOverlappingListCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Smaller white pill with outlined line icon (2dp stroke, not filled) + label at 14sp medium
+                // Pill with icon + label: becomes #1E1E1E in dark mode with light text and icon
                 Box(
                     modifier = Modifier
                         .height(30.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -520,7 +545,7 @@ private fun SingleOverlappingListCard(
                         CategoryOutlinedIcon(
                             categoryName = card.categoryName,
                             icon = card.icon,
-                            color = AppBlack
+                            color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -528,23 +553,23 @@ private fun SingleOverlappingListCard(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = AppBlack
+                            color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                         )
                     }
                 }
 
-                // Arrow button (top-right): white circle, 40dp, black ↗ arrow
+                // Arrow button (top-right): becomes #1E1E1E in dark mode with light arrow
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
                         .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
                         size = 20.dp,
-                        color = AppBlack
+                        color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                     )
                 }
             }
@@ -889,14 +914,15 @@ private fun CategoryTasksBottomSheet(
     onDismiss: () -> Unit,
     onToggleTask: (TaskEntity) -> Unit,
     onTaskClick: (TaskEntity) -> Unit,
-    onAddTask: () -> Unit
+    onAddTask: () -> Unit,
+    isDark: Boolean = false
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = AppCreamBackground,
+        containerColor = if (isDark) Color(0xFF1E1E1E) else AppCreamBackground,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
@@ -917,14 +943,14 @@ private fun CategoryTasksBottomSheet(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Black,
                         fontSize = 28.sp,
-                        color = AppBlack
+                        color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                     )
                     Text(
                         text = "${tasks.size} tasks • ${tasks.count { it.done }} completed",
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Normal,
                         fontSize = 15.sp,
-                        color = AppBlack.copy(alpha = 0.7f)
+                        color = if (isDark) Color(0xFFA8A39A) else AppBlack.copy(alpha = 0.7f)
                     )
                 }
 
@@ -933,7 +959,7 @@ private fun CategoryTasksBottomSheet(
                     modifier = Modifier
                         .height(36.dp)
                         .clip(CircleShape)
-                        .background(AppBlack)
+                        .background(if (isDark) Color(0xFFF5F1E6) else AppBlack)
                         .clickable(onClick = onAddTask)
                         .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
@@ -942,7 +968,7 @@ private fun CategoryTasksBottomSheet(
                         Icon(
                             imageVector = Icons.Outlined.Add,
                             contentDescription = "Add",
-                            tint = Color.White,
+                            tint = if (isDark) Color(0xFF151515) else Color.White,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -951,7 +977,7 @@ private fun CategoryTasksBottomSheet(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = Color.White
+                            color = if (isDark) Color(0xFF151515) else Color.White
                         )
                     }
                 }
@@ -965,7 +991,8 @@ private fun CategoryTasksBottomSheet(
                     title = "Nothing in here yet",
                     caption = "Add a task to this list.",
                     buttonText = "Add task",
-                    onButton = onAddTask
+                    onButton = onAddTask,
+                    isDark = isDark
                 )
             } else {
                 LazyColumn(
@@ -977,7 +1004,8 @@ private fun CategoryTasksBottomSheet(
                             task = task,
                             onToggle = { onToggleTask(task) },
                             onClick = { onTaskClick(task) },
-                            modifier = Modifier.animateItem()
+                            modifier = Modifier.animateItem(),
+                            isDark = isDark
                         )
                     }
                 }
@@ -991,7 +1019,8 @@ private fun CategoryTaskItem(
     task: TaskEntity,
     onToggle: () -> Unit,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -1000,13 +1029,18 @@ private fun CategoryTaskItem(
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
         label = "task_item_scale"
     )
+
+    val itemBg = if (isDark) Color(0xFF242424) else Color.White
+    val itemBorder = if (isDark) Modifier.border(1.dp, Color(0xFF383838), RoundedCornerShape(18.dp))
+        else Modifier.border(1.dp, AppBlack.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.White)
-            .border(1.dp, AppBlack.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
+            .background(itemBg)
+            .then(itemBorder)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -1023,7 +1057,7 @@ private fun CategoryTaskItem(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = AppBlack
+                color = if (isDark) Color(0xFFF5F1E6) else AppBlack
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -1031,7 +1065,7 @@ private fun CategoryTaskItem(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 13.sp,
-                color = AppBlack.copy(alpha = 0.6f)
+                color = if (isDark) Color(0xFFA8A39A) else AppBlack.copy(alpha = 0.6f)
             )
         }
 

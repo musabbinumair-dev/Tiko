@@ -93,7 +93,8 @@ private data class CalendarDayCell(
 fun CalendarScreen(
     viewModel: TikoViewModel,
     onNavigate: (Screen) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     // Intercept hardware/gesture back press to navigate to Home
     BackHandler {
@@ -226,20 +227,28 @@ fun CalendarScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppCreamBackground)
+            .background(if (isDark) Color(0xFF141414) else AppCreamBackground)
     ) {
-        // Header warm gradient #FFCF4D fading to cream behind the top area
+        // Top header gradient: In dark mode golden-brown #4B3512 fading smoothly to near-black #141414
+        val headerGradient = if (isDark) {
+            Brush.verticalGradient(
+                0.0f to Color(0xFF4B3512),
+                0.55f to Color(0xFF141414),
+                1.0f to Color(0xFF141414)
+            )
+        } else {
+            Brush.verticalGradient(
+                0.0f to Color(0xFFFFCF4D),
+                0.45f to Color(0xFFFFDB78).copy(alpha = 0.5f),
+                1.0f to AppCreamBackground
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(300.dp)
-                .background(
-                    Brush.verticalGradient(
-                        0.0f to Color(0xFFFFCF4D),
-                        0.45f to Color(0xFFFFDB78).copy(alpha = 0.5f),
-                        1.0f to AppCreamBackground
-                    )
-                )
+                .background(headerGradient)
         )
 
         // Main scrollable content
@@ -263,7 +272,8 @@ fun CalendarScreen(
                         icon = Icons.Outlined.ChevronLeft,
                         onClick = { viewModel.selectTab(NavigationTab.HOME) },
                         contentDescription = "Back",
-                        testTag = "calendar_back_button"
+                        testTag = "calendar_back_button",
+                        isDark = isDark
                     )
 
                     // "Today" button pill: frosted glassmorphic glassy pill, 48dp height
@@ -275,7 +285,8 @@ fun CalendarScreen(
                             val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now.time)
                             viewModel.selectCalendarDate(todayStr)
                         },
-                        testTag = "calendar_today_button"
+                        testTag = "calendar_today_button",
+                        isDark = isDark
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 18.dp),
@@ -285,7 +296,7 @@ fun CalendarScreen(
                             Icon(
                                 imageVector = Icons.Outlined.CalendarToday,
                                 contentDescription = null,
-                                tint = AppBlack,
+                                tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -294,7 +305,7 @@ fun CalendarScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 16.sp,
-                                color = AppBlack
+                                color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                             )
                         }
                     }
@@ -310,7 +321,7 @@ fun CalendarScreen(
                     fontWeight = FontWeight.Black,
                     fontSize = 44.sp,
                     letterSpacing = (-1).sp,
-                    color = AppBlack,
+                    color = if (isDark) Color(0xFFF5F1E6) else AppBlack,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -336,12 +347,13 @@ fun CalendarScreen(
                                 add(Calendar.MONTH, -1)
                             }
                         },
-                        testTag = "calendar_prev_month_button"
+                        testTag = "calendar_prev_month_button",
+                        isDark = isDark
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ChevronLeft,
                             contentDescription = "Previous Month",
-                            tint = AppBlack,
+                            tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -350,7 +362,8 @@ fun CalendarScreen(
 
                     // Month Name Pill: frosted glassmorphic pill, height 40dp
                     FrostedGlassPill(
-                        modifier = Modifier.height(40.dp)
+                        modifier = Modifier.height(40.dp),
+                        isDark = isDark
                     ) {
                         Text(
                             text = monthTitle,
@@ -358,7 +371,7 @@ fun CalendarScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = AppBlack
+                            color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                         )
                     }
 
@@ -372,19 +385,20 @@ fun CalendarScreen(
                                 add(Calendar.MONTH, 1)
                             }
                         },
-                        testTag = "calendar_next_month_button"
+                        testTag = "calendar_next_month_button",
+                        isDark = isDark
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ChevronRight,
                             contentDescription = "Next Month",
-                            tint = AppBlack,
+                            tint = if (isDark) Color(0xFFF5F1E6) else AppBlack,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             }
 
-            // MONTH GRID CARD: White card, 28dp radius, weekday letters, bold date numbers
+            // MONTH GRID CARD: White card in light, #242424 in dark, 28dp radius, weekday letters, bold date numbers
             item {
                 Spacer(modifier = Modifier.height(18.dp))
                 Box(
@@ -392,7 +406,7 @@ fun CalendarScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
+                        .background(if (isDark) Color(0xFF242424) else Color.White)
                         .padding(horizontal = 14.dp, vertical = 20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -412,7 +426,7 @@ fun CalendarScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
-                                        color = AppBlack
+                                        color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                                     )
                                 }
                             }
@@ -456,6 +470,7 @@ fun CalendarScreen(
                                         onClick = {
                                             viewModel.selectCalendarDate(cell.dateString)
                                         },
+                                        isDark = isDark,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -471,7 +486,8 @@ fun CalendarScreen(
                 FrostedGlassPill(
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
-                        .height(38.dp)
+                        .height(38.dp),
+                    isDark = isDark
                 ) {
                     Text(
                         text = selectedDateFormatted,
@@ -479,7 +495,7 @@ fun CalendarScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = AppBlack
+                        color = if (isDark) Color(0xFFF5F1E6) else AppBlack
                     )
                 }
             }
@@ -492,13 +508,14 @@ fun CalendarScreen(
                         cards = displayCards,
                         onCardClick = { taskId ->
                             onNavigate(Screen.TaskDetail(taskId))
-                        }
+                        },
+                        isDark = isDark
                     )
                 }
             }
         }
 
-        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        // Soft fade scrim behind the bar (90dp gradient, transparent to near-black or cream at 80%)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -508,7 +525,7 @@ fun CalendarScreen(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                            (if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
                         )
                     )
                 )
@@ -526,8 +543,14 @@ private fun CalendarDayItem(
     isToday: Boolean,
     dotColor: Color?,
     onClick: () -> Unit,
+    isDark: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val selectedBg = if (isDark) Color(0xFFF5F1E6) else AppBlack
+    val selectedTextColor = if (isDark) Color(0xFF151515) else Color.White
+    val normalTextColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
+    val inactiveTextColor = if (isDark) Color(0xFF706D66) else Color(0xFF9E9E9E)
+
     Box(
         modifier = modifier
             .height(46.dp)
@@ -545,7 +568,7 @@ private fun CalendarDayItem(
                     .clip(CircleShape)
                     .then(
                         when {
-                            isSelected -> Modifier.background(AppBlack)
+                            isSelected -> Modifier.background(selectedBg)
                             isToday -> Modifier.border(2.dp, CardPurple, CircleShape)
                             else -> Modifier
                         }
@@ -562,9 +585,9 @@ private fun CalendarDayItem(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = when {
-                            isSelected -> Color.White
-                            cell.isCurrentMonth -> AppBlack
-                            else -> Color(0xFF9E9E9E)
+                            isSelected -> selectedTextColor
+                            cell.isCurrentMonth -> normalTextColor
+                            else -> inactiveTextColor
                         }
                     )
                     if (isSelected) {
@@ -598,13 +621,15 @@ private fun CalendarDayItem(
 @Composable
 private fun CalendarOverlappingCardsList(
     cards: List<CalendarTaskCardData>,
-    onCardClick: (String) -> Unit
+    onCardClick: (String) -> Unit,
+    isDark: Boolean = false
 ) {
     if (cards.isEmpty()) {
         EmptyState(
             image = R.drawable.illus_no_events,
             title = "Nothing planned",
-            caption = "A free day. Tap + to add something."
+            caption = "A free day. Tap + to add something.",
+            isDark = isDark
         )
     } else {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -614,6 +639,7 @@ private fun CalendarOverlappingCardsList(
                     card = card,
                     isOverlapped = !isLast,
                     zIndex = index.toFloat(),
+                    isDark = isDark,
                     onClick = { onCardClick(card.id) }
                 )
             }
@@ -626,10 +652,24 @@ private fun SingleCalendarOverlappingCard(
     card: CalendarTaskCardData,
     isOverlapped: Boolean,
     zIndex: Float,
+    isDark: Boolean = false,
     onClick: () -> Unit
 ) {
     val cardHeight = 134.dp
     val overlapPx = 18.dp
+
+    val isBlackCard = card.backgroundColor == CardBlack || card.backgroundColor == Color(0xFF151515)
+    val actualBg = if (isDark && isBlackCard) Color(0xFF2B2B2B) else card.backgroundColor
+    val cardBorderModifier = if (isDark && isBlackCard) {
+        Modifier.border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(28.dp))
+    } else {
+        Modifier
+    }
+
+    val pillAndCircleBg = if (isDark) Color(0xFF1E1E1E) else Color.White
+    val pillAndCircleContentColor = if (isDark) Color(0xFFF5F1E6) else AppBlack
+    val titleTextColor = if (isDark && isBlackCard) Color(0xFFF5F1E6) else card.contentColor
+    val timeTextColor = if (isDark && isBlackCard) Color(0xFFD4CFC4) else card.contentColor
 
     Box(
         modifier = Modifier
@@ -648,7 +688,8 @@ private fun SingleCalendarOverlappingCard(
             }
             .height(cardHeight)
             .clip(RoundedCornerShape(28.dp))
-            .background(card.backgroundColor)
+            .background(actualBg)
+            .then(cardBorderModifier)
             .clickable(onClick = onClick)
             .padding(16.dp)
             .testTag("calendar_card_${card.id}")
@@ -660,12 +701,12 @@ private fun SingleCalendarOverlappingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // White pill tag: height 32dp, icon 18dp + Outfit Medium 14sp black
+                // Tag pill
                 Box(
                     modifier = Modifier
                         .height(32.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(pillAndCircleBg)
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -676,7 +717,7 @@ private fun SingleCalendarOverlappingCard(
                         Icon(
                             imageVector = card.categoryIcon,
                             contentDescription = card.category,
-                            tint = AppBlack,
+                            tint = pillAndCircleContentColor,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -685,23 +726,23 @@ private fun SingleCalendarOverlappingCard(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = AppBlack
+                            color = pillAndCircleContentColor
                         )
                     }
                 }
 
-                // 44dp white circle with black arrow_outward icon 22dp
+                // 44dp circle with arrow_outward icon 22dp
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(pillAndCircleBg)
                         .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
                         size = 22.dp,
-                        color = AppBlack
+                        color = pillAndCircleContentColor
                     )
                 }
             }
@@ -714,7 +755,7 @@ private fun SingleCalendarOverlappingCard(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 26.sp,
-                color = card.contentColor,
+                color = titleTextColor,
                 lineHeight = 30.sp,
                 maxLines = 1
             )
@@ -727,7 +768,7 @@ private fun SingleCalendarOverlappingCard(
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 15.sp,
-                color = card.contentColor
+                color = timeTextColor
             )
         }
     }

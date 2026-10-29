@@ -1,9 +1,11 @@
 package com.example.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,11 +38,13 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.musab.tiko.R
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.theme.OutfitFontFamily
@@ -50,17 +55,55 @@ private val CardPurple = Color(0xFF6B4EFF)
 private val CardYellow = Color(0xFFFFB92E)
 private val CardLime = Color(0xFFC8DB6A)
 
+// Dark theme colors matching dark mockup
+private val WelcomeDarkBg = Color(0xFF121212)
+private val WelcomeDarkCream = Color(0xFFF0EADC)
+private val WelcomeDarkSkipBg = Color(0xFF242424)
+private val WelcomeDarkCardPillBg = Color(0xFF1E1E1E)
+private val WelcomeDarkCaption = Color(0xFFD4CFBF)
+
 @Composable
 fun WelcomeScreen(
     onNavigateHome: () -> Unit,
     onNavigateLogin: () -> Unit = onNavigateHome,
     onNavigateSignUp: () -> Unit = onNavigateHome,
+    isDark: Boolean = isSystemInDarkTheme(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    DisposableEffect(isDark) {
+        val window = activity?.window
+        if (window != null) {
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            val original = controller.isAppearanceLightStatusBars
+            controller.isAppearanceLightStatusBars = !isDark
+            onDispose {
+                controller.isAppearanceLightStatusBars = original
+            }
+        } else {
+            onDispose {}
+        }
+    }
+
+    val screenBg = if (isDark) WelcomeDarkBg else WelcomeCream
+    val logoColor = if (isDark) WelcomeDarkCream else WelcomeBlack
+    val headlineColor = if (isDark) WelcomeDarkCream else WelcomeBlack
+    val skipBg = if (isDark) WelcomeDarkSkipBg else Color.White
+    val skipTextColor = if (isDark) WelcomeDarkCream else WelcomeBlack
+    val captionColor = if (isDark) WelcomeDarkCaption else WelcomeBlack
+
+    val getStartedBg = if (isDark) WelcomeDarkCream else WelcomeBlack
+    val getStartedTextColor = if (isDark) WelcomeBlack else Color.White
+
+    val secondaryBg = if (isDark) Color.Transparent else WelcomeCream
+    val secondaryBorder = if (isDark) WelcomeDarkCream else WelcomeBlack
+    val secondaryTextColor = if (isDark) WelcomeDarkCream else WelcomeBlack
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(WelcomeCream)
+            .background(screenBg)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp)
@@ -73,7 +116,7 @@ fun WelcomeScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // 1. Top row: "Tiko" Outfit Black 40sp, black, letter spacing -1sp; at right a white pill "Skip" (40dp high, Outfit Bold 16sp)
+                // 1. Top row: "Tiko" Outfit Black 40sp; at right pill "Skip" (40dp high, Outfit Bold 16sp)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -87,14 +130,14 @@ fun WelcomeScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 40.sp,
                         letterSpacing = (-1).sp,
-                        color = WelcomeBlack
+                        color = logoColor
                     )
 
                     Box(
                         modifier = Modifier
                             .height(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(skipBg)
                             .clickable(onClick = onNavigateHome)
                             .padding(horizontal = 20.dp)
                             .testTag("welcome_skip_button"),
@@ -105,14 +148,14 @@ fun WelcomeScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = WelcomeBlack
+                            color = skipTextColor
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // 2. Heading "GET THINGS DONE" on 3 lines, Outfit Black 72sp, uppercase, line height 0.95, letter spacing -2sp, black
+                // 2. Heading "GET THINGS DONE" on 3 lines, Outfit Black 72sp, uppercase, line height 0.95, letter spacing -2sp
                 Text(
                     text = "GET\nTHINGS\nDONE",
                     fontFamily = OutfitFontFamily,
@@ -120,7 +163,7 @@ fun WelcomeScreen(
                     fontSize = 72.sp,
                     lineHeight = 68.4.sp,
                     letterSpacing = (-2).sp,
-                    color = WelcomeBlack
+                    color = headlineColor
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -138,7 +181,8 @@ fun WelcomeScreen(
                         icon = Icons.Outlined.CalendarToday,
                         tag = "Work",
                         title = "Plan your day",
-                        titleColor = Color.White
+                        titleColor = Color.White,
+                        isDark = isDark
                     )
 
                     // Card 2: Yellow, flame icon, tag "Health", "Track your streak"
@@ -148,7 +192,8 @@ fun WelcomeScreen(
                         icon = Icons.Outlined.LocalFireDepartment,
                         tag = "Health",
                         title = "Track your streak",
-                        titleColor = WelcomeBlack
+                        titleColor = WelcomeBlack,
+                        isDark = isDark
                     )
 
                     // Card 3: Lime, clock icon, tag "Personal", "Stay on time"
@@ -158,19 +203,20 @@ fun WelcomeScreen(
                         icon = Icons.Outlined.Schedule,
                         tag = "Personal",
                         title = "Stay on time",
-                        titleColor = WelcomeBlack
+                        titleColor = WelcomeBlack,
+                        isDark = isDark
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 4. Caption "Simple tasks. Big results." Outfit Regular 18sp, black, 24dp below the cards
+                // 4. Caption "Simple tasks. Big results." Outfit Regular 18sp, 24dp below the cards
                 Text(
                     text = "Simple tasks. Big results.",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 18.sp,
-                    color = WelcomeBlack
+                    color = captionColor
                 )
             }
 
@@ -180,13 +226,13 @@ fun WelcomeScreen(
                     .fillMaxWidth()
                     .padding(top = 28.dp)
             ) {
-                // "Get started" 56dp high, Outfit Bold 18sp, white text
+                // "Get started" 56dp high, Outfit Bold 18sp
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .clip(CircleShape)
-                        .background(WelcomeBlack)
+                        .background(getStartedBg)
                         .clickable(onClick = onNavigateSignUp)
                         .testTag("welcome_get_started_button"),
                     contentAlignment = Alignment.Center
@@ -196,20 +242,20 @@ fun WelcomeScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color.White
+                        color = getStartedTextColor
                     )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // "I already have an account" 56dp high, cream fill, 1dp #151515 outline, Outfit Bold 17sp, black text
+                // "I already have an account" 56dp high, Outfit Bold 17sp
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .clip(CircleShape)
-                        .background(WelcomeCream)
-                        .border(1.dp, WelcomeBlack, CircleShape)
+                        .background(secondaryBg)
+                        .border(1.dp, secondaryBorder, CircleShape)
                         .clickable(onClick = onNavigateLogin)
                         .testTag("welcome_login_button"),
                     contentAlignment = Alignment.Center
@@ -219,7 +265,7 @@ fun WelcomeScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
-                        color = WelcomeBlack
+                        color = secondaryTextColor
                     )
                 }
             }
@@ -234,8 +280,13 @@ private fun WelcomeCard(
     icon: ImageVector,
     tag: String,
     title: String,
-    titleColor: Color
+    titleColor: Color,
+    isDark: Boolean = false
 ) {
+    val pillBg = if (isDark) WelcomeDarkCardPillBg else Color.White
+    val pillFg = if (isDark) WelcomeDarkCream else WelcomeBlack
+    val arrowColor = if (isDark) WelcomeDarkCream else WelcomeBlack
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -249,25 +300,25 @@ private fun WelcomeCard(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Row: White pill tag + 44dp white circle with arrow_outward
+            // Top Row: Pill tag + 44dp circle with arrow_outward
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // White pill tag (32dp high, icon 18dp + Outfit Medium 14sp)
+                // Pill tag (32dp high, icon 18dp + Outfit Medium 14sp)
                 Row(
                     modifier = Modifier
                         .height(32.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(pillBg)
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = WelcomeBlack,
+                        tint = pillFg,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -276,19 +327,19 @@ private fun WelcomeCard(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = WelcomeBlack
+                        color = pillFg
                     )
                 }
 
-                // White 44dp circle with black arrow_outward icon at top right
+                // 44dp circle with arrow_outward icon at top right
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(pillBg),
                     contentAlignment = Alignment.Center
                 ) {
-                    ArrowOutwardIcon(size = 20.dp, color = WelcomeBlack)
+                    ArrowOutwardIcon(size = 20.dp, color = arrowColor)
                 }
             }
 

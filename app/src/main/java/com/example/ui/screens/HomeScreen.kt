@@ -119,7 +119,8 @@ fun HomeScreen(
     tasks: List<TaskEntity>,
     stats: TodayStats,
     onNavigate: (Screen) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     // Map real tasks to card data without mock fallbacks
     val cardModels = remember(tasks) {
@@ -153,7 +154,7 @@ fun HomeScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(HomeCreamBackground)
+            .background(if (isDark) Color(0xFF141414) else HomeCreamBackground)
     ) {
         // Main scrollable content
         LazyColumn(
@@ -168,7 +169,8 @@ fun HomeScreen(
             item(key = "header") {
                 HomeHeader(
                     viewModel = viewModel,
-                    onSearchClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) }
+                    onSearchClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) },
+                    isDark = isDark
                 )
             }
 
@@ -177,14 +179,15 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 HomeTitleRow(
                     onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) },
-                    onFilterLongClick = { onNavigate(Screen.NotFound) }
+                    onFilterLongClick = { onNavigate(Screen.NotFound) },
+                    isDark = isDark
                 )
             }
 
             // 3. Stat Pills
             item(key = "stat_pills") {
                 Spacer(modifier = Modifier.height(14.dp))
-                HomeStatPills(stats = stats)
+                HomeStatPills(stats = stats, isDark = isDark)
             }
 
             // 4. Task cards — one item per task with stable key + animateItem
@@ -196,7 +199,8 @@ fun HomeScreen(
                         title = "No tasks yet",
                         caption = "Tap below to add your first task.",
                         buttonText = "Add your first task",
-                        onButton = { onNavigate(Screen.AddTask) }
+                        onButton = { onNavigate(Screen.AddTask) },
+                        isDark = isDark
                     )
                 }
             } else if (tasks.none { !it.done }) {
@@ -205,7 +209,8 @@ fun HomeScreen(
                     EmptyState(
                         image = R.drawable.illus_all_done,
                         title = "All done!",
-                        caption = "You finished everything. Enjoy the rest of your day."
+                        caption = "You finished everything. Enjoy the rest of your day.",
+                        isDark = isDark
                     )
                 }
             } else {
@@ -220,13 +225,14 @@ fun HomeScreen(
                         isOverlapped = !isLast,
                         zIndex = index.toFloat(),
                         onClick = { onNavigate(Screen.TaskDetail(card.id)) },
-                        modifier = Modifier.animateItem()
+                        modifier = Modifier.animateItem(),
+                        isDark = isDark
                     )
                 }
             }
         }
 
-        // Soft fade scrim behind the bar (90dp gradient, transparent to cream #EFEBDD at 80%)
+        // Soft fade scrim behind the bar (90dp gradient, transparent to near-black or cream at 80%)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -236,7 +242,7 @@ fun HomeScreen(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color(0xFFEFEBDD).copy(alpha = 0.80f)
+                            (if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD)).copy(alpha = 0.80f)
                         )
                     )
                 )
@@ -248,7 +254,8 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader(
     viewModel: TikoViewModel,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    isDark: Boolean = false
 ) {
     val preferences = viewModel.preferences
     val userName by preferences.userName.collectAsState()
@@ -278,7 +285,7 @@ private fun HomeHeader(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = HomeBlack
+                    color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -286,7 +293,7 @@ private fun HomeHeader(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 16.sp,
-                    color = HomeGray
+                    color = if (isDark) Color(0xFFA8A39A) else HomeGray
                 )
             }
         }
@@ -296,7 +303,8 @@ private fun HomeHeader(
             icon = Icons.Outlined.Search,
             onClick = onSearchClick,
             contentDescription = "Search",
-            testTag = "home_search_button"
+            testTag = "home_search_button",
+            isDark = isDark
         )
     }
 }
@@ -305,7 +313,8 @@ private fun HomeHeader(
 @Composable
 private fun HomeTitleRow(
     onFilterClick: () -> Unit,
-    onFilterLongClick: (() -> Unit)? = null
+    onFilterLongClick: (() -> Unit)? = null,
+    isDark: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -319,7 +328,7 @@ private fun HomeTitleRow(
             fontSize = 44.sp,
             lineHeight = 44.sp,
             letterSpacing = (-1).sp,
-            color = HomeBlack,
+            color = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
             modifier = Modifier.testTag("home_title_my_tasks")
         )
 
@@ -328,7 +337,8 @@ private fun HomeTitleRow(
             modifier = Modifier.height(40.dp),
             onClick = onFilterClick,
             onLongClick = onFilterLongClick,
-            testTag = "home_filters_pill"
+            testTag = "home_filters_pill",
+            isDark = isDark
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -338,7 +348,7 @@ private fun HomeTitleRow(
                 Icon(
                     imageVector = Icons.Outlined.Tune,
                     contentDescription = "Filters",
-                    tint = HomeBlack,
+                    tint = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -347,7 +357,7 @@ private fun HomeTitleRow(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = HomeBlack
+                    color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
                 )
             }
         }
@@ -356,7 +366,10 @@ private fun HomeTitleRow(
 
 // STAT PILLS: 3 frosted glassmorphic pills equal gap 8dp, height 40dp
 @Composable
-private fun HomeStatPills(stats: TodayStats) {
+private fun HomeStatPills(stats: TodayStats, isDark: Boolean = false) {
+    val pillIconTint = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+    val pillTextColor = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -365,7 +378,8 @@ private fun HomeStatPills(stats: TodayStats) {
         FrostedGlassPill(
             modifier = Modifier
                 .weight(1f)
-                .height(40.dp)
+                .height(40.dp),
+            isDark = isDark
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -374,7 +388,7 @@ private fun HomeStatPills(stats: TodayStats) {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = null,
-                    tint = HomeBlack,
+                    tint = pillIconTint,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -385,7 +399,7 @@ private fun HomeStatPills(stats: TodayStats) {
                     fontSize = 13.sp,
                     maxLines = 1,
                     softWrap = false,
-                    color = HomeBlack
+                    color = pillTextColor
                 )
             }
         }
@@ -394,7 +408,8 @@ private fun HomeStatPills(stats: TodayStats) {
         FrostedGlassPill(
             modifier = Modifier
                 .weight(1f)
-                .height(40.dp)
+                .height(40.dp),
+            isDark = isDark
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -403,7 +418,7 @@ private fun HomeStatPills(stats: TodayStats) {
                 Icon(
                     imageVector = Icons.Outlined.Schedule,
                     contentDescription = null,
-                    tint = HomeBlack,
+                    tint = pillIconTint,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -414,7 +429,7 @@ private fun HomeStatPills(stats: TodayStats) {
                     fontSize = 13.sp,
                     maxLines = 1,
                     softWrap = false,
-                    color = HomeBlack
+                    color = pillTextColor
                 )
             }
         }
@@ -423,7 +438,8 @@ private fun HomeStatPills(stats: TodayStats) {
         FrostedGlassPill(
             modifier = Modifier
                 .weight(1.15f)
-                .height(40.dp)
+                .height(40.dp),
+            isDark = isDark
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -432,7 +448,7 @@ private fun HomeStatPills(stats: TodayStats) {
                 Icon(
                     imageVector = Icons.Outlined.LocalFireDepartment,
                     contentDescription = null,
-                    tint = HomeBlack,
+                    tint = pillIconTint,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(3.dp))
@@ -443,7 +459,7 @@ private fun HomeStatPills(stats: TodayStats) {
                     fontSize = 12.5.sp,
                     maxLines = 1,
                     softWrap = false,
-                    color = HomeBlack
+                    color = pillTextColor
                 )
             }
         }
@@ -476,7 +492,8 @@ private fun SingleOverlappingCard(
     isOverlapped: Boolean,
     zIndex: Float,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -487,6 +504,10 @@ private fun SingleOverlappingCard(
     )
     val cardHeight = if (card.isLastTaller) 190.dp else 134.dp
     val overlapPx = 18.dp
+
+    val isCardBlack = card.backgroundColor == CardBlack || card.backgroundColor == Color(0xFF151515)
+    val effectiveBg = if (isDark && isCardBlack) Color(0xFF2B2B2B) else card.backgroundColor
+    val borderModifier = if (isDark && isCardBlack) Modifier.border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(28.dp)) else Modifier
 
     Box(
         modifier = modifier
@@ -506,7 +527,8 @@ private fun SingleOverlappingCard(
             .height(cardHeight)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(28.dp))
-            .background(card.backgroundColor)
+            .background(effectiveBg)
+            .then(borderModifier)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -522,12 +544,12 @@ private fun SingleOverlappingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // White pill tag: height 32dp, icon 18dp + Outfit Medium 14sp black
+                // Category pill: in dark mode becomes #1E1E1E with light text and icon
                 Box(
                     modifier = Modifier
                         .height(32.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -538,7 +560,7 @@ private fun SingleOverlappingCard(
                         Icon(
                             imageVector = card.categoryIcon,
                             contentDescription = card.category,
-                            tint = HomeBlack,
+                            tint = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -547,23 +569,23 @@ private fun SingleOverlappingCard(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = HomeBlack
+                            color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
                         )
                     }
                 }
 
-                // 44dp white circle with black arrow_outward icon 22dp
+                // Arrow circle: in dark mode becomes #1E1E1E with light arrow
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
                         .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     ArrowOutwardIcon(
                         size = 22.dp,
-                        color = HomeBlack
+                        color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
                     )
                 }
             }

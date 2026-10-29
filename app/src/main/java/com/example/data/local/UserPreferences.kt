@@ -51,6 +51,16 @@ class UserPreferences(context: Context) {
     private val _hasShownExactAlarmNotice = MutableStateFlow(prefs.getBoolean("has_shown_exact_alarm_notice", false))
     val hasShownExactAlarmNotice: StateFlow<Boolean> = _hasShownExactAlarmNotice.asStateFlow()
 
+    private val _darkModeEnabled = MutableStateFlow(
+        if (prefs.contains("dark_mode_enabled")) prefs.getBoolean("dark_mode_enabled", false) else null
+    )
+    val darkModeEnabled: StateFlow<Boolean?> = _darkModeEnabled.asStateFlow()
+
+    fun setDarkModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("dark_mode_enabled", enabled).apply()
+        _darkModeEnabled.value = enabled
+    }
+
     fun setUserName(name: String) {
         prefs.edit().putString("user_name", name).apply()
         _userName.value = name

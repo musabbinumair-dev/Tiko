@@ -69,7 +69,6 @@ import com.example.ui.viewmodel.TikoViewModel
 open class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        com.example.data.FirebaseInitializer.init(this)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
 
@@ -93,25 +92,50 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val allTasks by viewModel.allTasks.collectAsState()
     val stats by viewModel.todayStats.collectAsState()
     val notifEnabled by viewModel.preferences.notificationsEnabled.collectAsState()
+    val isGuestMode by viewModel.preferences.isGuestMode.collectAsState()
+    val hasSeenWelcome by viewModel.preferences.hasSeenWelcome.collectAsState()
     val haptic = LocalHapticFeedback.current
 
     var hasShownNotificationPopup by rememberSaveable { mutableStateOf(false) }
-    var hasCheckedAuth by rememberSaveable { mutableStateOf(false) }
+    var hasInitialized by rememberSaveable { mutableStateOf(false) }
+    var lastKnownUserId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    // Check auth state and navigate appropriately
-    LaunchedEffect(currentUser, hasCheckedAuth) {
-        if (!hasCheckedAuth) {
-            hasCheckedAuth = true
+    // Decide initial screen based on auth state
+    LaunchedEffect(currentUser, hasInitialized) {
+        if (!hasInitialized) {
+            hasInitialized = true
             val user = currentUser
-            if (user != null) {
-                // User is signed in, go to Home
-                val name = user.displayName ?: "User"
-                val email = user.email ?: ""
-                viewModel.saveUserProfile(name, email)
-                viewModel.startSync(user.uid, isFirstPullAfterLogin = false)
-                viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
+            lastKnownUserId = user?.uid
+            when {
+                user != null -> {
+                    // User is signed in, go to Home
+                    val name = user.displayName ?: "User"
+                    val email = user.email ?: ""
+                    viewModel.saveUserProfile(name, email)
+                    viewModel.preferences.setGuestMode(false)
+                    viewModel.preferences.setHasSeenWelcome(true)
+                    viewModel.startSync(user.uid, isFirstPullAfterLogin = false)
+                    viewModel.setInitialScreen(Screen.Main(NavigationTab.HOME))
+                }
+                isGuestMode || hasSeenWelcome -> {
+                    // Guest mode or has seen welcome -> go to Home
+                    viewModel.setInitialScreen(Screen.Main(NavigationTab.HOME))
+                }
+                else -> {
+                    // First time user -> show Welcome
+                    viewModel.setInitialScreen(Screen.Welcome)
+                }
             }
-            // If currentUser is null, stay on Welcome screen (default)
+        } else if (hasInitialized && lastKnownUserId != null && currentUser == null) {
+            // User was signed in but now signed out (token expired or account deleted)
+            lastKnownUserId = null
+            viewModel.stopSync()
+            viewModel.preferences.clearUser()
+            viewModel.setInitialScreen(Screen.Welcome)
+            AppToastController.show("Please log in again", ToastType.Info)
+        } else if (hasInitialized && currentUser != null && lastKnownUserId != currentUser.uid) {
+            // Different user signed in
+            lastKnownUserId = currentUser.uid
         }
     }
 
@@ -255,15 +279,26 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 label = "screen_transition"
             ) { screen ->
                 when (screen) {
+                    is Screen.Loading -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFEFEBDD))
+                        )
+                    }
                     is Screen.Welcome -> {
                         WelcomeScreen(
                             onNavigateHome = {
+                                viewModel.preferences.setGuestMode(true)
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.Main(NavigationTab.HOME))
                             },
                             onNavigateLogin = {
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.Login)
                             },
                             onNavigateSignUp = {
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 viewModel.navigateTo(Screen.SignUp)
                             }
                         )
@@ -278,6 +313,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val name = user?.displayName?.ifBlank { null }
                                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
                                 viewModel.saveUserProfile(name, email)
+                                viewModel.preferences.setGuestMode(false)
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 if (user != null) {
                                     viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
                                 }
@@ -297,6 +334,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: currentUser
                                 val finalName = name.ifBlank { user?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() } }
                                 viewModel.saveUserProfile(finalName, email)
+                                viewModel.preferences.setGuestMode(false)
+                                viewModel.preferences.setHasSeenWelcome(true)
                                 if (user != null) {
                                     viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
                                 }

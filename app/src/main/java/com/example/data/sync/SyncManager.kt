@@ -155,18 +155,33 @@ class SyncManager(
 
         snapshotRegistration = tasksCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                if (isFirstPullAfterLogin && isFirstSnapshot) {
-                    val isNetwork = error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
-                        error.message?.contains("offline", ignoreCase = true) == true ||
-                        error.message?.contains("network", ignoreCase = true) == true ||
-                        !_isOnline.value
-                    if (!isNetwork) {
-                        AppToastController.show(
-                            "Sync error. Please check your connection.",
-                            ToastType.Error
-                        )
-                    }
+                // Check if it's an auth error (token expired or account deleted)
+                val isAuthError = error.code == FirebaseFirestoreException.Code.UNAUTHENTICATED ||
+                    error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+                
+                // Check if it's a network error
+                val isNetworkError = error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
+                    error.message?.contains("offline", ignoreCase = true) == true ||
+                    error.message?.contains("network", ignoreCase = true) == true ||
+                    !_isOnline.value
+
+                if (isAuthError) {
+                    // Token expired or account deleted elsewhere - sign out cleanly
+                    stop()
+                    AppToastController.show(
+                        "Please log in again",
+                        ToastType.Info
+                    )
+                    // Note: The actual sign-out and navigation should be handled by the caller
+                    // via observing sync status or auth state changes
+                } else if (isFirstPullAfterLogin && isFirstSnapshot && !isNetworkError) {
+                    // Non-network error on first sync attempt
+                    AppToastController.show(
+                        "Sync error. Please check your connection.",
+                        ToastType.Error
+                    )
                 }
+                // Network errors are silent - don't log users out
                 return@addSnapshotListener
             }
 

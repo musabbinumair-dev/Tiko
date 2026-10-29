@@ -21,6 +21,7 @@ import java.util.Date
 import java.util.Locale
 
 sealed class Screen {
+    object Loading : Screen()
     object Welcome : Screen()
     object Login : Screen()
     object SignUp : Screen()
@@ -62,11 +63,11 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     val allTasks: StateFlow<List<TaskEntity>> = repository.allTasks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Welcome))
+    private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Loading))
     val screenStack: StateFlow<List<Screen>> = _screenStack.asStateFlow()
     val currentScreen: StateFlow<Screen> = _screenStack
-        .combine(MutableStateFlow(Unit)) { stack, _ -> stack.lastOrNull() ?: Screen.Welcome }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Screen.Welcome)
+        .combine(MutableStateFlow(Unit)) { stack, _ -> stack.lastOrNull() ?: Screen.Loading }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Screen.Loading)
 
     private val _selectedTab = MutableStateFlow(NavigationTab.HOME)
     val selectedTab: StateFlow<NavigationTab> = _selectedTab.asStateFlow()
@@ -130,6 +131,10 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun navigateTo(screen: Screen) {
         _screenStack.value = _screenStack.value + screen
+    }
+
+    fun setInitialScreen(screen: Screen) {
+        _screenStack.value = listOf(screen)
     }
 
     fun navigateToHomeClearingAuth() {

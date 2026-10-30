@@ -36,7 +36,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
                 showNotification(context, task)
             } finally {
-                pendingResult.finish()
+                pendingResult?.finish()
             }
         }
     }

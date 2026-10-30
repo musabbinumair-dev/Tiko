@@ -32,7 +32,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                         repository.completeTask(taskId)
                         ReminderScheduler.cancel(context, taskId)
                     } finally {
-                        pendingResult.finish()
+                        pendingResult?.finish()
                     }
                 }
             }

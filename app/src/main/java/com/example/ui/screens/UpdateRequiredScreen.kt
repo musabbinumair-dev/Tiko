@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -56,6 +57,34 @@ import com.example.ui.theme.OutfitFontFamily
 import com.musab.tiko.BuildConfig
 import kotlinx.coroutines.launch
 import java.io.File
+
+fun parseReleaseNotes(raw: String): List<String> {
+    val lines = raw.lines()
+        .map { it.trim() }
+        .filter { line ->
+            line.isNotEmpty() &&
+            !line.startsWith("Co-authored-by:", ignoreCase = true) &&
+            !line.startsWith("Signed-off-by:", ignoreCase = true) &&
+            !line.startsWith("Merge ", ignoreCase = true)
+        }
+    if (lines.isEmpty()) {
+        return listOf(
+            "Performance improvements and optimizations",
+            "Bug fixes and UI polish"
+        )
+    }
+    return lines.map { line ->
+        var cleaned = line.removePrefix("- ").removePrefix("* ").removePrefix("• ").trim()
+        val colonIndex = cleaned.indexOf(':')
+        if (colonIndex in 1..12) {
+            val prefix = cleaned.substring(0, colonIndex).trim().lowercase()
+            if (prefix in listOf("feat", "fix", "chore", "perf", "refactor", "style", "docs", "test")) {
+                cleaned = cleaned.substring(colonIndex + 1).trim()
+            }
+        }
+        cleaned.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    }.filter { it.isNotBlank() }
+}
 
 private val PurplePrimary = Color(0xFF6B4EFF)
 private val LightScreenBg = Color(0xFFEFEBDD)
@@ -161,10 +190,12 @@ fun UpdateRequiredScreen(
     val buttonBg = if (isDark) ButtonCream else ButtonBlack
     val buttonTextColor = if (isDark) Color(0xFF151515) else Color.White
 
-    val releaseNotes = try {
-        update.notes.trim().ifEmpty { "Bug fixes and improvements" }
-    } catch (_: Throwable) {
-        "Bug fixes and improvements"
+    val releaseNotesList = remember(update.notes) {
+        try {
+            parseReleaseNotes(update.notes)
+        } catch (_: Throwable) {
+            listOf("Bug fixes and improvements")
+        }
     }
 
     fun startDownload() {
@@ -320,22 +351,43 @@ fun UpdateRequiredScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+
                         // Release notes inside purple card (max about 6 lines, scrollable)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 140.dp)
+                                .heightIn(max = 150.dp)
                                 .verticalScroll(rememberScrollState())
+                                .testTag("update_release_notes")
                         ) {
-                            Text(
-                                text = releaseNotes,
-                                fontFamily = OutfitFontFamily,
-                                fontWeight = FontWeight.Normal,
-                                fontSize = 15.sp,
-                                lineHeight = 22.sp,
-                                color = Color.White,
-                                modifier = Modifier.testTag("update_release_notes")
-                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                releaseNotesList.forEach { note ->
+                                    Row(
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = 7.dp)
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(LimeAccent)
+                                        )
+                                        Text(
+                                            text = note,
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Normal,
+                                            fontSize = 15.sp,
+                                            lineHeight = 22.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

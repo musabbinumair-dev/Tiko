@@ -25,7 +25,7 @@ class BootReceiver : BroadcastReceiver() {
                     val activeTasks = tasks.filter { !it.done && !it.deleted }
                     ReminderScheduler.rescheduleAllFutureReminders(context, activeTasks)
                 } finally {
-                    pendingResult.finish()
+                    pendingResult?.finish()
                 }
             }
         }

@@ -206,7 +206,14 @@ class SyncCoordinator(
         if (avatarId != null) {
             preferences.setAvatarId(avatarId)
         }
-        val uid = activeUserId ?: try { authProvider()?.currentUser?.uid } catch (_: Throwable) { null } ?: return
+        val uid = try {
+            FirebaseAuth.getInstance().currentUser?.uid
+        } catch (_: Throwable) {
+            null
+        } ?: activeUserId ?: try { authProvider()?.currentUser?.uid } catch (_: Throwable) { null } ?: return
+
+        if (uid.isBlank()) return
+
         scope.launch {
             try {
                 val firestore = firestoreProvider() ?: return@launch
@@ -218,9 +225,7 @@ class SyncCoordinator(
                     data["avatarId"] = avatarId
                 }
                 userDocRef.set(data, SetOptions.merge()).await()
-                if (BuildConfig.DEBUG) {
-                    Log.d("TikoSync", "AvatarId saved to Firestore successfully")
-                }
+                Log.d("TikoProfile", "Successfully saved avatarId '$avatarId' to users/$uid")
             } catch (e: Exception) {
                 Log.w("TikoProfile", "Failed to write avatarId to Firestore: ${e.message}", e)
             }

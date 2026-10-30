@@ -10,6 +10,8 @@ import com.example.data.model.SubtaskItem
 import com.example.data.model.TaskEntity
 import com.example.data.reminder.ReminderScheduler
 import com.example.data.repository.TaskRepository
+import com.example.data.update.UpdateChecker
+import com.example.data.update.UpdateResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,9 +55,11 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     val preferences = com.example.data.local.UserPreferences(application)
     val syncManager = com.example.data.sync.SyncManager(application, database.taskDao())
     val syncStatus: StateFlow<String> = syncManager.syncStatus
+    val updateResult: StateFlow<UpdateResult?> = UpdateChecker.result
 
     init {
         rescheduleAllReminders()
+        UpdateChecker.checkOnce()
     }
 
     fun rescheduleAllReminders() {

@@ -68,6 +68,19 @@ jobs:
             cp "$APK_FILE" tiko.apk
           fi
 
+      - name: Generate version.json
+        if: github.event_name != 'pull_request'
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+          COMMIT_NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          jq -n \
+            --argjson versionCode "${VERSION_CODE:-1}" \
+            --arg versionName "${VERSION_NAME:-1.0.0}" \
+            --arg notes "${COMMIT_NOTES:-}" \
+            '{"versionCode": $versionCode, "versionName": $versionName, "notes": $notes}' > version.json
+
       - name: Publish APK to GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
@@ -75,5 +88,8 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Tiko 1.0.${{ github.run_number }}
           body: ${{ github.event.head_commit.message }}
-          files: tiko.apk
+          files: |
+            tiko.apk
+            version.json
           make_latest: "true"
+

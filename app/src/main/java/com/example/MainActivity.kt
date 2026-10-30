@@ -72,7 +72,9 @@ import com.example.ui.screens.SaveErrorScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SignUpScreen
 import com.example.ui.screens.TaskDetailScreen
+import com.example.ui.screens.UpdateRequiredScreen
 import com.example.ui.screens.WelcomeScreen
+import com.example.data.update.UpdateResult
 import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.TikoBackground
@@ -288,6 +290,18 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 }
             }
         }
+    }
+
+    val updateResult by viewModel.updateResult.collectAsState()
+    val updateAvailable = updateResult as? UpdateResult.UpdateAvailable
+    if (updateAvailable != null) {
+        CompositionLocalProvider(LocalTikoThemeColors provides tikoColors) {
+            UpdateRequiredScreen(
+                update = updateAvailable,
+                isDark = isDark
+            )
+        }
+        return
     }
 
     // Handle system back navigation cleanly

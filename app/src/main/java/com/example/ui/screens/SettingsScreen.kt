@@ -96,7 +96,6 @@ import com.example.ui.components.CardYellow
 import com.example.ui.components.RoundIconButton
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
-import com.example.data.update.UpdateResult
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
@@ -131,7 +130,6 @@ fun SettingsScreen(
     val userName by preferences.userName.collectAsState()
     val userEmail by preferences.userEmail.collectAsState()
     val notifEnabled by preferences.notificationsEnabled.collectAsState()
-    val updateResult by viewModel.updateResult.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as? Activity
@@ -766,24 +764,6 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("profile_app_version")
-                )
-                val updateText = when (val res = updateResult) {
-                    null -> "Update check: checking..."
-                    is UpdateResult.UpToDate -> "Update check: up to date"
-                    is UpdateResult.UpdateAvailable -> "Update check: update available ${res.versionName}"
-                    is UpdateResult.CheckFailed -> "Update check: failed (${res.reason})"
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = updateText,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 12.sp,
-                    color = tikoColors.textMuted,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("profile_update_status")
                 )
             }
         }

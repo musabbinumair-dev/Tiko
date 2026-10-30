@@ -272,9 +272,9 @@ private fun HomeHeader(
     ) {
         // Left: Avatar + Name + Greeting
         Row(verticalAlignment = Alignment.CenterVertically) {
-            com.example.ui.components.UserInitialsAvatar(
+            com.example.ui.components.UserAvatar(
                 name = userName,
-                size = 52.dp,
+                size = 52.dp
                 backgroundColor = CardYellow,
                 textColor = HomeBlack
             )

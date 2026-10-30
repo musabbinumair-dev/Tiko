@@ -548,7 +548,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 taskId = screen.taskId,
                                 viewModel = viewModel,
                                 onNavigate = { viewModel.navigateTo(it) },
-                                onBack = { viewModel.goBack() }
+                                onBack = { viewModel.goBack() },
+                                isDark = isDark
                             )
                         }
                     }
@@ -556,7 +557,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         AddEditTaskScreen(
                             taskId = null,
                             viewModel = viewModel,
-                            onBack = { viewModel.goBack() }
+                            onBack = { viewModel.goBack() },
+                            isDark = isDark
                         )
                     }
                     is Screen.EditTask -> {
@@ -579,7 +581,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             AddEditTaskScreen(
                                 taskId = screen.taskId,
                                 viewModel = viewModel,
-                                onBack = { viewModel.goBack() }
+                                onBack = { viewModel.goBack() },
+                                isDark = isDark
                             )
                         }
                     }

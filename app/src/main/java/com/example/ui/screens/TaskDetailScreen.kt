@@ -28,18 +28,13 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -75,7 +71,8 @@ fun TaskDetailScreen(
     viewModel: TikoViewModel,
     onNavigate: (Screen) -> Unit,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     BackHandler {
         onBack()
@@ -85,8 +82,6 @@ fun TaskDetailScreen(
     val task = tasks.find { it.id == taskId }
 
     var isBookmarked by remember { mutableStateOf(false) }
-
-    // No sample subtasks
 
     if (task == null) {
         NotFoundScreen(
@@ -102,10 +97,8 @@ fun TaskDetailScreen(
         return
     }
 
-    // Category icon
     val categoryIcon: ImageVector = CategoryIcons.getIcon(task.category)
 
-    // Date display
     val dateDisplay = when {
         task.dueDate.isBlank() || task.dueDate.lowercase().contains("today") -> "Due today"
         else -> task.dueDate
@@ -114,6 +107,7 @@ fun TaskDetailScreen(
     val priorityDisplay = if (task.priority.isNotBlank()) task.priority else "High"
 
     val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+    val effectiveDark = isDark || tikoColors.isDark
 
     Box(
         modifier = modifier
@@ -155,7 +149,8 @@ fun TaskDetailScreen(
                         icon = Icons.Outlined.ChevronLeft,
                         onClick = onBack,
                         contentDescription = "Back",
-                        testTag = "task_detail_back_button"
+                        testTag = "task_detail_back_button",
+                        isDark = effectiveDark
                     )
 
                     Row(
@@ -178,7 +173,8 @@ fun TaskDetailScreen(
                                 )
                             },
                             contentDescription = "Delete task",
-                            testTag = "task_detail_delete_button"
+                            testTag = "task_detail_delete_button",
+                            isDark = effectiveDark
                         )
 
                         RoundIconButton(
@@ -192,7 +188,8 @@ fun TaskDetailScreen(
                                 }
                             },
                             contentDescription = "Bookmark",
-                            testTag = "task_detail_bookmark_button"
+                            testTag = "task_detail_bookmark_button",
+                            isDark = effectiveDark
                         )
                     }
                 }
@@ -225,13 +222,13 @@ fun TaskDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Task title: Outfit ExtraBold 34sp, centered, black
+                    // Task title
                     Text(
                         text = task.title,
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 34.sp,
-                        color = DetailBlack,
+                        color = tikoColors.textPrimary,
                         textAlign = TextAlign.Center,
                         lineHeight = 38.sp,
                         letterSpacing = (-0.5).sp
@@ -239,13 +236,13 @@ fun TaskDetailScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // White pill with category icon + name, Outfit Medium 16sp
+                    // Category pill
                     Box(
                         modifier = Modifier
                             .height(42.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, Color(0xFFD6D2C4), CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, tikoColors.cardBorder, CircleShape)
                             .padding(horizontal = 20.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -256,7 +253,7 @@ fun TaskDetailScreen(
                             Icon(
                                 imageVector = categoryIcon,
                                 contentDescription = null,
-                                tint = DetailBlack,
+                                tint = tikoColors.textPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -265,14 +262,14 @@ fun TaskDetailScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 16.sp,
-                                color = DetailBlack
+                                color = tikoColors.textPrimary
                             )
                         }
                     }
                 }
             }
 
-            // ROW OF 3 WHITE PILLS: Due date, time, priority
+            // ROW OF 3 PILLS: Due date, time, priority
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
@@ -281,14 +278,16 @@ fun TaskDetailScreen(
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val pillBorder = if (effectiveDark) tikoColors.cardBorder else DetailBlack
+
                     // Due Date Pill
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, pillBorder, CircleShape)
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -299,7 +298,7 @@ fun TaskDetailScreen(
                             Icon(
                                 imageVector = Icons.Outlined.CalendarToday,
                                 contentDescription = null,
-                                tint = DetailBlack,
+                                tint = tikoColors.textPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -308,7 +307,7 @@ fun TaskDetailScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
-                                color = DetailBlack,
+                                color = tikoColors.textPrimary,
                                 maxLines = 1
                             )
                         }
@@ -320,8 +319,8 @@ fun TaskDetailScreen(
                             .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, pillBorder, CircleShape)
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -332,7 +331,7 @@ fun TaskDetailScreen(
                             Icon(
                                 imageVector = Icons.Outlined.Schedule,
                                 contentDescription = null,
-                                tint = DetailBlack,
+                                tint = tikoColors.textPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -341,7 +340,7 @@ fun TaskDetailScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
-                                color = DetailBlack,
+                                color = tikoColors.textPrimary,
                                 maxLines = 1
                             )
                         }
@@ -353,8 +352,8 @@ fun TaskDetailScreen(
                             .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, pillBorder, CircleShape)
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -365,7 +364,7 @@ fun TaskDetailScreen(
                             Icon(
                                 imageVector = Icons.Outlined.LocalFireDepartment,
                                 contentDescription = null,
-                                tint = DetailBlack,
+                                tint = tikoColors.textPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -374,7 +373,7 @@ fun TaskDetailScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
-                                color = DetailBlack,
+                                color = tikoColors.textPrimary,
                                 maxLines = 1
                             )
                         }
@@ -385,7 +384,8 @@ fun TaskDetailScreen(
             // SUBTASKS SECTION
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                // White pill label "Subtasks" (1dp black outline, Outfit Bold 18sp)
+                val pillBorder = if (effectiveDark) tikoColors.cardBorder else DetailBlack
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -395,8 +395,8 @@ fun TaskDetailScreen(
                         modifier = Modifier
                             .height(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, pillBorder, CircleShape)
                             .padding(horizontal = 18.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -405,20 +405,22 @@ fun TaskDetailScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            color = DetailBlack
+                            color = tikoColors.textPrimary
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // White card, 28dp radius, rows separated by thin #E8E8E8 lines
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
+                        .background(tikoColors.cardBg)
+                        .then(
+                            if (effectiveDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
+                        )
                         .padding(horizontal = 20.dp, vertical = 20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -428,7 +430,7 @@ fun TaskDetailScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 16.sp,
-                                color = Color(0xFF8E8E8E)
+                                color = tikoColors.textMuted
                             )
                         } else {
                             task.subtasks.forEachIndexed { index, subtask ->
@@ -447,11 +449,11 @@ fun TaskDetailScreen(
                                             }
                                             .then(
                                                 if (subtask.done) {
-                                                    Modifier.background(DetailBlack)
+                                                    Modifier.background(if (effectiveDark) Color(0xFFF5F1E6) else DetailBlack)
                                                 } else {
                                                     Modifier
-                                                        .background(Color.White)
-                                                        .border(2.dp, DetailBlack, CircleShape)
+                                                        .background(tikoColors.cardBg)
+                                                        .border(2.dp, if (effectiveDark) tikoColors.textMuted else DetailBlack, CircleShape)
                                                 }
                                             ),
                                         contentAlignment = Alignment.Center
@@ -460,7 +462,7 @@ fun TaskDetailScreen(
                                             Icon(
                                                 imageVector = Icons.Outlined.Check,
                                                 contentDescription = "Completed",
-                                                tint = Color.White,
+                                                tint = if (effectiveDark) Color(0xFF151515) else Color.White,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -473,7 +475,7 @@ fun TaskDetailScreen(
                                         fontFamily = OutfitFontFamily,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 17.sp,
-                                        color = if (subtask.done) Color(0xFF8E8E8E) else DetailBlack,
+                                        color = if (subtask.done) tikoColors.textMuted else tikoColors.textPrimary,
                                         modifier = Modifier
                                             .weight(1f)
                                             .clickable {
@@ -481,7 +483,6 @@ fun TaskDetailScreen(
                                             }
                                     )
 
-                                    // Delete subtask button
                                     Box(
                                         modifier = Modifier
                                             .size(32.dp)
@@ -507,7 +508,7 @@ fun TaskDetailScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(1.dp)
-                                            .background(Color(0xFFE8E8E8))
+                                            .background(tikoColors.divider)
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
@@ -521,8 +522,8 @@ fun TaskDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(DetailCreamBg.copy(alpha = 0.5f))
-                                .border(1.dp, Color(0xFFDCDAD4), RoundedCornerShape(16.dp))
+                                .background(if (effectiveDark) Color(0xFF1E1E1E) else DetailCreamBg.copy(alpha = 0.5f))
+                                .border(1.dp, tikoColors.cardBorder, RoundedCornerShape(16.dp))
                                 .padding(horizontal = 14.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -534,15 +535,16 @@ fun TaskDetailScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 15.sp,
-                                    color = DetailBlack
+                                    color = tikoColors.textPrimary
                                 ),
+                                cursorBrush = SolidColor(tikoColors.textPrimary),
                                 singleLine = true,
                                 decorationBox = { innerTextField ->
                                     if (newSubtaskInput.isEmpty()) {
                                         Text(
                                             text = "Add subtask...",
                                             fontFamily = OutfitFontFamily,
-                                            color = Color(0xFF8E8E8E),
+                                            color = tikoColors.textMuted,
                                             fontSize = 15.sp
                                         )
                                     }
@@ -553,7 +555,13 @@ fun TaskDetailScreen(
                                 modifier = Modifier
                                     .height(34.dp)
                                     .clip(CircleShape)
-                                    .background(if (newSubtaskInput.isNotBlank()) DetailBlack else DetailBlack.copy(alpha = 0.2f))
+                                    .background(
+                                        if (newSubtaskInput.isNotBlank()) {
+                                            if (effectiveDark) Color(0xFFF5F1E6) else DetailBlack
+                                        } else {
+                                            if (effectiveDark) Color(0xFFF5F1E6).copy(alpha = 0.2f) else DetailBlack.copy(alpha = 0.2f)
+                                        }
+                                    )
                                     .clickable(enabled = newSubtaskInput.isNotBlank()) {
                                         viewModel.addSubtask(task.id, newSubtaskInput.trim())
                                         AppToastController.show("Subtask added", ToastType.Success)
@@ -567,7 +575,7 @@ fun TaskDetailScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
-                                    color = Color.White
+                                    color = if (effectiveDark) Color(0xFF151515) else Color.White
                                 )
                             }
                         }
@@ -578,7 +586,8 @@ fun TaskDetailScreen(
             // NOTES SECTION
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                // White pill label "Notes"
+                val pillBorder = if (effectiveDark) tikoColors.cardBorder else DetailBlack
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -588,8 +597,8 @@ fun TaskDetailScreen(
                         modifier = Modifier
                             .height(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, DetailBlack, CircleShape)
+                            .background(tikoColors.cardBg)
+                            .border(1.dp, pillBorder, CircleShape)
                             .padding(horizontal = 18.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -598,20 +607,22 @@ fun TaskDetailScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            color = DetailBlack
+                            color = tikoColors.textPrimary
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // White card, 28dp radius, with notes text or gray hint
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
+                        .background(tikoColors.cardBg)
+                        .then(
+                            if (effectiveDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
+                        )
                         .padding(horizontal = 20.dp, vertical = 20.dp)
                 ) {
                     Text(
@@ -619,13 +630,13 @@ fun TaskDetailScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Normal,
                         fontSize = 16.sp,
-                        color = if (task.notes.isNotBlank()) Color(0xFF3A3A3A) else Color(0xFF8E8E8E),
+                        color = if (task.notes.isNotBlank()) tikoColors.textPrimary else tikoColors.textMuted,
                         lineHeight = 24.sp
                     )
                 }
             }
 
-            // FULL-WIDTH BLACK PILL BUTTON "Mark as done"
+            // FULL-WIDTH PILL BUTTON "Mark as done"
             item {
                 Spacer(modifier = Modifier.height(26.dp))
                 Box(
@@ -634,7 +645,7 @@ fun TaskDetailScreen(
                         .padding(horizontal = 20.dp)
                         .height(56.dp)
                         .clip(CircleShape)
-                        .background(DetailBlack)
+                        .background(if (effectiveDark) Color(0xFFF5F1E6) else DetailBlack)
                         .clickable {
                             val willBeDone = !task.done
                             viewModel.toggleTaskDone(task)
@@ -652,7 +663,7 @@ fun TaskDetailScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color.White
+                        color = if (effectiveDark) Color(0xFF151515) else Color.White
                     )
                 }
             }
@@ -666,7 +677,7 @@ fun TaskDetailScreen(
                         .padding(horizontal = 20.dp)
                         .height(52.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(tikoColors.cardBg)
                         .border(1.5.dp, Color(0xFFD9534A), CircleShape)
                         .clickable {
                             AppDialogController.confirm(

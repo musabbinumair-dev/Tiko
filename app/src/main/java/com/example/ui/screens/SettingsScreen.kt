@@ -56,6 +56,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import java.util.Calendar
+import java.util.Locale
+import java.text.SimpleDateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -218,8 +221,44 @@ fun SettingsScreen(
     // Weekly completion distribution from real data
     val weeklyData = remember(tasks) {
         val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        days.map { day ->
-            WeeklyBarData(day, 0)
+        val cal = Calendar.getInstance()
+        cal.firstDayOfWeek = Calendar.MONDAY
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        val startOfWeek = cal.timeInMillis
+        cal.add(Calendar.DAY_OF_WEEK, 7)
+        val endOfWeek = cal.timeInMillis
+
+        val counts = IntArray(7)
+        val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+        for (task in tasks) {
+            if (task.done) {
+                val taskTime = task.completedAt ?: try {
+                    if (task.dueDate.isNotBlank()) sdfDate.parse(task.dueDate)?.time else null
+                } catch (_: Exception) {
+                    null
+                }
+                if (taskTime != null && taskTime >= startOfWeek && taskTime < endOfWeek) {
+                    val taskCal = Calendar.getInstance().apply { timeInMillis = taskTime }
+                    val dayOfWeek = taskCal.get(Calendar.DAY_OF_WEEK)
+                    val index = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - 2
+                    if (index in 0..6) {
+                        counts[index]++
+                    }
+                }
+            }
+        }
+
+        val todayCal = Calendar.getInstance()
+        val todayDayOfWeek = todayCal.get(Calendar.DAY_OF_WEEK)
+        val todayIndex = if (todayDayOfWeek == Calendar.SUNDAY) 6 else todayDayOfWeek - 2
+
+        days.mapIndexed { index, day ->
+            WeeklyBarData(day, counts[index], isHighlight = (index == todayIndex))
         }
     }
 
@@ -489,7 +528,7 @@ fun SettingsScreen(
                         .background(tikoColors.cardBg)
                         .padding(horizontal = 16.dp, vertical = 20.dp)
                 ) {
-                    val maxValue = 9
+                    val maxValue = (weeklyData.maxOfOrNull { it.value } ?: 0).coerceAtLeast(1)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -720,10 +759,29 @@ fun SettingsScreen(
                                     destructive = true,
                                     onConfirm = {
                                         scope.launch {
-                                            authRepository.signOut()
-                                            viewModel.logout()
-                                            AppToastController.show("Logged out successfully", ToastType.Success)
-                                            onNavigate(Screen.Welcome)
+                                            val flushSuccess = viewModel.flushPendingWrites(5000L)
+                                            if (flushSuccess) {
+                                                authRepository.signOut()
+                                                viewModel.logout()
+                                                AppToastController.show("Logged out successfully", ToastType.Success)
+                                                onNavigate(Screen.Welcome)
+                                            } else {
+                                                AppDialogController.confirm(
+                                                    title = "Unsaved changes",
+                                                    message = "Some changes haven't synced yet. Logging out now will lose them.",
+                                                    confirmText = "Log out anyway",
+                                                    cancelText = "Cancel",
+                                                    destructive = true,
+                                                    onConfirm = {
+                                                        scope.launch {
+                                                            authRepository.signOut()
+                                                            viewModel.logout()
+                                                            AppToastController.show("Logged out", ToastType.Info)
+                                                            onNavigate(Screen.Welcome)
+                                                        }
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 )

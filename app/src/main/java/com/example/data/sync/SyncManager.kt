@@ -93,7 +93,7 @@ class SyncManager(
 
     /**
      * Start SyncManager for the signed-in user.
-     * Login or signup: run a one-time merge. Upload any local guest tasks into the user's collection, then start the listener.
+     * Login or signup: run a one-time merge only for guest tasks without overwriting existing remote tasks.
      */
     fun start(userId: String, isFirstPullAfterLogin: Boolean = false) {
         if (currentUserId == userId && syncScope != null) {
@@ -110,12 +110,25 @@ class SyncManager(
 
         scope.launch {
             try {
-                // One-time merge on login/signup: upload any local tasks (including guest tasks)
-                val localTasks = taskDao.getAllTasksRaw()
-                val tasksCollection = firestore.collection("users").document(userId).collection("tasks")
-                for (task in localTasks) {
-                    if (!task.synced) {
-                        tasksCollection.document(task.id).set(task.toFirestoreMap())
+                // One-time merge on login/signup: upload local tasks only if in guest mode,
+                // and never overwrite existing remote tasks with the same id.
+                val userPrefs = com.example.data.local.UserPreferences(context)
+                val isGuest = userPrefs.isGuestMode.value
+                if (isGuest) {
+                    val localTasks = taskDao.getAllTasksRaw()
+                    val tasksCollection = firestore.collection("users").document(userId).collection("tasks")
+                    for (task in localTasks) {
+                        if (!task.synced && !task.deleted) {
+                            val remoteDoc = try {
+                                tasksCollection.document(task.id).get().await()
+                            } catch (_: Exception) {
+                                null
+                            }
+                            if (remoteDoc == null || !remoteDoc.exists()) {
+                                tasksCollection.document(task.id).set(task.toFirestoreMap()).await()
+                                taskDao.markSynced(task.id, task.updatedAt)
+                            }
+                        }
                     }
                 }
             } catch (_: Exception) {
@@ -143,8 +156,15 @@ class SyncManager(
                 }
 
                 for (task in unsyncedTasks) {
-                    // Push: write each to Firestore with set(). Do NOT await set() (it hangs offline).
-                    tasksCollection.document(task.id).set(task.toFirestoreMap())
+                    val pushedUpdatedAt = task.updatedAt
+                    val taskId = task.id
+                    // Push: write each to Firestore with set(). On success, CAS update synced = 1
+                    tasksCollection.document(taskId).set(task.toFirestoreMap())
+                        .addOnSuccessListener {
+                            scope.launch {
+                                taskDao.markSynced(taskId, pushedUpdatedAt)
+                            }
+                        }
                 }
             }
         }
@@ -156,33 +176,26 @@ class SyncManager(
 
         snapshotRegistration = tasksCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                // Check if it's an auth error (token expired or account deleted)
                 val isAuthError = error.code == FirebaseFirestoreException.Code.UNAUTHENTICATED ||
                     error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
                 
-                // Check if it's a network error
                 val isNetworkError = error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
                     error.message?.contains("offline", ignoreCase = true) == true ||
                     error.message?.contains("network", ignoreCase = true) == true ||
                     !_isOnline.value
 
                 if (isAuthError) {
-                    // Token expired or account deleted elsewhere - sign out cleanly
                     stop()
                     AppToastController.show(
                         "Please log in again",
                         ToastType.Info
                     )
-                    // Note: The actual sign-out and navigation should be handled by the caller
-                    // via observing sync status or auth state changes
                 } else if (isFirstPullAfterLogin && isFirstSnapshot && !isNetworkError) {
-                    // Non-network error on first sync attempt
                     AppToastController.show(
                         "Sync error. Please check your connection.",
                         ToastType.Error
                     )
                 }
-                // Network errors are silent - don't log users out
                 return@addSnapshotListener
             }
 
@@ -199,9 +212,12 @@ class SyncManager(
                     val docId = doc.id
                     val docHasPending = doc.metadata.hasPendingWrites()
 
-                    // Mark a row synced = true when the snapshot listener reports that doc with hasPendingWrites = false
+                    // Mark a row synced = true when reported with hasPendingWrites = false, matching doc's updatedAt
                     if (!docHasPending) {
-                        taskDao.markSynced(docId, true)
+                        val remoteUpdatedAt = (doc.data?.get("updatedAt") as? Number)?.toLong()
+                        if (remoteUpdatedAt != null) {
+                            taskDao.markSynced(docId, remoteUpdatedAt)
+                        }
                     }
 
                     // Ignore docs with hasPendingWrites (our own echo) to avoid loops
@@ -230,8 +246,9 @@ class SyncManager(
                             }
                         }
                     } else {
-                        // Newest updatedAt wins
-                        if (remoteTask.updatedAt > localTask.updatedAt) {
+                        // Conflict resolution: Remote replaces local ONLY when remote.updatedAt is strictly
+                        // greater, and NEVER touches a row with synced = false.
+                        if (localTask.synced && remoteTask.updatedAt > localTask.updatedAt) {
                             if (remoteTask.deleted) {
                                 taskDao.hardDeleteById(docId)
                                 ReminderScheduler.cancel(context, docId)
@@ -248,9 +265,37 @@ class SyncManager(
                     }
                 }
 
-                // Rows deleted = true and synced = true are removed from Room
+                // Clean up synced tombstones
                 taskDao.deleteSyncedTombstones()
             }
+        }
+    }
+
+    /**
+     * Flush all pending local changes to Firestore before logout or process shutdown.
+     * Waits for all rows with synced = false to be pushed and acknowledged.
+     * Returns true if all changes have synced, false on timeout or failure.
+     */
+    suspend fun flushPendingWrites(timeoutMs: Long = 5000L): Boolean {
+        val uid = currentUserId ?: return true
+        val unsynced = taskDao.getUnsyncedTasksOnce()
+        if (unsynced.isEmpty() && !_hasPendingWrites.value) {
+            return true
+        }
+
+        return try {
+            kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+                val tasksCollection = firestore.collection("users").document(uid).collection("tasks")
+                val pending = taskDao.getUnsyncedTasksOnce()
+                for (task in pending) {
+                    tasksCollection.document(task.id).set(task.toFirestoreMap()).await()
+                    taskDao.markSynced(task.id, task.updatedAt)
+                }
+                firestore.waitForPendingWrites().await()
+                taskDao.getUnsyncedTasksOnce().isEmpty()
+            } ?: false
+        } catch (_: Exception) {
+            false
         }
     }
 

@@ -122,7 +122,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     isDark: Boolean = false
 ) {
-    // Map real tasks to card data without mock fallbacks
+    // Map active tasks to card data without mock fallbacks
     val cardModels = remember(tasks) {
         val palette = listOf(
             CardPurple to Color.White,
@@ -130,7 +130,8 @@ fun HomeScreen(
             CardBlack to Color.White,
             CardLime to HomeBlack
         )
-        tasks.mapIndexed { index, task ->
+        val activeTasks = tasks.filter { !it.done }
+        activeTasks.mapIndexed { index, task ->
             val (bg, content) = palette[index % palette.size]
             val icon = when (task.category.lowercase()) {
                 "work" -> Icons.Outlined.Work
@@ -146,7 +147,7 @@ fun HomeScreen(
                 categoryIcon = icon,
                 backgroundColor = bg,
                 contentColor = content,
-                isLastTaller = (index == tasks.lastIndex)
+                isLastTaller = (index == activeTasks.lastIndex)
             )
         }
     }

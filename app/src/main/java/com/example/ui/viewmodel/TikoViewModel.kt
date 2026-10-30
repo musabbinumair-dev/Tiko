@@ -58,8 +58,15 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     val updateResult: StateFlow<UpdateResult?> = UpdateChecker.result
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.taskDao().repairBlankOrDuplicateIds()
+        }
         rescheduleAllReminders()
         UpdateChecker.checkOnce()
+    }
+
+    suspend fun flushPendingWrites(timeoutMs: Long = 5000L): Boolean {
+        return syncManager.flushPendingWrites(timeoutMs)
     }
 
     fun rescheduleAllReminders() {
@@ -354,6 +361,9 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         if (title.isBlank()) return
         viewModelScope.launch {
             try {
+                val existing = database.taskDao().getTaskByIdOnce(id)
+                val completedAt = if (done) (existing?.completedAt ?: System.currentTimeMillis()) else null
+                val createdAt = existing?.createdAt ?: System.currentTimeMillis()
                 val task = TaskEntity(
                     id = id,
                     title = title.trim(),
@@ -364,6 +374,8 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
                     dueTime = if (dueTime.isBlank()) TaskEntity.DEFAULT_DUE_TIME else dueTime,
                     reminder = reminder,
                     done = done,
+                    completedAt = completedAt,
+                    createdAt = createdAt,
                     subtasksJson = TaskEntity.serializeSubtasks(subtasks)
                 )
                 repository.updateTask(task)

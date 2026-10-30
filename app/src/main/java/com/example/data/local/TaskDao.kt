@@ -64,8 +64,32 @@ interface TaskDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    @Query("UPDATE tasks SET synced = :synced WHERE id = :id")
-    suspend fun markSynced(id: String, synced: Boolean = true)
+    @Query("UPDATE tasks SET synced = 1 WHERE id = :id AND updatedAt = :pushedUpdatedAt")
+    suspend fun markSynced(id: String, pushedUpdatedAt: Long): Int
+
+    @androidx.room.Transaction
+    suspend fun repairBlankOrDuplicateIds(): Int {
+        val allTasks = getAllTasksRaw()
+        val seenIds = mutableSetOf<String>()
+        var repairedCount = 0
+        for (task in allTasks) {
+            val isBlank = task.id.isBlank()
+            val isDuplicate = !seenIds.add(task.id)
+            if (isBlank || isDuplicate) {
+                hardDeleteById(task.id)
+                val newId = java.util.UUID.randomUUID().toString()
+                val repaired = task.copy(
+                    id = newId,
+                    updatedAt = System.currentTimeMillis(),
+                    synced = false
+                )
+                insertTask(repaired)
+                seenIds.add(newId)
+                repairedCount++
+            }
+        }
+        return repairedCount
+    }
 
     @Query("UPDATE tasks SET deleted = 1, updatedAt = :updatedAt, synced = 0 WHERE done = 1 AND deleted = 0")
     suspend fun softDeleteCompletedTasks(updatedAt: Long = System.currentTimeMillis()): Int

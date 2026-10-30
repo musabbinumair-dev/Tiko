@@ -96,6 +96,17 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 - **Important** — `TikoViewModel.kt:360-383` exports all task content into a plain string, but there is no secure export destination, consent UI, sharing policy, or import/restore validation.
 - **Nice-to-have** — `TikoDatabase.kt:33-36` and `CalendarScreen.kt:100-119` use device-default locales/time zones and legacy `SimpleDateFormat`; date-only task semantics will be error-prone across locales/time-zone changes.
 
+## Task sync & data integrity hardening — 2026-10-30
+
+- **DONE** ✅ — **Task Data Contract**: Created `TASK_DATA_CONTRACT.md` detailing all 15 Room and Firestore fields, types, exact value representations (category, priority, reminder), screen usage, and bidirectional serialization parity.
+- **DONE** ✅ — **Logout Write Flush (Bug D)**: Resolved issue where logout cleared Room and revoked auth before in-flight Firestore writes were delivered. Added `flushPendingWrites` with a 5-second timeout and `AppDialogController.confirm` warning if unsynced changes cannot be flushed before logout.
+- **DONE** ✅ — **Compare-And-Set Synced Flag (Bug B)**: Replaced unconditional `markSynced(id, true)` with `UPDATE tasks SET synced = 1 WHERE id = :id AND updatedAt = :pushedUpdatedAt` so rows modified locally while in-flight remain `synced = 0`.
+- **DONE** ✅ — **Conflict Resolution (Bug C)**: Snapshot listener updates local Room rows only if `localTask.synced == true` and `remote.updatedAt > local.updatedAt`, protecting local unsynced edits from remote clobbering.
+- **DONE** ✅ — **Guest-to-Login Merge Safety (Bug E)**: One-time merge on login checks for existing remote documents to prevent overwriting cloud tasks with same-ID guest rows.
+- **DONE** ✅ — **Startup ID Repair (Bug F)**: `TaskDao.repairBlankOrDuplicateIds()` runs on app launch, assigning clean UUIDs to any blank or duplicate primary keys.
+- **DONE** ✅ — **Real Weekly Activity Chart**: Replaced static 0-bar mockup in `SettingsScreen.kt` with dynamic computation from task completion timestamps (`completedAt`/`dueDate`) across the current Monday-to-Sunday week.
+- **DONE** ✅ — **Comprehensive Test Suite & Manual QA**: Added `TaskDataContractAndSyncTest.kt` verifying full field round trip, single-task completion isolation, CAS updates, conflict resolution, and stats calculation; created `TESTING.md` on-device verification checklist.
+
 ## Remaining blockers (not yet addressed)
 
 | # | Description |
@@ -109,5 +120,7 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 3. ~~Replace destructive Room migration with tested, real migrations and enable schema export.~~ ✅ Done (`e5a3e01`)
 4. ~~Decide and implement Firestore sync plus account-data deletion, or remove cross-device/account claims.~~ ✅ Done (`f652a64`)
 5. ~~Build real notification permission/scheduling or remove the reminder-enabled UX.~~ ✅ Done (Blocker 6)
-6. Establish signed release/AAB CI with least-privilege workflow permissions and R8 verification.
+6. ~~Task sync & data contract complete pass: fix logout write flush, CAS synced update, conflict resolution, and stats.~~ ✅ Done
+7. Establish signed release/AAB CI with least-privilege workflow permissions and R8 verification.
+
 

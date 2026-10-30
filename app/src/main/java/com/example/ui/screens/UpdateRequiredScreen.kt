@@ -26,10 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,19 +63,31 @@ private val LimeAccent = Color(0xFFC8DB6A)
 fun UpdateRequiredScreen(
     update: UpdateResult.UpdateAvailable,
     isDark: Boolean = isSystemInDarkTheme(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onError: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
 
-    var downloadState by rememberSaveable { mutableStateOf<DownloadState>(DownloadState.Idle) }
+    // Using remember instead of rememberSaveable to avoid SaveableStateRegistry crashes on custom sealed class
+    var downloadState by remember { mutableStateOf<DownloadState>(DownloadState.Idle) }
+
+    LaunchedEffect(update) {
+        try {
+            if (update.versionCode <= 0L) {
+                onError?.invoke()
+            }
+        } catch (_: Throwable) {
+            onError?.invoke()
+        }
+    }
 
     // Prevent closing via system back button; minimize app instead
     BackHandler(enabled = true) {
         try {
             activity?.moveTaskToBack(true)
-        } catch (e: Exception) {
+        } catch (_: Throwable) {
             // Ignore
         }
     }
@@ -95,29 +108,38 @@ fun UpdateRequiredScreen(
 
     val releaseNotes = try {
         update.notes.trim().ifEmpty { "Bug fixes and improvements" }
-    } catch (e: Exception) {
+    } catch (_: Throwable) {
         "Bug fixes and improvements"
     }
 
     fun startDownload() {
-        downloadState = DownloadState.Downloading(0)
-        scope.launch {
-            try {
-                val result = UpdateDownloader.downloadApk(
-                    context = context,
-                    expectedVersionCode = update.versionCode
-                ) { percent ->
-                    downloadState = DownloadState.Downloading(percent)
-                }
+        try {
+            downloadState = DownloadState.Downloading(0)
+            scope.launch {
+                try {
+                    val result = UpdateDownloader.downloadApk(
+                        context = context,
+                        expectedVersionCode = update.versionCode
+                    ) { percent ->
+                        try {
+                            downloadState = DownloadState.Downloading(percent)
+                        } catch (_: Throwable) {}
+                    }
 
-                downloadState = if (result.isSuccess) {
-                    DownloadState.Downloaded(result.getOrThrow())
-                } else {
-                    DownloadState.Failed(result.exceptionOrNull()?.message ?: "Unknown error")
+                    downloadState = if (result.isSuccess) {
+                        DownloadState.Downloaded(result.getOrThrow())
+                    } else {
+                        val reason = result.exceptionOrNull()?.message ?: "Unknown error"
+                        DownloadState.Failed(reason)
+                    }
+                } catch (e: Throwable) {
+                    val reason = e.message ?: e.javaClass.simpleName
+                    downloadState = DownloadState.Failed(reason)
                 }
-            } catch (e: Exception) {
-                downloadState = DownloadState.Failed(e.message ?: e.javaClass.simpleName)
             }
+        } catch (e: Throwable) {
+            val reason = e.message ?: e.javaClass.simpleName
+            downloadState = DownloadState.Failed(reason)
         }
     }
 
@@ -181,7 +203,7 @@ fun UpdateRequiredScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Installed ${try { BuildConfig.VERSION_NAME } catch (e: Exception) { "1.0.0" }}",
+                            text = "Installed ${try { BuildConfig.VERSION_NAME } catch (_: Throwable) { "1.0.0" }}",
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 13.sp,
@@ -200,7 +222,7 @@ fun UpdateRequiredScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "New ${update.versionName}",
+                            text = "New ${try { update.versionName } catch (_: Throwable) { "Update" }}",
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
@@ -374,7 +396,7 @@ fun UpdateRequiredScreen(
                                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                             }
                                             context.startActivity(intent)
-                                        } catch (e: Exception) {
+                                        } catch (_: Throwable) {
                                             AppToastController.show("Could not open browser", ToastType.Error)
                                         }
                                     }
@@ -392,7 +414,7 @@ fun UpdateRequiredScreen(
                                 .clickable {
                                     try {
                                         AppToastController.show("Install (temporary): File ready at ${state.file.name}", ToastType.Info)
-                                    } catch (e: Exception) {
+                                    } catch (_: Throwable) {
                                         // Ignore
                                     }
                                 }

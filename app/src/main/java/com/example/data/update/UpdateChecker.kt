@@ -15,7 +15,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-sealed class UpdateResult {
+sealed class UpdateResult : java.io.Serializable {
     data object UpToDate : UpdateResult()
     data class UpdateAvailable(
         val versionName: String,
@@ -39,8 +39,18 @@ object UpdateChecker {
     fun checkOnce() {
         if (hasCheckedOnce) return
         hasCheckedOnce = true
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            check()
+        try {
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                try {
+                    check()
+                } catch (e: Throwable) {
+                    val reason = e.message ?: e.javaClass.simpleName
+                    _result.value = UpdateResult.CheckFailed(reason)
+                }
+            }
+        } catch (e: Throwable) {
+            val reason = e.message ?: e.javaClass.simpleName
+            _result.value = UpdateResult.CheckFailed(reason)
         }
     }
 
@@ -48,12 +58,14 @@ object UpdateChecker {
         val checkResult = try {
             val responseBody = fetchWithRedirects(UPDATE_URL)
             parseAndCompare(responseBody)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             val reason = e.message ?: e.javaClass.simpleName
             UpdateResult.CheckFailed(reason)
         }
 
-        _result.value = checkResult
+        try {
+            _result.value = checkResult
+        } catch (_: Throwable) {}
 
         when (checkResult) {
             is UpdateResult.UpToDate -> Log.d(TAG, "Update check: up to date")
@@ -84,21 +96,23 @@ object UpdateChecker {
                 if (statusCode in 300..399) {
                     val location = connection.getHeaderField("Location")
                         ?: throw IOException("HTTP $statusCode redirect missing Location header")
-                    connection.disconnect()
+                    try { connection.disconnect() } catch (_: Throwable) {}
                     currentUrl = location
                     redirects++
                     continue
                 }
 
                 if (statusCode !in 200..299) {
-                    val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    val errorBody = try {
+                        connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    } catch (_: Throwable) { "" }
                     val message = "HTTP $statusCode ${connection.responseMessage}${if (errorBody.isNotEmpty()) ": $errorBody" else ""}".trim()
                     throw IOException(message)
                 }
 
                 return connection.inputStream.bufferedReader().use { it.readText() }
             } finally {
-                connection.disconnect()
+                try { connection.disconnect() } catch (_: Throwable) {}
             }
         }
 
@@ -106,28 +120,37 @@ object UpdateChecker {
     }
 
     private fun parseAndCompare(jsonString: String): UpdateResult {
-        val json = JSONObject(jsonString)
-        if (!json.has("versionCode")) {
-            return UpdateResult.CheckFailed("Missing versionCode in version.json")
-        }
+        return try {
+            val json = JSONObject(jsonString)
+            if (!json.has("versionCode")) {
+                return UpdateResult.CheckFailed("Missing versionCode in version.json")
+            }
 
-        val remoteVersionCode = json.optLong("versionCode", -1L)
-        if (remoteVersionCode <= 0L) {
-            return UpdateResult.CheckFailed("Invalid versionCode ($remoteVersionCode)")
-        }
+            val remoteVersionCode = json.optLong("versionCode", -1L)
+            if (remoteVersionCode <= 0L) {
+                return UpdateResult.CheckFailed("Invalid versionCode ($remoteVersionCode)")
+            }
 
-        val remoteVersionName = json.optString("versionName", "")
-        val notes = json.optString("notes", "")
+            val remoteVersionName = json.optString("versionName", "")
+            val notes = json.optString("notes", "")
 
-        val currentVersionCode = BuildConfig.VERSION_CODE.toLong()
-        return if (remoteVersionCode > currentVersionCode) {
-            UpdateResult.UpdateAvailable(
-                versionName = remoteVersionName.ifEmpty { "1.0.$remoteVersionCode" },
-                versionCode = remoteVersionCode,
-                notes = notes
-            )
-        } else {
-            UpdateResult.UpToDate
+            val currentVersionCode = try {
+                BuildConfig.VERSION_CODE.toLong()
+            } catch (_: Throwable) {
+                1L
+            }
+
+            if (remoteVersionCode > currentVersionCode) {
+                UpdateResult.UpdateAvailable(
+                    versionName = remoteVersionName.ifEmpty { "1.0.$remoteVersionCode" },
+                    versionCode = remoteVersionCode,
+                    notes = notes
+                )
+            } else {
+                UpdateResult.UpToDate
+            }
+        } catch (e: Throwable) {
+            UpdateResult.CheckFailed("Failed to parse update info: ${e.message}")
         }
     }
 }

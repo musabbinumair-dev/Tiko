@@ -101,7 +101,20 @@ class AuthRepository(private val context: Context? = null) {
     suspend fun signInWithGoogle(activityContext: Context): GoogleAuthResult {
         val auth = getAuth() ?: return GoogleAuthResult.Error("Authentication service is unavailable. Please check your internet connection.")
         return try {
-            val webClientId = activityContext.getString(R.string.default_web_client_id)
+            val resId = activityContext.resources.getIdentifier("default_web_client_id", "string", activityContext.packageName)
+            val webClientId = if (resId != 0) {
+                try {
+                    activityContext.getString(resId)
+                } catch (_: Exception) {
+                    ""
+                }
+            } else {
+                ""
+            }
+
+            if (webClientId.isBlank()) {
+                return GoogleAuthResult.Error("Google sign-in is not configured on this build.")
+            }
 
             val credentialManager = CredentialManager.create(activityContext)
             

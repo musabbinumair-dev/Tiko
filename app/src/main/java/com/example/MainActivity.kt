@@ -72,6 +72,8 @@ import com.example.ui.screens.SaveErrorScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SignUpScreen
 import com.example.ui.screens.TaskDetailScreen
+import com.example.data.crash.CrashRecorder
+import com.example.ui.components.CrashReportDialog
 import com.example.ui.screens.UpdateRequiredScreen
 import com.example.ui.screens.WelcomeScreen
 import com.example.data.update.UpdateResult
@@ -118,6 +120,30 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val haptic = LocalHapticFeedback.current
 
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Temporary debug code: Check and show previous crash report on next app start
+    LaunchedEffect(Unit) {
+        try {
+            val savedCrash = CrashRecorder.getSavedCrash(context)
+            if (!savedCrash.isNullOrBlank()) {
+                AppDialogController.showCustom(
+                    onDismiss = {
+                        CrashRecorder.clearSavedCrash(context)
+                    }
+                ) {
+                    CrashReportDialog(
+                        stackTrace = savedCrash,
+                        onDismiss = {
+                            AppDialogController.dismiss()
+                            CrashRecorder.clearSavedCrash(context)
+                        }
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            // Safety: do not fail app initialization if crash report check fails
+        }
+    }
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -292,13 +318,17 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
         }
     }
 
+    var skipUpdateScreen by remember { mutableStateOf(false) }
     val updateResult by viewModel.updateResult.collectAsState()
     val updateAvailable = updateResult as? UpdateResult.UpdateAvailable
-    if (updateAvailable != null) {
+    if (updateAvailable != null && !skipUpdateScreen) {
         CompositionLocalProvider(LocalTikoThemeColors provides tikoColors) {
             UpdateRequiredScreen(
                 update = updateAvailable,
-                isDark = isDark
+                isDark = isDark,
+                onError = {
+                    skipUpdateScreen = true
+                }
             )
         }
         return

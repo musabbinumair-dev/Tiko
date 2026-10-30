@@ -1,12 +1,11 @@
 package com.example.data.crash
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 
+// Temporary debug code: lightweight crash recorder to capture unhandled exceptions
 object CrashRecorder {
     private const val CRASH_FILE_NAME = "last_crash.txt"
 
@@ -21,7 +20,7 @@ object CrashRecorder {
 
                 val file = File(context.filesDir, CRASH_FILE_NAME)
                 file.writeText(stackTrace)
-            } catch (e: Exception) {
+            } catch (_: Throwable) {
                 // Ignore failure in crash handler
             }
 
@@ -40,7 +39,7 @@ object CrashRecorder {
         return try {
             val text = file.readText()
             text.ifBlank { null }
-        } catch (e: Exception) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -51,7 +50,7 @@ object CrashRecorder {
             if (file.exists()) {
                 file.delete()
             }
-        } catch (e: Exception) {
+        } catch (_: Throwable) {
             // Ignore
         }
     }

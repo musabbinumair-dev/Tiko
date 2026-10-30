@@ -7,6 +7,7 @@ import com.example.data.reminder.ReminderReceiver
 class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        com.example.data.crash.CrashRecorder.init(this)
         FirebaseInitializer.init(this)
         ReminderReceiver.createChannel(this)
     }

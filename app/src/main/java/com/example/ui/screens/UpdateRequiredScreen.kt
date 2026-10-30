@@ -72,7 +72,11 @@ fun UpdateRequiredScreen(
 
     // Prevent closing via system back button; minimize app instead
     BackHandler(enabled = true) {
-        activity?.moveTaskToBack(true)
+        try {
+            activity?.moveTaskToBack(true)
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     val screenBg = if (isDark) DarkScreenBg else LightScreenBg
@@ -89,22 +93,30 @@ fun UpdateRequiredScreen(
     val buttonBg = if (isDark) ButtonCream else ButtonBlack
     val buttonTextColor = if (isDark) Color(0xFF151515) else Color.White
 
-    val releaseNotes = update.notes.trim().ifEmpty { "Bug fixes and improvements" }
+    val releaseNotes = try {
+        update.notes.trim().ifEmpty { "Bug fixes and improvements" }
+    } catch (e: Exception) {
+        "Bug fixes and improvements"
+    }
 
     fun startDownload() {
         downloadState = DownloadState.Downloading(0)
         scope.launch {
-            val result = UpdateDownloader.downloadApk(
-                context = context,
-                expectedVersionCode = update.versionCode
-            ) { percent ->
-                downloadState = DownloadState.Downloading(percent)
-            }
+            try {
+                val result = UpdateDownloader.downloadApk(
+                    context = context,
+                    expectedVersionCode = update.versionCode
+                ) { percent ->
+                    downloadState = DownloadState.Downloading(percent)
+                }
 
-            downloadState = if (result.isSuccess) {
-                DownloadState.Downloaded(result.getOrThrow())
-            } else {
-                DownloadState.Failed(result.exceptionOrNull()?.message ?: "Unknown error")
+                downloadState = if (result.isSuccess) {
+                    DownloadState.Downloaded(result.getOrThrow())
+                } else {
+                    DownloadState.Failed(result.exceptionOrNull()?.message ?: "Unknown error")
+                }
+            } catch (e: Exception) {
+                downloadState = DownloadState.Failed(e.message ?: e.javaClass.simpleName)
             }
         }
     }
@@ -169,7 +181,7 @@ fun UpdateRequiredScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Installed ${BuildConfig.VERSION_NAME}",
+                            text = "Installed ${try { BuildConfig.VERSION_NAME } catch (e: Exception) { "1.0.0" }}",
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 13.sp,
@@ -357,10 +369,10 @@ fun UpdateRequiredScreen(
                                 color = textSecondary,
                                 modifier = Modifier
                                     .clickable {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateDownloader.APK_URL)).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
                                         try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateDownloader.APK_URL)).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
                                             context.startActivity(intent)
                                         } catch (e: Exception) {
                                             AppToastController.show("Could not open browser", ToastType.Error)
@@ -378,7 +390,11 @@ fun UpdateRequiredScreen(
                                 .clip(CircleShape)
                                 .background(LimeAccent)
                                 .clickable {
-                                    AppToastController.show("Install (temporary): File ready at ${state.file.name}", ToastType.Info)
+                                    try {
+                                        AppToastController.show("Install (temporary): File ready at ${state.file.name}", ToastType.Info)
+                                    } catch (e: Exception) {
+                                        // Ignore
+                                    }
                                 }
                                 .testTag("update_install_button"),
                             contentAlignment = Alignment.Center

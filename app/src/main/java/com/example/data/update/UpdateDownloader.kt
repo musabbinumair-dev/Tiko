@@ -1,8 +1,14 @@
 package com.example.data.update
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import androidx.core.content.FileProvider
+import com.musab.tiko.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -34,6 +40,89 @@ object UpdateDownloader {
             }
         } catch (_: Throwable) {}
         return File(dir, "tiko-update.apk")
+    }
+
+    fun canRequestPackageInstalls(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                context.packageManager.canRequestPackageInstalls()
+            } catch (_: Throwable) {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    fun openUnknownAppSourcesSettings(context: Context) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } else {
+                val intent = Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            }
+        } catch (_: Throwable) {
+            try {
+                val fallbackIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallbackIntent)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    fun installApk(context: Context, file: File): Boolean {
+        return try {
+            val authority = "${context.packageName}.fileprovider"
+            val contentUri = FileProvider.getUriForFile(context, authority, file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to start APK install", e)
+            false
+        }
+    }
+
+    fun cleanUpIfUpdated(context: Context) {
+        try {
+            val file = getUpdateFile(context)
+            if (file.exists()) {
+                val pm = context.packageManager
+                val pkgInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.getPackageArchiveInfo(file.absolutePath, PackageManager.PackageInfoFlags.of(0L))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageArchiveInfo(file.absolutePath, 0)
+                }
+                val apkVersionCode = pkgInfo?.let {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        it.longVersionCode
+                    } else {
+                        @Suppress("DEPRECATION")
+                        it.versionCode.toLong()
+                    }
+                } ?: -1L
+
+                val currentVersion = try { BuildConfig.VERSION_CODE.toLong() } catch (_: Throwable) { 1L }
+                if (apkVersionCode <= 0L || currentVersion >= apkVersionCode) {
+                    file.delete()
+                }
+            }
+        } catch (_: Throwable) {
+            // Ignore failure during cleanup
+        }
     }
 
     suspend fun downloadApk(
@@ -151,7 +240,7 @@ object UpdateDownloader {
         }
     }
 
-    private fun validateApk(context: Context, file: File, expectedVersionCode: Long): String? {
+    fun validateApk(context: Context, file: File, expectedVersionCode: Long): String? {
         try {
             if (!file.exists() || file.length() == 0L) {
                 return "Downloaded file is empty or missing"

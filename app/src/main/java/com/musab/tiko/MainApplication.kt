@@ -10,5 +10,8 @@ class MainApplication : Application() {
         com.example.data.crash.CrashRecorder.init(this)
         FirebaseInitializer.init(this)
         ReminderReceiver.createChannel(this)
+        try {
+            com.example.data.update.UpdateDownloader.cleanUpIfUpdated(this)
+        } catch (_: Throwable) {}
     }
 }

@@ -26,6 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,20 +38,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.update.DownloadState
+import com.example.data.update.UpdateDownloader
 import com.example.data.update.UpdateResult
 import com.example.ui.components.AppOverlayHost
 import com.example.ui.components.AppToastController
 import com.example.ui.components.ToastType
 import com.example.ui.theme.OutfitFontFamily
 import com.musab.tiko.BuildConfig
+import kotlinx.coroutines.launch
 
 private val PurplePrimary = Color(0xFF6B4EFF)
 private val LightScreenBg = Color(0xFFEFEBDD)
 private val DarkScreenBg = Color(0xFF141414)
 private val ButtonCream = Color(0xFFF0EADC)
 private val ButtonBlack = Color(0xFF151515)
+private val LimeAccent = Color(0xFFC8DB6A)
 
 @Composable
 fun UpdateRequiredScreen(
@@ -56,6 +66,9 @@ fun UpdateRequiredScreen(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
+    val scope = rememberCoroutineScope()
+
+    var downloadState by rememberSaveable { mutableStateOf<DownloadState>(DownloadState.Idle) }
 
     // Prevent closing via system back button; minimize app instead
     BackHandler(enabled = true) {
@@ -77,6 +90,24 @@ fun UpdateRequiredScreen(
     val buttonTextColor = if (isDark) Color(0xFF151515) else Color.White
 
     val releaseNotes = update.notes.trim().ifEmpty { "Bug fixes and improvements" }
+
+    fun startDownload() {
+        downloadState = DownloadState.Downloading(0)
+        scope.launch {
+            val result = UpdateDownloader.downloadApk(
+                context = context,
+                expectedVersionCode = update.versionCode
+            ) { percent ->
+                downloadState = DownloadState.Downloading(percent)
+            }
+
+            downloadState = if (result.isSuccess) {
+                DownloadState.Downloaded(result.getOrThrow())
+            } else {
+                DownloadState.Failed(result.exceptionOrNull()?.message ?: "Unknown error")
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -219,34 +250,149 @@ fun UpdateRequiredScreen(
                 }
             }
 
-            // Big cream (dark mode) or black (light mode) pill button: "Update now"
-            Box(
+            // Bottom action area based on DownloadState
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(CircleShape)
-                    .background(buttonBg)
-                    .clickable {
-                        val updateUrl = "https://github.com/musabbinumair-dev/Tiko/releases/latest/download/tiko.apk"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateUrl)).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            AppToastController.show("Could not open browser for update", ToastType.Error)
+                    .padding(bottom = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when (val state = downloadState) {
+                    is DownloadState.Idle -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .clip(CircleShape)
+                                .background(buttonBg)
+                                .clickable { startDownload() }
+                                .testTag("update_now_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Update now",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = buttonTextColor
+                            )
                         }
                     }
-                    .testTag("update_now_button"),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Update now",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = buttonTextColor
-                )
+                    is DownloadState.Downloading -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF242424) else Color(0xFFE0DBD0))
+                                .testTag("update_downloading_box"),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            val progressFraction = (state.progressPercent / 100f).coerceIn(0f, 1f)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(progressFraction)
+                                    .height(56.dp)
+                                    .background(PurplePrimary)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Downloading… ${state.progressPercent}%",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = if (isDark) Color.White else Color(0xFF151515)
+                                )
+                            }
+                        }
+                    }
+                    is DownloadState.Failed -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Download failed: ${state.reason}",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                color = Color(0xFFD9534A),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .clip(CircleShape)
+                                        .background(buttonBg)
+                                        .clickable { startDownload() }
+                                        .testTag("update_try_again_button"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Try again",
+                                        fontFamily = OutfitFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = buttonTextColor
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Open in browser",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                color = textSecondary,
+                                modifier = Modifier
+                                    .clickable {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateDownloader.APK_URL)).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            AppToastController.show("Could not open browser", ToastType.Error)
+                                        }
+                                    }
+                                    .testTag("update_open_browser_link")
+                            )
+                        }
+                    }
+                    is DownloadState.Downloaded -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .clip(CircleShape)
+                                .background(LimeAccent)
+                                .clickable {
+                                    AppToastController.show("Install (temporary): File ready at ${state.file.name}", ToastType.Info)
+                                }
+                                .testTag("update_install_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Download complete ✓  •  Install (temporary)",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF151515)
+                            )
+                        }
+                    }
+                }
             }
         }
 

@@ -50,6 +50,9 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
+import com.example.ui.theme.TikoDialog
+import com.example.ui.theme.TikoPrimaryButton
+import com.example.ui.theme.TikoSecondaryButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -1110,217 +1113,129 @@ fun AddEditTaskScreen(
 
         // Custom Date Picker Modal
         if (showDatePickerOverlay) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(100f)
-                    .background(Color.Black.copy(alpha = 0.40f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { showDatePickerOverlay = false }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                BackHandler { showDatePickerOverlay = false }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(if (effectiveDark) Color(0xFF242424) else Color.White)
-                        .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { /* Consume clicks */ }
-                        .padding(16.dp)
-                ) {
+            TikoDialog(
+                title = "SELECT DATE",
+                onDismiss = { showDatePickerOverlay = false },
+                content = {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         DatePicker(
                             state = datePickerState,
                             colors = DatePickerDefaults.colors(
-                                containerColor = if (effectiveDark) Color(0xFF242424) else Color.White,
-                                titleContentColor = tikoColors.textPrimary,
+                                containerColor = Color.Transparent,
+                                titleContentColor = tikoColors.textSecondary,
                                 headlineContentColor = tikoColors.textPrimary,
-                                selectedDayContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
+                                selectedDayContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else Color(0xFF151515),
                                 selectedDayContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
-                                todayDateBorderColor = CardPurple,
-                                todayContentColor = CardPurple,
+                                todayDateBorderColor = Color(0xFF6B4EFF),
+                                todayContentColor = Color(0xFF6B4EFF),
                                 dayContentColor = tikoColors.textPrimary,
+                                disabledDayContentColor = if (effectiveDark) Color(0xFF5A5650) else tikoColors.textMuted,
                                 yearContentColor = tikoColors.textPrimary,
-                                currentYearContentColor = CardPurple,
-                                selectedYearContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
-                                selectedYearContentColor = if (effectiveDark) Color(0xFF151515) else Color.White
+                                currentYearContentColor = Color(0xFF6B4EFF),
+                                selectedYearContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else Color(0xFF151515),
+                                selectedYearContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
+                                navigationContentColor = tikoColors.textPrimary,
+                                subheadContentColor = if (effectiveDark) Color(0xFFA8A39A) else tikoColors.textSecondary
                             )
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .height(44.dp)
-                                    .clip(CircleShape)
-                                    .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
-                                    .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack, CircleShape)
-                                    .clickable { showDatePickerOverlay = false }
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Cancel",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = tikoColors.textPrimary
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Box(
-                                modifier = Modifier
-                                    .height(44.dp)
-                                    .clip(CircleShape)
-                                    .background(if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack)
-                                    .clickable {
-                                        datePickerState.selectedDateMillis?.let { millis ->
-                                            val cal = Calendar.getInstance()
-                                            cal.timeInMillis = millis
-                                            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                                            dueDate = sdf.format(cal.time)
-                                        }
-                                        showDatePickerOverlay = false
-                                    }
-                                    .padding(horizontal = 24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Confirm",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = if (effectiveDark) Color(0xFF151515) else Color.White
-                                )
-                            }
-                        }
+                    }
+                },
+                actions = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        TikoSecondaryButton(
+                            text = "Cancel",
+                            onClick = { showDatePickerOverlay = false },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TikoPrimaryButton(
+                            text = "Confirm",
+                            onClick = {
+                                datePickerState.selectedDateMillis?.let { millis ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = millis
+                                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                                    dueDate = sdf.format(cal.time)
+                                }
+                                showDatePickerOverlay = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
-            }
+            )
         }
 
         // Custom Time Picker Modal
         if (showTimePickerOverlay) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(100f)
-                    .background(Color.Black.copy(alpha = 0.40f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { showTimePickerOverlay = false }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                BackHandler { showTimePickerOverlay = false }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(if (effectiveDark) Color(0xFF242424) else Color.White)
-                        .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { /* Consume clicks */ }
-                        .padding(24.dp)
-                ) {
+            TikoDialog(
+                title = "SELECT TIME",
+                onDismiss = { showTimePickerOverlay = false },
+                content = {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = "SELECT TIME",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 20.sp,
-                            color = tikoColors.textPrimary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
                         TimePicker(
                             state = timePickerState,
                             colors = TimePickerDefaults.colors(
-                                clockDialColor = if (effectiveDark) Color(0xFF1E1E1E) else Color(0xFFF6F6F6),
-                                selectorColor = CardPurple,
-                                containerColor = if (effectiveDark) Color(0xFF242424) else Color.White,
-                                timeSelectorSelectedContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
+                                clockDialColor = if (effectiveDark) Color(0xFF1C1C1C) else Color(0xFFF0EBDD),
+                                selectorColor = Color(0xFF6B4EFF),
+                                containerColor = Color.Transparent,
+                                timeSelectorSelectedContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else Color(0xFF151515),
                                 timeSelectorSelectedContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
-                                timeSelectorUnselectedContainerColor = if (effectiveDark) Color(0xFF1E1E1E) else Color(0xFFF1EFEA),
+                                timeSelectorUnselectedContainerColor = if (effectiveDark) Color(0xFF1C1C1C) else Color(0xFFF0EBDD),
                                 timeSelectorUnselectedContentColor = tikoColors.textPrimary,
                                 clockDialSelectedContentColor = Color.White,
-                                clockDialUnselectedContentColor = tikoColors.textPrimary
+                                clockDialUnselectedContentColor = tikoColors.textPrimary,
+                                periodSelectorBorderColor = tikoColors.cardBorder,
+                                periodSelectorSelectedContainerColor = Color(0xFF6B4EFF),
+                                periodSelectorSelectedContentColor = Color.White,
+                                periodSelectorUnselectedContainerColor = Color.Transparent,
+                                periodSelectorUnselectedContentColor = tikoColors.textMuted
                             )
                         )
-                        Spacer(modifier = Modifier.height(18.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .height(44.dp)
-                                    .clip(CircleShape)
-                                    .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
-                                    .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack, CircleShape)
-                                    .clickable { showTimePickerOverlay = false }
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Cancel",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = tikoColors.textPrimary
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Box(
-                                modifier = Modifier
-                                    .height(44.dp)
-                                    .clip(CircleShape)
-                                    .background(if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack)
-                                    .clickable {
-                                        val hour = timePickerState.hour
-                                        val minute = timePickerState.minute
-                                        val isPm = hour >= 12
-                                        val displayHour = when {
-                                            hour == 0 -> 12
-                                            hour > 12 -> hour - 12
-                                            else -> hour
-                                        }
-                                        val amPm = if (isPm) "PM" else "AM"
-                                        dueTime = String.format(Locale.getDefault(), "%d:%02d %s", displayHour, minute, amPm)
-                                        showTimePickerOverlay = false
-                                    }
-                                    .padding(horizontal = 24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Confirm",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = if (effectiveDark) Color(0xFF151515) else Color.White
-                                )
-                            }
-                        }
+                    }
+                },
+                actions = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        TikoSecondaryButton(
+                            text = "Cancel",
+                            onClick = { showTimePickerOverlay = false },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TikoPrimaryButton(
+                            text = "Confirm",
+                            onClick = {
+                                val hour = timePickerState.hour
+                                val minute = timePickerState.minute
+                                val isPm = hour >= 12
+                                val displayHour = when {
+                                    hour == 0 -> 12
+                                    hour > 12 -> hour - 12
+                                    else -> hour
+                                }
+                                val amPm = if (isPm) "PM" else "AM"
+                                dueTime = String.format(Locale.getDefault(), "%d:%02d %s", displayHour, minute, amPm)
+                                showTimePickerOverlay = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
-            }
+            )
         }
 
         if (showNewCategoryDialog) {

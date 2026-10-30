@@ -37,6 +37,16 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import com.example.ui.theme.TikoDialog
+import com.example.ui.theme.TikoTextField
+import com.example.ui.theme.TikoPrimaryButton
+import com.example.ui.theme.TikoSecondaryButton
+import com.example.ui.theme.TikoDestructiveButton
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.outlined.ChevronLeft
@@ -94,7 +104,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -878,391 +887,244 @@ fun SettingsScreen(
 
     // 1. Edit Profile Custom Dialog
     if (showEditProfileDialog) {
-        BackHandler { showEditProfileDialog = false }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(1000f)
-                .background(Color.Black.copy(alpha = 0.40f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { showEditProfileDialog = false },
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { }
-                    .padding(24.dp)
-            ) {
+        TikoDialog(
+            title = "Edit Profile",
+            onDismiss = { showEditProfileDialog = false },
+            content = {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Edit Profile",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 24.sp,
-                        color = AppBlack
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    OutlinedTextField(
+                    TikoTextField(
                         value = editNameInput,
                         onValueChange = { editNameInput = it },
-                        label = { Text("Name", fontFamily = OutfitFontFamily) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardPurple,
-                            focusedLabelColor = CardPurple
-                        )
+                        label = "Name",
+                        placeholder = "Enter name"
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TikoTextField(
                         value = editEmailInput,
                         onValueChange = { editEmailInput = it },
-                        label = { Text("Email", fontFamily = OutfitFontFamily) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardPurple,
-                            focusedLabelColor = CardPurple
-                        )
+                        label = "Email",
+                        placeholder = "Enter email"
                     )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(CircleShape)
-                            .background(AppBlack)
-                            .clickable {
-                                preferences.setUserName(editNameInput.trim())
-                                preferences.setUserEmail(editEmailInput.trim())
-                                showEditProfileDialog = false
-                                AppToastController.show("Profile updated", ToastType.Success)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Save",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 16.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
-                            .clickable { showEditProfileDialog = false },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = AppBlack,
-                            fontSize = 16.sp
-                        )
-                    }
+                }
+            },
+            actions = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TikoSecondaryButton(
+                        text = "Cancel",
+                        onClick = { showEditProfileDialog = false },
+                        modifier = Modifier.weight(1f)
+                    )
+                    TikoPrimaryButton(
+                        text = "Save",
+                        onClick = {
+                            preferences.setUserName(editNameInput.trim())
+                            preferences.setUserEmail(editEmailInput.trim())
+                            showEditProfileDialog = false
+                            AppToastController.show("Profile updated", ToastType.Success)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
-        }
+        )
     }
 
     // 2. Language Selection Custom Dialog
     if (showLanguageDialog) {
         val languages = listOf("English", "Spanish", "French", "German", "Japanese")
-        BackHandler { showLanguageDialog = false }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(1000f)
-                .background(Color.Black.copy(alpha = 0.40f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { showLanguageDialog = false },
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { }
-                    .padding(24.dp)
-            ) {
+        val tikoColors = LocalTikoThemeColors.current
+        TikoDialog(
+            title = "Select Language",
+            onDismiss = { showLanguageDialog = false },
+            content = {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Select Language",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 24.sp,
-                        color = AppBlack
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    languages.forEach { lang ->
+                    languages.forEachIndexed { index, lang ->
+                        val isSelected = lang == selectedLanguage
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .height(56.dp)
                                 .clickable {
                                     selectedLanguage = lang
                                     showLanguageDialog = false
                                     AppToastController.show("Language set to $lang", ToastType.Success)
                                 }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 text = lang,
                                 fontFamily = OutfitFontFamily,
-                                fontWeight = if (lang == selectedLanguage) FontWeight.Bold else FontWeight.Normal,
-                                color = if (lang == selectedLanguage) CardPurple else AppBlack,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) Color(0xFF6B4EFF) else tikoColors.textPrimary,
                                 fontSize = 16.sp
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Check,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6B4EFF),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        if (index < languages.size - 1) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(tikoColors.divider)
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
-                            .clickable { showLanguageDialog = false },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = AppBlack,
-                            fontSize = 16.sp
-                        )
-                    }
                 }
+            },
+            actions = {
+                TikoSecondaryButton(
+                    text = "Cancel",
+                    onClick = { showLanguageDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-        }
+        )
     }
 
-    // 3. Delete Account Modal Popup Dialog (true window modal)
+    // 3. Delete Account Modal Popup Dialog
     if (showDeleteDialog) {
-        Dialog(
-            onDismissRequest = {
+        var passwordVisible by remember { mutableStateOf(false) }
+        val tikoColors = LocalTikoThemeColors.current
+        TikoDialog(
+            title = "Delete Account",
+            onDismiss = {
                 showDeleteDialog = false
                 deletePasswordInput = ""
             },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        showDeleteDialog = false
-                        deletePasswordInput = ""
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { /* Consume click */ }
-                        .padding(24.dp)
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Row(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(CircleShape)
+                            .background(if (tikoColors.isDark) Color(0xFF3B1E1E) else Color(0xFFFFEEEE))
+                            .border(1.dp, Color(0xFFFF3B30), CircleShape)
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Warning badge
-                        Row(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFEEEE))
-                                .border(1.dp, Color(0xFFFF3B30), CircleShape)
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.DeleteOutline,
-                                contentDescription = null,
-                                tint = Color(0xFFFF3B30),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Permanent Action",
-                                fontFamily = OutfitFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color(0xFFFF3B30)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
+                        Icon(
+                            imageVector = Icons.Outlined.DeleteOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFFF3B30),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Delete Account",
+                            text = "Permanent Action",
                             fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 24.sp,
-                            color = AppBlack
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFFFF3B30)
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "This will permanently remove your account, profile, and all saved tasks. This cannot be undone.",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 14.sp,
-                            color = Color(0xFF6B6B6B),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 20.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        OutlinedTextField(
-                            value = deletePasswordInput,
-                            onValueChange = { deletePasswordInput = it },
-                            placeholder = { Text("Password (optional if signed in with Google)") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AppBlack,
-                                unfocusedBorderColor = Color(0xFFCCCCCC)
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFEFEBDD))
-                                    .border(1.dp, Color(0xFF151515), CircleShape)
-                                    .clickable {
-                                        showDeleteDialog = false
-                                        deletePasswordInput = ""
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Cancel",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = AppBlack
-                                )
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFF3B30))
-                                    .clickable {
-                                        scope.launch {
-                                            val uid = currentUser?.uid
-                                            val performAccountDeletion: suspend () -> Unit = {
-                                                if (!uid.isNullOrBlank()) {
-                                                    try {
-                                                        viewModel.syncCoordinator.deleteUserData(uid)
-                                                    } catch (_: Exception) {
-                                                        // continue to account deletion
-                                                    }
-                                                }
-                                                when (val deleteResult = authRepository.deleteAccount()) {
-                                                    is AuthResult.Success -> {
-                                                        viewModel.logout()
-                                                        AppToastController.show("Account deleted", ToastType.Success)
-                                                        showDeleteDialog = false
-                                                        onNavigate(Screen.Welcome)
-                                                    }
-                                                    is AuthResult.Error -> {
-                                                        AppToastController.show(deleteResult.message, ToastType.Error)
-                                                    }
-                                                }
-                                            }
-
-                                            if (deletePasswordInput.isNotBlank()) {
-                                                when (val reauth = authRepository.reauthenticate(deletePasswordInput)) {
-                                                    is AuthResult.Success -> {
-                                                        performAccountDeletion()
-                                                    }
-                                                    is AuthResult.Error -> {
-                                                        // Fallback attempt direct delete (e.g. for Google users)
-                                                        performAccountDeletion()
-                                                    }
-                                                }
-                                            } else {
-                                                performAccountDeletion()
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Delete",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = Color.White
-                                )
-                            }
-                        }
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "This will permanently remove your account, profile, and all saved tasks. This cannot be undone.",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 16.sp,
+                        color = tikoColors.textSecondary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 22.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TikoTextField(
+                        value = deletePasswordInput,
+                        onValueChange = { deletePasswordInput = it },
+                        label = "Password",
+                        placeholder = "Optional if Google Sign-In",
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            val icon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                    tint = tikoColors.textSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    )
+                }
+            },
+            actions = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TikoSecondaryButton(
+                        text = "Cancel",
+                        onClick = {
+                            showDeleteDialog = false
+                            deletePasswordInput = ""
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    TikoDestructiveButton(
+                        text = "Delete",
+                        onClick = {
+                            scope.launch {
+                                val uid = currentUser?.uid
+                                val performAccountDeletion: suspend () -> Unit = {
+                                    if (!uid.isNullOrBlank()) {
+                                        try {
+                                            viewModel.syncCoordinator.deleteUserData(uid)
+                                        } catch (_: Exception) {
+                                            // continue to account deletion
+                                        }
+                                    }
+                                    when (val deleteResult = authRepository.deleteAccount()) {
+                                        is AuthResult.Success -> {
+                                            viewModel.logout()
+                                            AppToastController.show("Account deleted", ToastType.Success)
+                                            showDeleteDialog = false
+                                            onNavigate(Screen.Welcome)
+                                        }
+                                        is AuthResult.Error -> {
+                                            AppToastController.show(deleteResult.message, ToastType.Error)
+                                        }
+                                    }
+                                }
+
+                                if (deletePasswordInput.isNotBlank()) {
+                                    when (val reauth = authRepository.reauthenticate(deletePasswordInput)) {
+                                        is AuthResult.Success -> {
+                                            performAccountDeletion()
+                                        }
+                                        is AuthResult.Error -> {
+                                            performAccountDeletion()
+                                        }
+                                    }
+                                } else {
+                                    performAccountDeletion()
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
-        }
+        )
     }
 }
 

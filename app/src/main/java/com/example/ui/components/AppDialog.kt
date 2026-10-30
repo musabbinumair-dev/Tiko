@@ -47,6 +47,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.OutfitFontFamily
+import com.example.ui.theme.TikoDialog
+import com.example.ui.theme.TikoPrimaryButton
+import com.example.ui.theme.TikoSecondaryButton
+import com.example.ui.theme.TikoDestructiveButton
 
 sealed class DialogData {
     data class Confirm(
@@ -159,58 +163,38 @@ fun AppOverlayHost(modifier: Modifier = Modifier) {
             .zIndex(9999f)
     ) {
         // 1. Dialog Host
-        AnimatedVisibility(
-            visible = dialog != null,
-            enter = fadeIn(animationSpec = spring(dampingRatio = 0.75f)),
-            exit = fadeOut(animationSpec = spring(dampingRatio = 0.75f))
-        ) {
-            if (dialog != null) {
-                BackHandler {
-                    AppDialogController.dismiss()
+        if (dialog != null) {
+            BackHandler {
+                AppDialogController.dismiss()
+            }
+            when (dialog) {
+                is DialogData.Confirm -> {
+                    ConfirmDialogCard(data = dialog)
                 }
-
-                // Dim scrim: black at 40%
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.40f))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            AppDialogController.dismiss()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = scaleIn(
-                            initialScale = 0.92f,
-                            animationSpec = spring(dampingRatio = 0.75f)
-                        ) + fadeIn(animationSpec = spring(dampingRatio = 0.75f)),
-                        exit = scaleOut(
-                            targetScale = 0.92f,
-                            animationSpec = spring(dampingRatio = 0.75f)
-                        ) + fadeOut(animationSpec = spring(dampingRatio = 0.75f))
+                is DialogData.Alert -> {
+                    AlertPopupCard(data = dialog)
+                }
+                is DialogData.Custom -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.40f))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                AppDialogController.dismiss()
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        when (dialog) {
-                            is DialogData.Confirm -> {
-                                ConfirmDialogCard(data = dialog)
-                            }
-                            is DialogData.Alert -> {
-                                AlertPopupCard(data = dialog)
-                            }
-                            is DialogData.Custom -> {
-                                Box(
-                                    modifier = Modifier
-                                        .clickable(
-                                             interactionSource = remember { MutableInteractionSource() },
-                                             indication = null
-                                        ) { /* Consume click */ }
-                                ) {
-                                    dialog.content()
-                                }
-                            }
+                        Box(
+                            modifier = Modifier
+                                .clickable(
+                                     interactionSource = remember { MutableInteractionSource() },
+                                     indication = null
+                                ) { /* Consume click */ }
+                        ) {
+                            dialog.content()
                         }
                     }
                 }
@@ -232,133 +216,86 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
         data.title.contains("remind", ignoreCase = true) || data.title.contains("alert", ignoreCase = true) -> Icons.Outlined.WarningAmber
         else -> Icons.Outlined.HelpOutline
     }
-    val pillLabel = if (data.destructive) "Action Required" else "Confirm"
+    val pillLabel = if (data.destructive) "PERMANENT ACTION" else "CONFIRM"
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(tikoColors.cardBg)
-            .then(
-                if (isDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { /* Consume */ }
-            .padding(24.dp)
-            .testTag("app_confirm_dialog")
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Pill tag with icon
-            Row(
-                modifier = Modifier
-                    .height(32.dp)
-                    .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF2F0E8))
-                    .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (data.destructive) Color(0xFFD9534A) else tikoColors.textPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
+    TikoDialog(
+        title = data.title,
+        onDismiss = data.onCancel,
+        content = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Pill tag with icon
+                Row(
+                    modifier = Modifier
+                        .height(32.dp)
+                        .clip(CircleShape)
+                        .background(if (data.destructive) (if (isDark) Color(0xFF3B1E1E) else Color(0xFFFFEEEE)) else (if (isDark) Color(0xFF1E1E1E) else Color(0xFFF2F0E8)))
+                        .border(1.dp, if (data.destructive) Color(0xFFFF3B30) else (if (isDark) tikoColors.cardBorder else Color(0xFF151515)), CircleShape)
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (data.destructive) Color(0xFFFF3B30) else tikoColors.textPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = pillLabel,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (data.destructive) Color(0xFFFF3B30) else tikoColors.textPrimary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Message in Outfit Regular 16sp
                 Text(
-                    text = pillLabel,
+                    text = data.message,
                     fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = tikoColors.textPrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Title in Outfit ExtraBold 24sp
-            Text(
-                text = data.title,
-                fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 24.sp,
-                color = tikoColors.textPrimary,
-                lineHeight = 28.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Message in Outfit Regular 16sp
-            Text(
-                text = data.message,
-                fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.Normal,
-                fontSize = 16.sp,
-                color = tikoColors.textSecondary,
-                lineHeight = 22.sp
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Buttons: 52dp high, fully rounded, full width, stacked with 10dp gap
-            // Primary button
-            val primaryBg = if (data.destructive) {
-                Color(0xFFD9534A)
-            } else {
-                if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
-            }
-            val primaryText = if (data.destructive) {
-                Color.White
-            } else {
-                if (isDark) Color(0xFF151515) else Color.White
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(CircleShape)
-                    .background(primaryBg)
-                    .clickable(onClick = data.onConfirm)
-                    .testTag("dialog_primary_button"),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = data.confirmText,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Normal,
                     fontSize = 16.sp,
-                    color = primaryText
+                    color = tikoColors.textSecondary,
+                    lineHeight = 22.sp
                 )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Secondary button
-            Box(
+        },
+        actions = {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
-                    .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
-                    .clickable { AppDialogController.dismiss() }
-                    .testTag("dialog_secondary_button"),
-                contentAlignment = Alignment.Center
+                    .testTag("app_confirm_dialog"),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
+                if (data.destructive) {
+                    TikoDestructiveButton(
+                        text = data.confirmText,
+                        onClick = data.onConfirm,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dialog_primary_button")
+                    )
+                } else {
+                    TikoPrimaryButton(
+                        text = data.confirmText,
+                        onClick = data.onConfirm,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dialog_primary_button")
+                    )
+                }
+                TikoSecondaryButton(
                     text = data.cancelText,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = tikoColors.textPrimary
+                    onClick = data.onCancel,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("dialog_secondary_button")
                 )
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -366,94 +303,60 @@ private fun AlertPopupCard(data: DialogData.Alert) {
     val tikoColors = LocalTikoThemeColors.current
     val isDark = tikoColors.isDark
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(tikoColors.cardBg)
-            .then(
-                if (isDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { /* Consume */ }
-            .padding(24.dp)
-            .testTag("app_alert_dialog")
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Pill tag with icon
-            Row(
-                modifier = Modifier
-                    .height(32.dp)
-                    .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF2F0E8))
-                    .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = tikoColors.textPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Notice",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = tikoColors.textPrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Title in Outfit ExtraBold 24sp
-            Text(
-                text = data.title,
-                fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 24.sp,
-                color = tikoColors.textPrimary,
-                lineHeight = 28.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Message in Outfit Regular 16sp
-            Text(
-                text = data.message,
-                fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.Normal,
-                fontSize = 16.sp,
-                color = tikoColors.textSecondary,
-                lineHeight = 22.sp
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Button: 52dp high, fully rounded, full width
-            Box(
+    TikoDialog(
+        title = data.title,
+        onDismiss = data.onDismiss,
+        content = {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(CircleShape)
-                    .background(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515))
-                    .clickable { AppDialogController.dismiss() }
-                    .testTag("dialog_primary_button"),
-                contentAlignment = Alignment.Center
+                    .testTag("app_alert_dialog")
             ) {
+                Row(
+                    modifier = Modifier
+                        .height(32.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF2F0E8))
+                        .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = tikoColors.textPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "NOTICE",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = tikoColors.textPrimary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
-                    text = data.buttonText,
+                    text = data.message,
                     fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Normal,
                     fontSize = 16.sp,
-                    color = if (isDark) Color(0xFF151515) else Color.White
+                    color = tikoColors.textSecondary,
+                    lineHeight = 22.sp
                 )
             }
+        },
+        actions = {
+            TikoPrimaryButton(
+                text = data.buttonText,
+                onClick = data.onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dialog_primary_button")
+            )
         }
-    }
+    )
 }

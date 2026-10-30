@@ -52,6 +52,10 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.OutfitFontFamily
 import kotlinx.coroutines.delay
 
+import com.example.ui.theme.LocalTikoThemeColors
+import com.example.ui.theme.OutfitFontFamily
+import kotlinx.coroutines.delay
+
 enum class ToastType {
     Error,
     Success,
@@ -96,10 +100,12 @@ object AppToastController {
 @Composable
 fun AppToastHost(modifier: Modifier = Modifier) {
     val toast = AppToastController.currentToast
+    val tikoColors = LocalTikoThemeColors.current
+    val isDark = tikoColors.isDark
 
     LaunchedEffect(toast?.id) {
         if (toast != null) {
-            val duration = if (toast.onAction != null) 6000L else if (toast.type == ToastType.Error) 3800L else 2800L
+            val duration = if (toast.onAction != null) 6000L else 3000L
             delay(duration)
             if (AppToastController.currentToast?.id == toast.id) {
                 AppToastController.dismiss()
@@ -111,7 +117,7 @@ fun AppToastHost(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .navigationBarsPadding()
-            .padding(bottom = 96.dp)
+            .padding(bottom = 80.dp)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
@@ -125,14 +131,24 @@ fun AppToastHost(modifier: Modifier = Modifier) {
             ) { it / 2 } + fadeOut(animationSpec = androidx.compose.animation.core.tween(150))
         ) {
             if (toast != null) {
-                val (accentColor, typeIcon) = when (toast.type) {
-                    ToastType.Error -> Color(0xFFFF3B30) to Icons.Outlined.ErrorOutline
-                    ToastType.Success -> Color(0xFF34C759) to Icons.Outlined.CheckCircle
-                    ToastType.Warning -> Color(0xFFFF9500) to Icons.Outlined.WarningAmber
-                    ToastType.Info -> Color(0xFF6B4EFF) to Icons.Outlined.Info
+                val accentColor = when (toast.type) {
+                    ToastType.Error -> Color(0xFFD9534A)
+                    ToastType.Success -> Color(0xFF34C759)
+                    ToastType.Warning -> Color(0xFFFF9500)
+                    ToastType.Info -> Color(0xFF6B4EFF)
+                }
+                val typeIcon = when (toast.type) {
+                    ToastType.Error -> Icons.Outlined.ErrorOutline
+                    ToastType.Success -> Icons.Outlined.CheckCircle
+                    ToastType.Warning -> Icons.Outlined.WarningAmber
+                    ToastType.Info -> Icons.Outlined.Info
                 }
 
-                // Sleek, compact capsule pill at the bottom center
+                val bg = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+                val textColor = if (isDark) Color(0xFF151515) else Color.White
+                val borderColor = if (isDark) tikoColors.cardBorder else Color.Transparent
+
+                // Floating pill: cream in dark mode, black in light mode, 16sp medium
                 Row(
                     modifier = Modifier
                         .shadow(
@@ -142,8 +158,8 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                             ambientColor = Color.Black.copy(alpha = 0.15f)
                         )
                         .clip(CircleShape)
-                        .background(Color(0xFF181818))
-                        .border(1.dp, Color(0xFF2E2E2E), CircleShape)
+                        .background(bg)
+                        .then(if (isDark) Modifier.border(1.dp, borderColor, CircleShape) else Modifier)
                         .clickable { AppToastController.dismiss() }
                         .pointerInput(toast.id) {
                             detectVerticalDragGestures { _, dragAmount ->
@@ -152,7 +168,7 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                                 }
                             }
                         }
-                        .padding(horizontal = 16.dp, vertical = 11.dp)
+                        .padding(horizontal = 18.dp, vertical = 12.dp)
                         .testTag("app_toast"),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -160,7 +176,7 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                     Icon(
                         imageVector = typeIcon,
                         contentDescription = null,
-                        tint = accentColor,
+                        tint = if (toast.type == ToastType.Error) Color(0xFFD9534A) else accentColor,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -168,8 +184,8 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                         text = toast.message,
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp,
-                        color = Color.White,
+                        fontSize = 16.sp,
+                        color = textColor,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -178,7 +194,7 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF2C2C2E))
+                                .background(if (isDark) Color(0xFF151515).copy(alpha = 0.1f) else Color(0xFF2C2C2E))
                                 .clickable {
                                     val act = toast.onAction
                                     AppToastController.dismiss()
@@ -191,8 +207,8 @@ fun AppToastHost(modifier: Modifier = Modifier) {
                                 text = toast.actionLabel,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color(0xFFFFB92E)
+                                fontSize = 14.sp,
+                                color = if (isDark) Color(0xFF6B4EFF) else Color(0xFFFFB92E)
                             )
                         }
                     }

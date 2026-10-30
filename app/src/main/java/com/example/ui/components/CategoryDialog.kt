@@ -47,11 +47,20 @@ import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.OutfitFontFamily
 
 
+import com.example.ui.theme.LocalTikoThemeColors
+import com.example.ui.theme.OutfitFontFamily
+import com.example.ui.theme.TikoDialog
+import com.example.ui.theme.TikoTextField
+import com.example.ui.theme.TikoPrimaryButton
+import com.example.ui.theme.TikoSecondaryButton
+import androidx.compose.ui.graphics.Brush
+
+
 @Composable
 fun CreateCategoryDialog(
     onDismiss: () -> Unit,
     onCreateCategory: (name: String, iconKey: String, colorHex: Long) -> Unit,
-    titleText: String = "NEW CATEGORY",
+    titleText: String = "NEW LIST",
     isDark: Boolean = false
 ) {
     val tikoColors = LocalTikoThemeColors.current
@@ -61,178 +70,125 @@ fun CreateCategoryDialog(
     var selectedIconKey by remember { mutableStateOf("work") }
     var selectedColorHex by remember { mutableStateOf(CategoryColors.PALETTE[0]) }
 
-    val cardBg = if (effectiveDark) tikoColors.cardBg else AppCreamBackground
-    val cardBorderColor = if (effectiveDark) tikoColors.cardBorder else AppBlack
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .zIndex(100f)
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        BackHandler(onBack = onDismiss)
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .background(cardBg)
-                .border(2.dp, cardBorderColor, RoundedCornerShape(26.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { /* Consume taps inside */ }
-                .padding(20.dp)
-        ) {
+    TikoDialog(
+        title = titleText,
+        onDismiss = onDismiss,
+        content = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = titleText,
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 24.sp,
-                        color = tikoColors.textPrimary
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
-                            .border(1.dp, if (effectiveDark) tikoColors.cardBorder else AppBlack, CircleShape)
-                            .clickable(onClick = onDismiss),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Close",
-                            tint = tikoColors.textPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Name Input
-                OutlinedTextField(
+                // Name Input using TikoTextField
+                TikoTextField(
                     value = categoryName,
                     onValueChange = { categoryName = it },
-                    placeholder = {
-                        Text(
-                            text = "e.g. Travel, Finance, Projects",
-                            fontFamily = OutfitFontFamily,
-                            color = tikoColors.textMuted
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("category_name_input"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = if (effectiveDark) Color(0xFF1E1E1E) else Color.White,
-                        unfocusedContainerColor = if (effectiveDark) Color(0xFF1E1E1E) else Color.White,
-                        focusedBorderColor = if (effectiveDark) tikoColors.textPrimary else AppBlack,
-                        unfocusedBorderColor = if (effectiveDark) tikoColors.cardBorder else AppBlack.copy(alpha = 0.3f),
-                        focusedTextColor = tikoColors.textPrimary,
-                        unfocusedTextColor = tikoColors.textPrimary
-                    ),
-                    singleLine = true
+                    label = "Category Name",
+                    placeholder = "e.g. Travel, Finance, Projects",
+                    modifier = Modifier.testTag("category_name_input")
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Select Icon Label
                 Text(
                     text = "SELECT ICON",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
+                    letterSpacing = 1.5.sp,
                     color = tikoColors.textSecondary
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Icon Picker Grid
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(6),
+                // Icon Picker Grid (6 columns of 48dp circles with scroll and bottom fade)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .height(140.dp)
                 ) {
-                    items(CategoryIcons.ALL_OPTIONS) { opt ->
-                        val isSelected = selectedIconKey == opt.key
-                        val unselBg = if (effectiveDark) Color(0xFF1E1E1E) else Color.White
-                        val selBg = if (effectiveDark) Color(0xFFF5F1E6) else AppBlack
-                        val selBorder = if (effectiveDark) Color(0xFFF5F1E6) else AppBlack
-                        val unselBorder = if (effectiveDark) tikoColors.cardBorder else AppBlack.copy(alpha = 0.2f)
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(CategoryIcons.ALL_OPTIONS) { opt ->
+                            val isSelected = selectedIconKey == opt.key
+                            val unselBg = if (effectiveDark) Color(0xFF1E1E1E) else Color.White
+                            val selBg = if (effectiveDark) Color(0xFFF5F1E6) else AppBlack
+                            val selBorder = if (effectiveDark) Color(0xFFF5F1E6) else AppBlack
+                            val unselBorder = if (effectiveDark) tikoColors.cardBorder else AppBlack.copy(alpha = 0.2f)
 
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) selBg else unselBg)
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) selBorder else unselBorder,
-                                    shape = CircleShape
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) selBg else unselBg)
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) selBorder else unselBorder,
+                                        shape = CircleShape
+                                    )
+                                    .clickable { selectedIconKey = opt.key }
+                                    .testTag("icon_pick_${opt.key}"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = opt.icon,
+                                    contentDescription = opt.label,
+                                    tint = if (isSelected) (if (effectiveDark) Color(0xFF151515) else Color.White) else tikoColors.textPrimary,
+                                    modifier = Modifier.size(22.dp)
                                 )
-                                .clickable { selectedIconKey = opt.key }
-                                .testTag("icon_pick_${opt.key}"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = opt.icon,
-                                contentDescription = opt.label,
-                                tint = if (isSelected) (if (effectiveDark) Color(0xFF151515) else Color.White) else tikoColors.textPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            }
                         }
                     }
+                    // Subtle fade at the bottom
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, tikoColors.cardBg)
+                                )
+                            )
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Select Color Label
                 Text(
                     text = "SELECT COLOR",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
+                    letterSpacing = 1.5.sp,
                     color = tikoColors.textSecondary
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Color Picker Row
+                // Color Picker Row (40dp swatches)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     CategoryColors.PALETTE.forEach { colorVal ->
                         val isSelected = selectedColorHex == colorVal
+                        val isBlackSwatch = colorVal == 0xFF000000L || colorVal == 0xFF151515L
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(Color(colorVal))
+                                .then(
+                                    if (effectiveDark && isBlackSwatch) {
+                                        Modifier.border(1.dp, Color(0xFF3A3A3A), CircleShape)
+                                    } else Modifier
+                                )
                                 .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) (if (effectiveDark) Color(0xFFF5F1E6) else AppBlack) else Color.Transparent,
+                                    width = if (isSelected) 3.dp else 0.dp,
+                                    color = if (isSelected) tikoColors.textPrimary else Color.Transparent,
                                     shape = CircleShape
                                 )
                                 .clickable { selectedColorHex = colorVal }
@@ -240,68 +196,33 @@ fun CreateCategoryDialog(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Action Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(42.dp)
-                            .clip(CircleShape)
-                            .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
-                            .border(1.dp, if (effectiveDark) tikoColors.cardBorder else AppBlack, CircleShape)
-                            .clickable(onClick = onDismiss)
-                            .padding(horizontal = 18.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp,
-                            color = tikoColors.textPrimary
+            }
+        },
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TikoSecondaryButton(
+                    text = "Cancel",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
+                TikoPrimaryButton(
+                    text = "Create",
+                    onClick = {
+                        onCreateCategory(
+                            categoryName.trim(),
+                            selectedIconKey,
+                            selectedColorHex
                         )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    val createBtnBg = if (effectiveDark) {
-                        if (categoryName.isNotBlank()) Color(0xFFF5F1E6) else Color(0xFFF5F1E6).copy(alpha = 0.3f)
-                    } else {
-                        if (categoryName.isNotBlank()) AppBlack else AppBlack.copy(alpha = 0.3f)
-                    }
-                    val createBtnTextColor = if (effectiveDark) Color(0xFF151515) else Color.White
-
-                    Box(
-                        modifier = Modifier
-                            .height(42.dp)
-                            .clip(CircleShape)
-                            .background(createBtnBg)
-                            .clickable(enabled = categoryName.isNotBlank()) {
-                                onCreateCategory(
-                                    categoryName.trim(),
-                                    selectedIconKey,
-                                    selectedColorHex
-                                )
-                            }
-                            .padding(horizontal = 22.dp)
-                            .testTag("create_category_confirm_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Create",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = createBtnTextColor
-                        )
-                    }
-                }
+                    },
+                    enabled = categoryName.isNotBlank(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("create_category_confirm_button")
+                )
             }
         }
-    }
+    )
 }

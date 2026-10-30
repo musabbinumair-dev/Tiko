@@ -81,3 +81,14 @@ This testing checklist validates task persistence, field integrity, and cloud sy
 |---|---|---|---|
 | 7.1 | While logged in with tasks (active and completed), go to Android App Settings -> **Clear Data / Clear Storage** (or uninstall & reinstall APK). | Local Room database and SharedPreferences are wiped. | [ ] |
 | 7.2 | Open Tiko -> Log in with the same account. | All tasks are pulled from Firestore: titles, notes, categories, priorities, due dates, subtasks, and exact completion states (`done = true` and `done = false`) are restored. | [ ] |
+
+---
+
+## 8. Auth-Driven Sync Lifecycle & Profile Document Verification
+
+| Step | Action | Expected Result | Pass/Fail |
+|---|---|---|---|
+| 8.1 | Create or log into an account with Google Sign-In or Email. | Firestore console shows `users/{uid}` profile document created with `name`, `email`, `provider`, `createdAt`, and `lastLoginAt`. | [ ] |
+| 8.2 | Create tasks while online. | Firestore console shows `users/{uid}/tasks/{taskId}` subcollection documents populated with all 15 contract fields. | [ ] |
+| 8.3 | Close app completely (kill task) and perform cold start. | App starts, `AuthStateListener` in `SyncCoordinator` immediately restores sync; sync status shows "Synced". Tasks remain synced. | [ ] |
+| 8.4 | Trigger sync error or denial (e.g. invalid network state). | Profile screen caption displays `"Sync problem: <code>"` in `#D9534A` without exposing any user data. | [ ] |

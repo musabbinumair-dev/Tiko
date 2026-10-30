@@ -403,15 +403,17 @@ fun SettingsScreen(
                             )
                         }
                         if (user != null) {
+                            val syncState by viewModel.syncState.collectAsState()
                             val syncStatus by viewModel.syncStatus.collectAsState()
                             if (syncStatus.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(4.dp))
+                                val isProblem = syncState is com.example.data.sync.SyncState.Problem
                                 Text(
                                     text = syncStatus,
                                     fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Normal,
+                                    fontWeight = if (isProblem) FontWeight.SemiBold else FontWeight.Normal,
                                     fontSize = 13.sp,
-                                    color = if (darkModeOn) Color(0xFFA8A39A) else Color(0xFF5B5F66),
+                                    color = if (isProblem) Color(0xFFD9534A) else if (darkModeOn) Color(0xFFA8A39A) else Color(0xFF5B5F66),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -1213,7 +1215,7 @@ fun SettingsScreen(
                                             val performAccountDeletion: suspend () -> Unit = {
                                                 if (!uid.isNullOrBlank()) {
                                                     try {
-                                                        viewModel.syncManager.deleteAllUserTasks(uid)
+                                                        viewModel.syncCoordinator.deleteUserData(uid)
                                                     } catch (_: Exception) {
                                                         // continue to account deletion
                                                     }

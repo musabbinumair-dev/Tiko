@@ -107,6 +107,17 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 - **DONE** ✅ — **Real Weekly Activity Chart**: Replaced static 0-bar mockup in `SettingsScreen.kt` with dynamic computation from task completion timestamps (`completedAt`/`dueDate`) across the current Monday-to-Sunday week.
 - **DONE** ✅ — **Comprehensive Test Suite & Manual QA**: Added `TaskDataContractAndSyncTest.kt` verifying full field round trip, single-task completion isolation, CAS updates, conflict resolution, and stats calculation; created `TESTING.md` on-device verification checklist.
 
+## Centralized Auth-Driven Sync & Profile Document Persistence — 2026-10-30
+
+- **DONE** ✅ — **SyncCoordinator Centralization (Single Source of Truth)**: Centralized all Firestore sync and profile operations into `SyncCoordinator.kt`, bound to `FirebaseAuth.AuthStateListener` registered in `MainApplication.kt`. All manual `startSync`/`stopSync` call sites removed from `MainActivity.kt` and `TikoViewModel.kt`.
+- **DONE** ✅ — **Automatic Cold Start & Stay-Signed-In Sync**: Eliminated cold-start deadlock where null initial auth emission permanently disabled sync for returning users. `AuthStateListener` triggers idempotent `startSync(uid)` as soon as cached credentials restore.
+- **DONE** ✅ — **Guest Mode Unblocking**: Signing in on any path (Google, email login, email signup) clears guest mode (`preferences.setGuestMode(false)`). Guest mode no longer gates or stalls sync.
+- **DONE** ✅ — **Firestore `users/{uid}` Profile Document Persistence**: `SyncCoordinator.writeProfileDocument` writes `name`, `email`, `photoUrl`, `provider`, `createdAt` (on document creation), and `lastLoginAt` using `SetOptions.merge()`, guaranteeing user documents exist for all accounts (including Google accounts) without overwriting existing data with nulls or empty strings. Deletes user profile document upon account deletion.
+- **DONE** ✅ — **Robust Push Observer**: Push observer switched to `Flow.collect` (from `collectLatest`) to avoid cancelling in-flight writes during rapid task edits. Pushes issue non-blocking `set()` calls with explicit success/failure listeners, updating `synced = 1` via CAS check (`WHERE id = :id AND updatedAt = :pushedUpdatedAt`).
+- **DONE** ✅ — **SyncState & Profile Error Caption**: Introduced `SyncState` (`Idle`, `Synced`, `Syncing`, `Offline`, `Problem(code)`). When in `Problem(code)` state, profile header shows `"Sync problem: <code>"` in `#D9534A` with zero PII leakage.
+- **DONE** ✅ — **Safe Debug-Only Logging**: All sync diagnostics use `Log.d("TikoSync", ...)` guarded by `BuildConfig.DEBUG` without logging any user PII or document data.
+- **DONE** ✅ — **Unit Testing Suite**: Added `SyncCoordinatorTest.kt` verifying sign-in sync trigger, sign-out sync teardown, guest mode clearing, CAS push isolation, and error state reporting.
+
 ## Remaining blockers (not yet addressed)
 
 | # | Description |
@@ -121,6 +132,8 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 4. ~~Decide and implement Firestore sync plus account-data deletion, or remove cross-device/account claims.~~ ✅ Done (`f652a64`)
 5. ~~Build real notification permission/scheduling or remove the reminder-enabled UX.~~ ✅ Done (Blocker 6)
 6. ~~Task sync & data contract complete pass: fix logout write flush, CAS synced update, conflict resolution, and stats.~~ ✅ Done
-7. Establish signed release/AAB CI with least-privilege workflow permissions and R8 verification.
+7. ~~Centralized Auth-Driven Sync & Profile Document Persistence: single-source SyncCoordinator, users/{uid} document, push observer robustness, SyncState caption.~~ ✅ Done
+8. Establish signed release/AAB CI with least-privilege workflow permissions and R8 verification.
+
 
 

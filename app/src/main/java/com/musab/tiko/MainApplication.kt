@@ -13,5 +13,8 @@ class MainApplication : Application() {
         try {
             com.example.data.update.UpdateDownloader.cleanUpIfUpdated(this)
         } catch (_: Throwable) {}
+        try {
+            com.example.data.sync.SyncCoordinator.getInstance(this).startListening()
+        } catch (_: Throwable) {}
     }
 }

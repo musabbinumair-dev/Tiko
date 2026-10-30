@@ -53,11 +53,16 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     private val database = TikoDatabase.getInstance(application)
     private val repository = TaskRepository(application, database.taskDao())
     val preferences = com.example.data.local.UserPreferences(application)
-    val syncManager = com.example.data.sync.SyncManager(application, database.taskDao())
-    val syncStatus: StateFlow<String> = syncManager.syncStatus
+    val syncCoordinator = com.example.data.sync.SyncCoordinator.getInstance(application)
+    val syncManager = syncCoordinator.syncManager
+    val syncState: StateFlow<com.example.data.sync.SyncState> = syncCoordinator.syncState
+    val syncStatus: StateFlow<String> = syncCoordinator.syncStatus
     val updateResult: StateFlow<UpdateResult?> = UpdateChecker.result
 
     init {
+        try {
+            syncCoordinator.startListening()
+        } catch (_: Throwable) {}
         viewModelScope.launch(Dispatchers.IO) {
             database.taskDao().repairBlankOrDuplicateIds()
         }
@@ -66,7 +71,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun flushPendingWrites(timeoutMs: Long = 5000L): Boolean {
-        return syncManager.flushPendingWrites(timeoutMs)
+        return syncCoordinator.flushPendingWrites(timeoutMs)
     }
 
     fun rescheduleAllReminders() {

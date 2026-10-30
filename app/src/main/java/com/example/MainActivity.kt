@@ -216,7 +216,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                     viewModel.saveUserProfile(name, email)
                     viewModel.preferences.setGuestMode(false)
                     viewModel.preferences.setHasSeenWelcome(true)
-                    viewModel.startSync(user.uid, isFirstPullAfterLogin = false)
                     viewModel.setInitialScreen(Screen.Main(NavigationTab.HOME))
                 }
                 isGuestMode || hasSeenWelcome -> {
@@ -234,7 +233,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 lastKnownUserId != null && user == null -> {
                     // User was signed in but now signed out (token expired or account deleted)
                     lastKnownUserId = null
-                    viewModel.stopSync()
                     viewModel.cancelAllReminders()
                     viewModel.preferences.clearUser()
                     viewModel.setInitialScreen(Screen.Welcome)
@@ -243,6 +241,11 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                 user != null && lastKnownUserId != user.uid -> {
                     // Different user signed in
                     lastKnownUserId = user.uid
+                    val name = user.displayName ?: "User"
+                    val email = user.email ?: ""
+                    viewModel.saveUserProfile(name, email)
+                    viewModel.preferences.setGuestMode(false)
+                    viewModel.preferences.setHasSeenWelcome(true)
                 }
             }
         }
@@ -468,9 +471,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 viewModel.saveUserProfile(name, email)
                                 viewModel.preferences.setGuestMode(false)
                                 viewModel.preferences.setHasSeenWelcome(true)
-                                if (user != null) {
-                                    viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
-                                }
                                 viewModel.navigateToHomeClearingAuth()
                             },
                             onSignUp = {
@@ -490,9 +490,6 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 viewModel.saveUserProfile(finalName, email)
                                 viewModel.preferences.setGuestMode(false)
                                 viewModel.preferences.setHasSeenWelcome(true)
-                                if (user != null) {
-                                    viewModel.startSync(user.uid, isFirstPullAfterLogin = true)
-                                }
                                 viewModel.navigateToHomeClearingAuth()
                             },
                             onNavigateLogin = {

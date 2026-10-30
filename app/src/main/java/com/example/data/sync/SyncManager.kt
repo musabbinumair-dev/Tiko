@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.util.Log
+import com.musab.tiko.BuildConfig
+import com.example.data.FirebaseInitializer
 import com.example.data.local.TaskDao
 import com.example.data.model.TaskEntity
 import com.example.data.reminder.ReminderScheduler
@@ -21,25 +24,54 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+
+sealed class SyncState {
+    data object Idle : SyncState()
+    data object Synced : SyncState()
+    data object Syncing : SyncState()
+    data object Offline : SyncState()
+    data class Problem(val code: String) : SyncState()
+}
 
 class SyncManager(
     private val context: Context,
     private val taskDao: TaskDao,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestoreProvider: () -> FirebaseFirestore? = {
+        try {
+            FirebaseFirestore.getInstance()
+        } catch (_: Throwable) {
+            FirebaseInitializer.init(context)
+            try {
+                FirebaseFirestore.getInstance()
+            } catch (_: Throwable) {
+                null
+            }
+        }
+    }
 ) {
+    constructor(context: Context, taskDao: TaskDao, firestore: FirebaseFirestore) : this(
+        context = context,
+        taskDao = taskDao,
+        firestoreProvider = { firestore }
+    )
+
     private var syncScope: CoroutineScope? = null
     private var snapshotRegistration: ListenerRegistration? = null
     private var pushJob: Job? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     private val _syncStatus = MutableStateFlow<String>("")
     val syncStatus: StateFlow<String> = _syncStatus.asStateFlow()
 
     private val _isOnline = MutableStateFlow(true)
     private val _hasPendingWrites = MutableStateFlow(false)
+    private val _lastErrorCode = MutableStateFlow<String?>(null)
 
     private var currentUserId: String? = null
 
@@ -59,12 +91,12 @@ class SyncManager(
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 _isOnline.value = true
-                updateStatus()
+                updateSyncState()
             }
 
             override fun onLost(network: Network) {
                 _isOnline.value = false
-                updateStatus()
+                updateSyncState()
             }
         }
         networkCallback = callback
@@ -75,95 +107,120 @@ class SyncManager(
         }
     }
 
-    private fun updateStatus() {
-        if (currentUserId == null) {
+    private fun updateSyncState() {
+        val userId = currentUserId
+        if (userId == null) {
+            _syncState.value = SyncState.Idle
             _syncStatus.value = ""
             return
         }
+        val errorCode = _lastErrorCode.value
+        if (errorCode != null) {
+            _syncState.value = SyncState.Problem(errorCode)
+            _syncStatus.value = "Sync problem: $errorCode"
+            return
+        }
         if (!_isOnline.value) {
+            _syncState.value = SyncState.Offline
             _syncStatus.value = "Offline"
             return
         }
         if (_hasPendingWrites.value) {
+            _syncState.value = SyncState.Syncing
             _syncStatus.value = "Syncing..."
-        } else {
-            _syncStatus.value = "Synced"
+            return
         }
+        _syncState.value = SyncState.Synced
+        _syncStatus.value = "Synced"
     }
+
+    fun isSyncActive(): Boolean = currentUserId != null && syncScope != null
 
     /**
      * Start SyncManager for the signed-in user.
-     * Login or signup: run a one-time merge only for guest tasks without overwriting existing remote tasks.
+     * Starts push observer and pull snapshot listener.
      */
     fun start(userId: String, isFirstPullAfterLogin: Boolean = false) {
         if (currentUserId == userId && syncScope != null) {
+            if (BuildConfig.DEBUG) {
+                Log.d("TikoSync", "Sync already active for user; keeping existing session")
+            }
             return
         }
         stop()
+
+        if (BuildConfig.DEBUG) {
+            Log.d("TikoSync", "Starting sync session")
+        }
 
         currentUserId = userId
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         syncScope = scope
 
+        _lastErrorCode.value = null
         _hasPendingWrites.value = true
-        updateStatus()
+        updateSyncState()
 
-        scope.launch {
-            try {
-                // One-time merge on login/signup: upload local tasks only if in guest mode,
-                // and never overwrite existing remote tasks with the same id.
-                val userPrefs = com.example.data.local.UserPreferences(context)
-                val isGuest = userPrefs.isGuestMode.value
-                if (isGuest) {
-                    val localTasks = taskDao.getAllTasksRaw()
-                    val tasksCollection = firestore.collection("users").document(userId).collection("tasks")
-                    for (task in localTasks) {
-                        if (!task.synced && !task.deleted) {
-                            val remoteDoc = try {
-                                tasksCollection.document(task.id).get().await()
-                            } catch (_: Exception) {
-                                null
-                            }
-                            if (remoteDoc == null || !remoteDoc.exists()) {
-                                tasksCollection.document(task.id).set(task.toFirestoreMap()).await()
-                                taskDao.markSynced(task.id, task.updatedAt)
-                            }
-                        }
-                    }
-                }
-            } catch (_: Exception) {
-                // Ignore initial merge error
-            }
+        // Start Push observer
+        startPushObserver(userId, scope)
 
-            // Start Push observer
-            startPushObserver(userId, scope)
-
-            // Start Pull snapshot listener
-            startPullListener(userId, scope, isFirstPullAfterLogin)
-        }
+        // Start Pull snapshot listener
+        startPullListener(userId, scope, isFirstPullAfterLogin)
     }
 
     private fun startPushObserver(userId: String, scope: CoroutineScope) {
         pushJob = scope.launch {
+            val firestore = firestoreProvider()
+            if (firestore == null) {
+                if (BuildConfig.DEBUG) {
+                    Log.e("TikoSync", "Firestore unavailable in push observer")
+                }
+                _lastErrorCode.value = "UNAVAILABLE"
+                updateSyncState()
+                return@launch
+            }
             val tasksCollection = firestore.collection("users").document(userId).collection("tasks")
-            taskDao.getUnsyncedTasks().collectLatest { unsyncedTasks ->
+            taskDao.getUnsyncedTasks().collect { unsyncedTasks ->
                 if (unsyncedTasks.isNotEmpty()) {
                     _hasPendingWrites.value = true
-                    updateStatus()
+                    updateSyncState()
                 } else {
                     _hasPendingWrites.value = false
-                    updateStatus()
+                    updateSyncState()
+                }
+
+                if (BuildConfig.DEBUG && unsyncedTasks.isNotEmpty()) {
+                    Log.d("TikoSync", "Push observer processing ${unsyncedTasks.size} unsynced tasks")
                 }
 
                 for (task in unsyncedTasks) {
                     val pushedUpdatedAt = task.updatedAt
                     val taskId = task.id
-                    // Push: write each to Firestore with set(). On success, CAS update synced = 1
                     tasksCollection.document(taskId).set(task.toFirestoreMap())
                         .addOnSuccessListener {
-                            scope.launch {
-                                taskDao.markSynced(taskId, pushedUpdatedAt)
+                            if (BuildConfig.DEBUG) {
+                                Log.d("TikoSync", "Push write succeeded for task, performing CAS markSynced")
                             }
+                            scope.launch {
+                                val rows = taskDao.markSynced(taskId, pushedUpdatedAt)
+                                if (BuildConfig.DEBUG) {
+                                    Log.d("TikoSync", "CAS markSynced updated rows: $rows")
+                                }
+                                val remaining = taskDao.getUnsyncedTasksOnce()
+                                _hasPendingWrites.value = remaining.isNotEmpty()
+                                if (remaining.isEmpty()) {
+                                    _lastErrorCode.value = null
+                                }
+                                updateSyncState()
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            val code = (e as? FirebaseFirestoreException)?.code?.name ?: "UNKNOWN"
+                            if (BuildConfig.DEBUG) {
+                                Log.e("TikoSync", "Push write failed for task: code=$code")
+                            }
+                            _lastErrorCode.value = code
+                            updateSyncState()
                         }
                 }
             }
@@ -171,11 +228,21 @@ class SyncManager(
     }
 
     private fun startPullListener(userId: String, scope: CoroutineScope, isFirstPullAfterLogin: Boolean) {
+        val firestore = firestoreProvider()
+        if (firestore == null) {
+            _lastErrorCode.value = "UNAVAILABLE"
+            updateSyncState()
+            return
+        }
         val tasksCollection = firestore.collection("users").document(userId).collection("tasks")
         var isFirstSnapshot = true
 
         snapshotRegistration = tasksCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
+                val code = error.code.name
+                if (BuildConfig.DEBUG) {
+                    Log.e("TikoSync", "Pull snapshotListener error: $code")
+                }
                 val isAuthError = error.code == FirebaseFirestoreException.Code.UNAUTHENTICATED ||
                     error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
                 
@@ -185,16 +252,25 @@ class SyncManager(
                     !_isOnline.value
 
                 if (isAuthError) {
+                    _lastErrorCode.value = code
+                    updateSyncState()
                     stop()
                     AppToastController.show(
                         "Please log in again",
                         ToastType.Info
                     )
-                } else if (isFirstPullAfterLogin && isFirstSnapshot && !isNetworkError) {
-                    AppToastController.show(
-                        "Sync error. Please check your connection.",
-                        ToastType.Error
-                    )
+                } else if (isNetworkError) {
+                    _isOnline.value = false
+                    updateSyncState()
+                } else {
+                    _lastErrorCode.value = code
+                    updateSyncState()
+                    if (isFirstPullAfterLogin && isFirstSnapshot) {
+                        AppToastController.show(
+                            "Sync error. Please check your connection.",
+                            ToastType.Error
+                        )
+                    }
                 }
                 return@addSnapshotListener
             }
@@ -204,7 +280,9 @@ class SyncManager(
 
             val hasPending = snapshot.metadata.hasPendingWrites()
             _hasPendingWrites.value = hasPending
-            updateStatus()
+            if (!hasPending && _lastErrorCode.value == null) {
+                updateSyncState()
+            }
 
             scope.launch {
                 for (change in snapshot.documentChanges) {
@@ -285,13 +363,16 @@ class SyncManager(
 
         return try {
             kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+                val firestore = firestoreProvider() ?: return@withTimeoutOrNull false
                 val tasksCollection = firestore.collection("users").document(uid).collection("tasks")
                 val pending = taskDao.getUnsyncedTasksOnce()
                 for (task in pending) {
                     tasksCollection.document(task.id).set(task.toFirestoreMap()).await()
                     taskDao.markSynced(task.id, task.updatedAt)
                 }
-                firestore.waitForPendingWrites().await()
+                try {
+                    firestore.waitForPendingWrites().await()
+                } catch (_: Exception) {}
                 taskDao.getUnsyncedTasksOnce().isEmpty()
             } ?: false
         } catch (_: Exception) {
@@ -303,6 +384,9 @@ class SyncManager(
      * Stop listeners and reset status.
      */
     fun stop() {
+        if (BuildConfig.DEBUG) {
+            Log.d("TikoSync", "Stopping sync session")
+        }
         snapshotRegistration?.remove()
         snapshotRegistration = null
         pushJob?.cancel()
@@ -310,8 +394,10 @@ class SyncManager(
         syncScope?.cancel()
         syncScope = null
         currentUserId = null
+        _syncState.value = SyncState.Idle
         _syncStatus.value = ""
         _hasPendingWrites.value = false
+        _lastErrorCode.value = null
     }
 
     /**
@@ -319,6 +405,7 @@ class SyncManager(
      */
     suspend fun deleteAllUserTasks(userId: String) {
         stop()
+        val firestore = firestoreProvider() ?: return
         val tasksCollection = firestore.collection("users").document(userId).collection("tasks")
         val snapshot = tasksCollection.get().await()
         for (doc in snapshot.documents) {

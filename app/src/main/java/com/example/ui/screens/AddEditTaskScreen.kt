@@ -38,21 +38,19 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDefaults
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
-import com.example.ui.theme.TikoDialog
-import com.example.ui.theme.TikoPrimaryButton
-import com.example.ui.theme.TikoSecondaryButton
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -155,20 +153,7 @@ fun AddEditTaskScreen(
     var showDatePickerOverlay by remember { mutableStateOf(false) }
     var showTimePickerOverlay by remember { mutableStateOf(false) }
 
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = try {
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            sdf.parse(dueDate)?.time ?: System.currentTimeMillis()
-        } catch (e: Exception) {
-            System.currentTimeMillis()
-        }
-    )
 
-    val timePickerState = rememberTimePickerState(
-        initialHour = 9,
-        initialMinute = 0,
-        is24Hour = false
-    )
 
     val handleBack = {
         if (title.isNotBlank() && existingTask == null) {
@@ -1111,130 +1096,23 @@ fun AddEditTaskScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Custom Date Picker Modal
+        // Custom Foodpanda-style Floating Date Picker Modal (100% Mockup match without dots)
         if (showDatePickerOverlay) {
-            TikoDialog(
-                title = "SELECT DATE",
+            TikoFloatingDatePickerModal(
+                initialDate = dueDate,
+                onDateSelected = { dueDate = it },
                 onDismiss = { showDatePickerOverlay = false },
-                content = {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        DatePicker(
-                            state = datePickerState,
-                            colors = DatePickerDefaults.colors(
-                                containerColor = Color.Transparent,
-                                titleContentColor = tikoColors.textSecondary,
-                                headlineContentColor = tikoColors.textPrimary,
-                                selectedDayContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else Color(0xFF151515),
-                                selectedDayContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
-                                todayDateBorderColor = Color(0xFF6B4EFF),
-                                todayContentColor = Color(0xFF6B4EFF),
-                                dayContentColor = tikoColors.textPrimary,
-                                disabledDayContentColor = if (effectiveDark) Color(0xFF5A5650) else tikoColors.textMuted,
-                                yearContentColor = tikoColors.textPrimary,
-                                currentYearContentColor = Color(0xFF6B4EFF),
-                                selectedYearContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else Color(0xFF151515),
-                                selectedYearContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
-                                navigationContentColor = tikoColors.textPrimary,
-                                subheadContentColor = if (effectiveDark) Color(0xFFA8A39A) else tikoColors.textSecondary
-                            )
-                        )
-                    }
-                },
-                actions = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TikoSecondaryButton(
-                            text = "Cancel",
-                            onClick = { showDatePickerOverlay = false },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TikoPrimaryButton(
-                            text = "Confirm",
-                            onClick = {
-                                datePickerState.selectedDateMillis?.let { millis ->
-                                    val cal = Calendar.getInstance()
-                                    cal.timeInMillis = millis
-                                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                                    dueDate = sdf.format(cal.time)
-                                }
-                                showDatePickerOverlay = false
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+                isDark = effectiveDark
             )
         }
 
-        // Custom Time Picker Modal
+        // Custom Foodpanda-style Floating Time Picker Modal (100% Mockup match)
         if (showTimePickerOverlay) {
-            TikoDialog(
-                title = "SELECT TIME",
+            TikoFloatingTimePickerModal(
+                initialTime = dueTime,
+                onTimeSelected = { dueTime = it },
                 onDismiss = { showTimePickerOverlay = false },
-                content = {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        TimePicker(
-                            state = timePickerState,
-                            colors = TimePickerDefaults.colors(
-                                clockDialColor = if (effectiveDark) Color(0xFF1C1C1C) else Color(0xFFF0EBDD),
-                                selectorColor = Color(0xFF6B4EFF),
-                                containerColor = Color.Transparent,
-                                timeSelectorSelectedContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else Color(0xFF151515),
-                                timeSelectorSelectedContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
-                                timeSelectorUnselectedContainerColor = if (effectiveDark) Color(0xFF1C1C1C) else Color(0xFFF0EBDD),
-                                timeSelectorUnselectedContentColor = tikoColors.textPrimary,
-                                clockDialSelectedContentColor = Color.White,
-                                clockDialUnselectedContentColor = tikoColors.textPrimary,
-                                periodSelectorBorderColor = tikoColors.cardBorder,
-                                periodSelectorSelectedContainerColor = Color(0xFF6B4EFF),
-                                periodSelectorSelectedContentColor = Color.White,
-                                periodSelectorUnselectedContainerColor = Color.Transparent,
-                                periodSelectorUnselectedContentColor = tikoColors.textMuted
-                            )
-                        )
-                    }
-                },
-                actions = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TikoSecondaryButton(
-                            text = "Cancel",
-                            onClick = { showTimePickerOverlay = false },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TikoPrimaryButton(
-                            text = "Confirm",
-                            onClick = {
-                                val hour = timePickerState.hour
-                                val minute = timePickerState.minute
-                                val isPm = hour >= 12
-                                val displayHour = when {
-                                    hour == 0 -> 12
-                                    hour > 12 -> hour - 12
-                                    else -> hour
-                                }
-                                val amPm = if (isPm) "PM" else "AM"
-                                dueTime = String.format(Locale.getDefault(), "%d:%02d %s", displayHour, minute, amPm)
-                                showTimePickerOverlay = false
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+                isDark = effectiveDark
             )
         }
 
@@ -1274,3 +1152,812 @@ private fun PillLabel(text: String, isDark: Boolean = false) {
         )
     }
 }
+
+private data class TikoCalendarDay(
+    val dayNumber: Int,
+    val isCurrentMonth: Boolean,
+    val dateString: String
+)
+
+@Composable
+fun TikoFloatingDatePickerModal(
+    initialDate: String,
+    onDateSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+    isDark: Boolean = false
+) {
+    var tempSelectedDate by remember(initialDate) { mutableStateOf(initialDate) }
+
+    var displayedCalendar by remember(initialDate) {
+        val cal = Calendar.getInstance()
+        try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val d = sdf.parse(initialDate)
+            if (d != null) cal.time = d
+        } catch (_: Exception) {}
+        mutableStateOf(cal)
+    }
+
+    val monthTitle = remember(displayedCalendar) {
+        SimpleDateFormat("MMMM yyyy", Locale.US).format(displayedCalendar.time)
+    }
+
+    val gridWeeks = remember(displayedCalendar) {
+        val weeks = mutableListOf<List<TikoCalendarDay>>()
+        val cal = (displayedCalendar.clone() as Calendar).apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) // 1 = Sun, 2 = Mon ...
+        val daysInCurrentMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+        // Monday start:
+        val prevDaysCount = (firstDayOfWeek + 5) % 7
+
+        val prevCal = (cal.clone() as Calendar).apply {
+            add(Calendar.MONTH, -1)
+        }
+        val daysInPrevMonth = prevCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+        val allCells = mutableListOf<TikoCalendarDay>()
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+        // Previous month days
+        for (i in (daysInPrevMonth - prevDaysCount + 1)..daysInPrevMonth) {
+            val dCal = (prevCal.clone() as Calendar).apply {
+                set(Calendar.DAY_OF_MONTH, i)
+            }
+            allCells.add(TikoCalendarDay(i, false, sdf.format(dCal.time)))
+        }
+
+        // Current month days
+        for (i in 1..daysInCurrentMonth) {
+            val dCal = (cal.clone() as Calendar).apply {
+                set(Calendar.DAY_OF_MONTH, i)
+            }
+            allCells.add(TikoCalendarDay(i, true, sdf.format(dCal.time)))
+        }
+
+        // Trailing days to complete the last week
+        val trailing = (7 - (allCells.size % 7)) % 7
+        if (trailing > 0) {
+            val nextCal = (cal.clone() as Calendar).apply {
+                add(Calendar.MONTH, 1)
+            }
+            for (i in 1..trailing) {
+                val dCal = (nextCal.clone() as Calendar).apply {
+                    set(Calendar.DAY_OF_MONTH, i)
+                }
+                allCells.add(TikoCalendarDay(i, false, sdf.format(dCal.time)))
+            }
+        }
+
+        allCells.chunked(7).forEach { weeks.add(it) }
+        weeks
+    }
+
+    // Quick select dates
+    val todayCal = Calendar.getInstance()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val todayStr = sdf.format(todayCal.time)
+
+    val tomorrowCal = (todayCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
+    val tomorrowStr = sdf.format(tomorrowCal.time)
+
+    val thisWeekCal = (todayCal.clone() as Calendar).apply {
+        val currentDow = get(Calendar.DAY_OF_WEEK)
+        val daysUntilSunday = if (currentDow == Calendar.SUNDAY) 0 else (8 - currentDow)
+        add(Calendar.DAY_OF_YEAR, daysUntilSunday)
+    }
+    val thisWeekStr = sdf.format(thisWeekCal.time)
+
+    val nextWeekCal = (todayCal.clone() as Calendar).apply {
+        val currentDow = get(Calendar.DAY_OF_WEEK)
+        val daysUntilNextMonday = if (currentDow == Calendar.SUNDAY) 1 else (9 - currentDow)
+        add(Calendar.DAY_OF_YEAR, daysUntilNextMonday)
+    }
+    val nextWeekStr = sdf.format(nextWeekCal.time)
+
+    val quickOptions = listOf(
+        Triple("Today", todayStr, todayCal),
+        Triple("Tomorrow", tomorrowStr, tomorrowCal),
+        Triple("This week", thisWeekStr, thisWeekCal),
+        Triple("Next week", nextWeekStr, nextWeekCal)
+    )
+
+    BackHandler { onDismiss() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(100f)
+            .background(Color.Black.copy(alpha = 0.52f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onDismiss() },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp)
+                .shadow(
+                    elevation = 24.dp,
+                    shape = RoundedCornerShape(32.dp),
+                    spotColor = Color.Black.copy(alpha = 0.35f)
+                )
+                .clip(RoundedCornerShape(32.dp))
+                .background(if (isDark) Color(0xFF1F1F1F) else AddTaskCream)
+                .then(
+                    if (isDark) Modifier.border(1.dp, Color(0xFF333333), RoundedCornerShape(32.dp)) else Modifier
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { /* Intercept tap so inner content clicks don't close modal */ }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 10.dp, bottom = 20.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Foodpanda style top drag handle
+                Box(
+                    modifier = Modifier
+                        .width(44.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF484848) else Color(0xFFD4CEBD))
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Header row: Close button (left) + "Select date" title (center)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RoundIconButton(
+                        icon = Icons.Outlined.Close,
+                        onClick = onDismiss,
+                        contentDescription = "Close",
+                        testTag = "date_picker_close_button",
+                        isDark = isDark,
+                        modifier = Modifier.size(44.dp)
+                    )
+
+                    Text(
+                        text = "Select date",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                    )
+
+                    Spacer(modifier = Modifier.size(44.dp))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Month navigation row: < [Month Year] >
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RoundIconButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        onClick = {
+                            displayedCalendar = (displayedCalendar.clone() as Calendar).apply {
+                                add(Calendar.MONTH, -1)
+                            }
+                        },
+                        contentDescription = "Previous month",
+                        testTag = "date_picker_prev_month",
+                        isDark = isDark,
+                        modifier = Modifier.size(44.dp)
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0xFF2C2C2C) else Color.White)
+                            .padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = monthTitle,
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                        )
+                    }
+
+                    RoundIconButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        onClick = {
+                            displayedCalendar = (displayedCalendar.clone() as Calendar).apply {
+                                add(Calendar.MONTH, 1)
+                            }
+                        },
+                        contentDescription = "Next month",
+                        testTag = "date_picker_next_month",
+                        isDark = isDark,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Calendar Grid Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(if (isDark) Color(0xFF282828) else Color.White)
+                        .padding(horizontal = 14.dp, vertical = 16.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Weekday labels: M, T, W, T, F, S, S
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            listOf("M", "T", "W", "T", "F", "S", "S").forEach { dayLabel ->
+                                Text(
+                                    text = dayLabel,
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Weeks
+                        gridWeeks.forEach { week ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                week.forEach { cell ->
+                                    val isSelected = cell.dateString == tempSelectedDate
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(38.dp)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                tempSelectedDate = cell.dateString
+                                                if (!cell.isCurrentMonth) {
+                                                    try {
+                                                        val target = Calendar.getInstance()
+                                                        target.time = sdf.parse(cell.dateString) ?: target.time
+                                                        displayedCalendar = target
+                                                    } catch (_: Exception) {}
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = cell.dayNumber.toString(),
+                                                    color = if (isDark) AddTaskBlack else Color.White,
+                                                    fontFamily = OutfitFontFamily,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = cell.dayNumber.toString(),
+                                                color = if (cell.isCurrentMonth) {
+                                                    if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                                                } else {
+                                                    if (isDark) Color(0xFF666666) else Color(0xFFB0B0B0)
+                                                },
+                                                fontFamily = OutfitFontFamily,
+                                                fontWeight = if (cell.isCurrentMonth) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 15.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Quick Select Header Pill
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0xFF2B2B2B) else Color.White)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Quick select",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Quick Select Options Row (Today, Tomorrow, This week, Next week)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    quickOptions.forEach { (label, dateVal, targetCal) ->
+                        val isSelected = tempSelectedDate == dateVal
+                        val optionBg = if (isSelected) {
+                            CardPurple
+                        } else {
+                            if (isDark) Color(0xFF2B2B2B) else Color.White
+                        }
+                        val optionTextColor = if (isSelected) {
+                            Color.White
+                        } else {
+                            if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(CircleShape)
+                                .background(optionBg)
+                                .clickable {
+                                    tempSelectedDate = dateVal
+                                    displayedCalendar = (targetCal.clone() as Calendar)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = optionTextColor,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Done Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFFF5F1E6) else AddTaskBlack)
+                        .clickable {
+                            onDateSelected(tempSelectedDate)
+                            onDismiss()
+                        }
+                        .testTag("date_picker_done_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Done",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = if (isDark) AddTaskBlack else Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other
+
+@Composable
+fun TikoFloatingTimePickerModal(
+    initialTime: String,
+    onTimeSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+    isDark: Boolean = false
+) {
+    var parsedHour = 9
+    var parsedMinute = 0
+    var parsedIsPm = false
+    try {
+        val clean = initialTime.trim()
+        val isPmStr = clean.endsWith("PM", ignoreCase = true)
+        val isAmStr = clean.endsWith("AM", ignoreCase = true)
+        parsedIsPm = isPmStr
+        val digitsOnly = clean.replace("(?i)am|pm".toRegex(), "").trim()
+        val parts = digitsOnly.split(":")
+        if (parts.size >= 2) {
+            var h = parts[0].trim().toIntOrNull() ?: 9
+            val m = parts[1].trim().toIntOrNull() ?: 0
+            if (!isAmStr && !isPmStr) {
+                if (h >= 12) {
+                    parsedIsPm = true
+                    if (h > 12) h -= 12
+                } else if (h == 0) {
+                    h = 12
+                }
+            }
+            if (h in 1..12) parsedHour = h
+            if (m in 0..59) parsedMinute = m
+        }
+    } catch (_: Exception) {}
+
+    var selectedHour by remember { mutableIntStateOf(parsedHour) }
+    var selectedMinute by remember { mutableIntStateOf(parsedMinute) }
+    var isPm by remember { mutableStateOf(parsedIsPm) }
+
+    val formattedTime = remember(selectedHour, selectedMinute, isPm) {
+        String.format(Locale.US, "%d:%02d %s", selectedHour, selectedMinute, if (isPm) "PM" else "AM")
+    }
+
+    var hourDragAccumulator by remember { mutableFloatStateOf(0f) }
+    var minuteDragAccumulator by remember { mutableFloatStateOf(0f) }
+    val stepThreshold = 36f
+
+    BackHandler { onDismiss() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(100f)
+            .background(Color.Black.copy(alpha = 0.52f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onDismiss() },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp)
+                .shadow(
+                    elevation = 24.dp,
+                    shape = RoundedCornerShape(32.dp),
+                    spotColor = Color.Black.copy(alpha = 0.35f)
+                )
+                .clip(RoundedCornerShape(32.dp))
+                .background(if (isDark) Color(0xFF1F1F1F) else AddTaskCream)
+                .then(
+                    if (isDark) Modifier.border(1.dp, Color(0xFF333333), RoundedCornerShape(32.dp)) else Modifier
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { /* Intercept tap so inner content clicks don't close modal */ }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 10.dp, bottom = 20.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Foodpanda style top drag handle
+                Box(
+                    modifier = Modifier
+                        .width(44.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF484848) else Color(0xFFD4CEBD))
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Header row: Close button (left) + "Select time" title (center)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RoundIconButton(
+                        icon = Icons.Outlined.Close,
+                        onClick = onDismiss,
+                        contentDescription = "Close",
+                        testTag = "time_picker_close_button",
+                        isDark = isDark,
+                        modifier = Modifier.size(44.dp)
+                    )
+
+                    Text(
+                        text = "Select time",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                    )
+
+                    Spacer(modifier = Modifier.size(44.dp))
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Purple time display pill with white clock icon badge
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(CardPurple)
+                        .clickable { isPm = !isPm }
+                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AccessTime,
+                            contentDescription = null,
+                            tint = CardPurple,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Text(
+                        text = formattedTime,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // White Roller Wheel Card with 5 rows
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(if (isDark) Color(0xFF282828) else Color.White)
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Hour column (detects vertical drag)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .pointerInput(Unit) {
+                                    detectVerticalDragGestures(
+                                        onDragStart = { hourDragAccumulator = 0f },
+                                        onVerticalDrag = { _, dragAmount ->
+                                            hourDragAccumulator += dragAmount
+                                            val steps = (hourDragAccumulator / stepThreshold).toInt()
+                                            if (steps != 0) {
+                                                selectedHour = ((selectedHour - 1 - steps).floorMod(12)) + 1
+                                                hourDragAccumulator -= steps * stepThreshold
+                                            }
+                                        }
+                                    )
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            listOf(-2, -1, 0, 1, 2).forEach { offset ->
+                                val h = ((selectedHour - 1 + offset).floorMod(12)) + 1
+                                if (offset == 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isDark) CardPurple.copy(alpha = 0.35f) else Color(0xFFEBE6FF)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = h.toString(),
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 20.sp,
+                                            color = if (isDark) Color.White else Color(0xFF151515)
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(38.dp)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                selectedHour = h
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = h.toString(),
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 17.sp,
+                                            color = if (isDark) Color(0xFF666666) else Color(0xFFA0A0A0)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Center colon ":"
+                        Text(
+                            text = ":",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 24.sp,
+                            color = if (isDark) Color.White else Color(0xFF151515),
+                            modifier = Modifier.padding(horizontal = 14.dp)
+                        )
+
+                        // Minute column (detects vertical drag)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .pointerInput(Unit) {
+                                    detectVerticalDragGestures(
+                                        onDragStart = { minuteDragAccumulator = 0f },
+                                        onVerticalDrag = { _, dragAmount ->
+                                            minuteDragAccumulator += dragAmount
+                                            val steps = (minuteDragAccumulator / stepThreshold).toInt()
+                                            if (steps != 0) {
+                                                selectedMinute = (selectedMinute - steps).floorMod(60)
+                                                minuteDragAccumulator -= steps * stepThreshold
+                                            }
+                                        }
+                                    )
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            listOf(-2, -1, 0, 1, 2).forEach { offset ->
+                                val m = (selectedMinute + offset).floorMod(60)
+                                val mText = String.format(Locale.US, "%02d", m)
+                                if (offset == 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isDark) CardPurple.copy(alpha = 0.35f) else Color(0xFFEBE6FF)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = mText,
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 20.sp,
+                                            color = if (isDark) Color.White else Color(0xFF151515)
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(38.dp)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                selectedMinute = m
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = mText,
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 17.sp,
+                                            color = if (isDark) Color(0xFF666666) else Color(0xFFA0A0A0)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Action buttons row: [Cancel] [Done]
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0xFF2B2B2B) else Color.White)
+                            .border(1.dp, if (isDark) Color(0xFF444444) else Color(0xFFD4CEBD), CircleShape)
+                            .clickable { onDismiss() }
+                            .testTag("time_picker_cancel_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .clip(CircleShape)
+                            .background(CardPurple)
+                            .clickable {
+                                onTimeSelected(formattedTime)
+                                onDismiss()
+                            }
+                            .testTag("time_picker_done_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Done",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+

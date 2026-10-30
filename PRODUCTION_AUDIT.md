@@ -110,4 +110,4 @@ Scope: source, Gradle configuration, manifest, tracked Firebase configuration, t
 4. ~~Decide and implement Firestore sync plus account-data deletion, or remove cross-device/account claims.~~ ✅ Done (`f652a64`)
 5. ~~Build real notification permission/scheduling or remove the reminder-enabled UX.~~ ✅ Done (Blocker 6)
 6. Establish signed release/AAB CI with least-privilege workflow permissions and R8 verification.
-7. Add meaningful automated tests before feature work resumes.
+

@@ -43,17 +43,26 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.data.model.CategoryColors
 import com.example.data.model.CategoryIcons
+import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.OutfitFontFamily
+
 
 @Composable
 fun CreateCategoryDialog(
     onDismiss: () -> Unit,
     onCreateCategory: (name: String, iconKey: String, colorHex: Long) -> Unit,
-    titleText: String = "NEW CATEGORY"
+    titleText: String = "NEW CATEGORY",
+    isDark: Boolean = false
 ) {
+    val tikoColors = LocalTikoThemeColors.current
+    val effectiveDark = isDark || tikoColors.isDark
+
     var categoryName by remember { mutableStateOf("") }
     var selectedIconKey by remember { mutableStateOf("work") }
     var selectedColorHex by remember { mutableStateOf(CategoryColors.PALETTE[0]) }
+
+    val cardBg = if (effectiveDark) tikoColors.cardBg else AppCreamBackground
+    val cardBorderColor = if (effectiveDark) tikoColors.cardBorder else AppBlack
 
     Box(
         modifier = Modifier
@@ -74,8 +83,8 @@ fun CreateCategoryDialog(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .clip(RoundedCornerShape(26.dp))
-                .background(AppCreamBackground)
-                .border(2.dp, AppBlack, RoundedCornerShape(26.dp))
+                .background(cardBg)
+                .border(2.dp, cardBorderColor, RoundedCornerShape(26.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -94,22 +103,22 @@ fun CreateCategoryDialog(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Black,
                         fontSize = 24.sp,
-                        color = AppBlack
+                        color = tikoColors.textPrimary
                     )
 
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
+                            .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
+                            .border(1.dp, if (effectiveDark) tikoColors.cardBorder else AppBlack, CircleShape)
                             .clickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Close,
                             contentDescription = "Close",
-                            tint = AppBlack,
+                            tint = tikoColors.textPrimary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -125,7 +134,7 @@ fun CreateCategoryDialog(
                         Text(
                             text = "e.g. Travel, Finance, Projects",
                             fontFamily = OutfitFontFamily,
-                            color = AppBlack.copy(alpha = 0.5f)
+                            color = tikoColors.textMuted
                         )
                     },
                     modifier = Modifier
@@ -133,12 +142,12 @@ fun CreateCategoryDialog(
                         .testTag("category_name_input"),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = AppBlack,
-                        unfocusedBorderColor = AppBlack.copy(alpha = 0.3f),
-                        focusedTextColor = AppBlack,
-                        unfocusedTextColor = AppBlack
+                        focusedContainerColor = if (effectiveDark) Color(0xFF1E1E1E) else Color.White,
+                        unfocusedContainerColor = if (effectiveDark) Color(0xFF1E1E1E) else Color.White,
+                        focusedBorderColor = if (effectiveDark) tikoColors.textPrimary else AppBlack,
+                        unfocusedBorderColor = if (effectiveDark) tikoColors.cardBorder else AppBlack.copy(alpha = 0.3f),
+                        focusedTextColor = tikoColors.textPrimary,
+                        unfocusedTextColor = tikoColors.textPrimary
                     ),
                     singleLine = true
                 )
@@ -151,7 +160,7 @@ fun CreateCategoryDialog(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = AppBlack.copy(alpha = 0.7f)
+                    color = tikoColors.textSecondary
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -167,14 +176,19 @@ fun CreateCategoryDialog(
                 ) {
                     items(CategoryIcons.ALL_OPTIONS) { opt ->
                         val isSelected = selectedIconKey == opt.key
+                        val unselBg = if (effectiveDark) Color(0xFF1E1E1E) else Color.White
+                        val selBg = if (effectiveDark) Color(0xFFF5F1E6) else AppBlack
+                        val selBorder = if (effectiveDark) Color(0xFFF5F1E6) else AppBlack
+                        val unselBorder = if (effectiveDark) tikoColors.cardBorder else AppBlack.copy(alpha = 0.2f)
+
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .background(if (isSelected) AppBlack else Color.White)
+                                .background(if (isSelected) selBg else unselBg)
                                 .border(
                                     width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) AppBlack else AppBlack.copy(alpha = 0.2f),
+                                    color = if (isSelected) selBorder else unselBorder,
                                     shape = CircleShape
                                 )
                                 .clickable { selectedIconKey = opt.key }
@@ -184,7 +198,7 @@ fun CreateCategoryDialog(
                             Icon(
                                 imageVector = opt.icon,
                                 contentDescription = opt.label,
-                                tint = if (isSelected) Color.White else AppBlack,
+                                tint = if (isSelected) (if (effectiveDark) Color(0xFF151515) else Color.White) else tikoColors.textPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -199,7 +213,7 @@ fun CreateCategoryDialog(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = AppBlack.copy(alpha = 0.7f)
+                    color = tikoColors.textSecondary
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -218,7 +232,7 @@ fun CreateCategoryDialog(
                                 .background(Color(colorVal))
                                 .border(
                                     width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) AppBlack else Color.Transparent,
+                                    color = if (isSelected) (if (effectiveDark) Color(0xFFF5F1E6) else AppBlack) else Color.Transparent,
                                     shape = CircleShape
                                 )
                                 .clickable { selectedColorHex = colorVal }
@@ -238,8 +252,8 @@ fun CreateCategoryDialog(
                         modifier = Modifier
                             .height(42.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, AppBlack, CircleShape)
+                            .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
+                            .border(1.dp, if (effectiveDark) tikoColors.cardBorder else AppBlack, CircleShape)
                             .clickable(onClick = onDismiss)
                             .padding(horizontal = 18.dp),
                         contentAlignment = Alignment.Center
@@ -249,17 +263,24 @@ fun CreateCategoryDialog(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 15.sp,
-                            color = AppBlack
+                            color = tikoColors.textPrimary
                         )
                     }
 
                     Spacer(modifier = Modifier.width(10.dp))
 
+                    val createBtnBg = if (effectiveDark) {
+                        if (categoryName.isNotBlank()) Color(0xFFF5F1E6) else Color(0xFFF5F1E6).copy(alpha = 0.3f)
+                    } else {
+                        if (categoryName.isNotBlank()) AppBlack else AppBlack.copy(alpha = 0.3f)
+                    }
+                    val createBtnTextColor = if (effectiveDark) Color(0xFF151515) else Color.White
+
                     Box(
                         modifier = Modifier
                             .height(42.dp)
                             .clip(CircleShape)
-                            .background(if (categoryName.isNotBlank()) AppBlack else AppBlack.copy(alpha = 0.3f))
+                            .background(createBtnBg)
                             .clickable(enabled = categoryName.isNotBlank()) {
                                 onCreateCategory(
                                     categoryName.trim(),
@@ -276,7 +297,7 @@ fun CreateCategoryDialog(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = Color.White
+                            color = createBtnTextColor
                         )
                     }
                 }

@@ -21,6 +21,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.example.data.local.UserPreferences
+import com.example.ui.components.AvatarOption
+import com.example.ui.components.PresetAvatars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,11 +47,17 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.TrackChanges
+import android.util.Log
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.zIndex
@@ -129,6 +141,7 @@ fun SettingsScreen(
 
     val userName by preferences.userName.collectAsState()
     val userEmail by preferences.userEmail.collectAsState()
+    val avatarId by preferences.avatarId.collectAsState()
     val notifEnabled by preferences.notificationsEnabled.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -176,6 +189,7 @@ fun SettingsScreen(
     val darkModeOn = darkModePref ?: (if (isDark) true else isSystemDark)
     var selectedLanguage by remember { mutableStateOf("English") }
 
+    var showAvatarSheet by remember { mutableStateOf(false) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var editNameInput by remember { mutableStateOf(userName) }
     var editEmailInput by remember { mutableStateOf(userEmail) }
@@ -275,38 +289,41 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Centered 110dp avatar with yellow #FFB92E fill and 36dp camera badge
+                    // Centered 110dp avatar with yellow #FFB92E fill and 36dp purple pencil badge
                     Box(
                         modifier = Modifier
                             .size(110.dp)
                             .testTag("profile_avatar_container"),
                         contentAlignment = Alignment.Center
                     ) {
-                        com.example.ui.components.UserInitialsAvatar(
+                        com.example.ui.components.UserAvatar(
                             name = displayName,
                             size = 110.dp,
-                            backgroundColor = CardYellow,
-                            textColor = AppBlack,
-                            fontSize = 40.sp
+                            fontSize = 40.sp,
+                            avatarId = avatarId,
+                            onClick = {
+                                showAvatarSheet = true
+                            },
+                            modifier = Modifier.testTag("profile_avatar")
                         )
 
-                        // 36dp purple #6B4EFF camera badge at bottom-right
+                        // 36dp purple #6B4EFF circle with white pencil icon (Icons.Outlined.Edit) at bottom-right
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .align(Alignment.BottomEnd)
                                 .clip(CircleShape)
                                 .background(CardPurple)
-                                .border(2.dp, if (darkModeOn) Color(0xFF141414) else Color.White, CircleShape)
+                                .border(2.dp, tikoColors.screenBg, CircleShape)
                                 .clickable {
-                                    AppToastController.show("Photo upload coming soon", ToastType.Info)
+                                    showAvatarSheet = true
                                 }
-                                .testTag("profile_camera_badge"),
+                                .testTag("profile_avatar_badge"),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.PhotoCamera,
-                                contentDescription = "Change photo",
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = "Choose avatar",
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -785,7 +802,19 @@ fun SettingsScreen(
         )
     }
 
-    // DIALOGS
+    // DIALOGS & BOTTOM SHEETS
+
+    // 0. Choose Avatar Modal Bottom Sheet
+    if (showAvatarSheet) {
+        ChooseAvatarBottomSheet(
+            selectedAvatarId = avatarId,
+            onAvatarSelected = { newId ->
+                preferences.setAvatarId(newId)
+                showAvatarSheet = false
+            },
+            onDismiss = { showAvatarSheet = false }
+        )
+    }
 
     // 1. Edit Profile Custom Dialog
     if (showEditProfileDialog) {
@@ -1377,4 +1406,139 @@ private fun SettingsDivider(isDark: Boolean = false) {
             .height(1.dp)
             .background(tikoColors.divider)
     )
+}
+
+/**
+ * Modal bottom sheet for choosing user avatar.
+ * Displays a 4x3 grid of 12 preset avatars.
+ * The currently selected avatar displays a 3dp purple ring.
+ * Tapping an avatar selects it, saves its id to UserPreferences, and closes the sheet.
+ * Pads bottom for the system navigation bar and is scrollable on smaller screens.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChooseAvatarBottomSheet(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    selectedAvatarId: String? = null,
+    onAvatarSelected: ((String) -> Unit)? = null
+) {
+    val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val tikoColors = LocalTikoThemeColors.current
+
+    val userPrefs = remember(context) { UserPreferences(context) }
+    val savedAvatarId by userPrefs.avatarId.collectAsState()
+    val activeAvatarId = selectedAvatarId ?: savedAvatarId
+
+    LaunchedEffect(Unit) {
+        Log.d("TikoAvatar", "sheet opened")
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = tikoColors.cardBg,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = tikoColors.textMuted.copy(alpha = 0.45f)
+            )
+        },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Choose your avatar",
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = tikoColors.textPrimary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 12 avatars in 4 columns by 3 rows
+            PresetAvatars.chunked(4).forEachIndexed { rowIndex, rowAvatars ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    rowAvatars.forEach { avatar ->
+                        val isSelected = activeAvatarId == avatar.id
+                        AvatarGridItem(
+                            avatar = avatar,
+                            isSelected = isSelected,
+                            onClick = {
+                                if (onAvatarSelected != null) {
+                                    onAvatarSelected(avatar.id)
+                                } else {
+                                    userPrefs.setAvatarId(avatar.id)
+                                    onDismiss()
+                                }
+                            }
+                        )
+                    }
+                }
+                if (rowIndex < 2) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarGridItem(
+    avatar: AvatarOption,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(72.dp)
+            .testTag("avatar_option_${avatar.id}")
+            .clip(CircleShape)
+            .then(
+                if (isSelected) {
+                    Modifier.border(3.dp, Color(0xFF6B4EFF), CircleShape)
+                } else {
+                    Modifier
+                }
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(avatar.backgroundColor)
+                .then(
+                    if (avatar.borderColor != null) {
+                        Modifier.border(1.dp, avatar.borderColor, CircleShape)
+                    } else {
+                        Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = avatar.emoji,
+                fontSize = 30.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
 }

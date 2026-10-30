@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.OutfitFontFamily
 
 sealed class DialogData {
@@ -203,8 +204,8 @@ fun AppOverlayHost(modifier: Modifier = Modifier) {
                                 Box(
                                     modifier = Modifier
                                         .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
+                                             interactionSource = remember { MutableInteractionSource() },
+                                             indication = null
                                         ) { /* Consume click */ }
                                 ) {
                                     dialog.content()
@@ -223,6 +224,9 @@ fun AppOverlayHost(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ConfirmDialogCard(data: DialogData.Confirm) {
+    val tikoColors = LocalTikoThemeColors.current
+    val isDark = tikoColors.isDark
+
     val icon = when {
         data.destructive -> Icons.Outlined.DeleteOutline
         data.title.contains("remind", ignoreCase = true) || data.title.contains("alert", ignoreCase = true) -> Icons.Outlined.WarningAmber
@@ -235,7 +239,10 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(Color.White)
+            .background(tikoColors.cardBg)
+            .then(
+                if (isDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -244,20 +251,20 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
             .testTag("app_confirm_dialog")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // White pill tag with icon
+            // Pill tag with icon
             Row(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF2F0E8))
-                    .border(1.dp, Color(0xFF151515), CircleShape)
+                    .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF2F0E8))
+                    .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (data.destructive) Color(0xFFD9534A) else Color(0xFF151515),
+                    tint = if (data.destructive) Color(0xFFD9534A) else tikoColors.textPrimary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -266,7 +273,7 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
-                    color = Color(0xFF151515)
+                    color = tikoColors.textPrimary
                 )
             }
 
@@ -278,19 +285,19 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 24.sp,
-                color = Color(0xFF151515),
+                color = tikoColors.textPrimary,
                 lineHeight = 28.sp
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Message in Outfit Regular 16sp gray #5B5F66
+            // Message in Outfit Regular 16sp
             Text(
                 text = data.message,
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
-                color = Color(0xFF5B5F66),
+                color = tikoColors.textSecondary,
                 lineHeight = 22.sp
             )
 
@@ -298,12 +305,23 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
 
             // Buttons: 52dp high, fully rounded, full width, stacked with 10dp gap
             // Primary button
+            val primaryBg = if (data.destructive) {
+                Color(0xFFD9534A)
+            } else {
+                if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+            }
+            val primaryText = if (data.destructive) {
+                Color.White
+            } else {
+                if (isDark) Color(0xFF151515) else Color.White
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(CircleShape)
-                    .background(if (data.destructive) Color(0xFFD9534A) else Color(0xFF151515))
+                    .background(primaryBg)
                     .clickable(onClick = data.onConfirm)
                     .testTag("dialog_primary_button"),
                 contentAlignment = Alignment.Center
@@ -313,20 +331,20 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Color.White
+                    color = primaryText
                 )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Secondary button: white fill, 1dp #151515 outline, black text
+            // Secondary button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFF151515), CircleShape)
+                    .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
+                    .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
                     .clickable { AppDialogController.dismiss() }
                     .testTag("dialog_secondary_button"),
                 contentAlignment = Alignment.Center
@@ -336,7 +354,7 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Color(0xFF151515)
+                    color = tikoColors.textPrimary
                 )
             }
         }
@@ -345,12 +363,18 @@ private fun ConfirmDialogCard(data: DialogData.Confirm) {
 
 @Composable
 private fun AlertPopupCard(data: DialogData.Alert) {
+    val tikoColors = LocalTikoThemeColors.current
+    val isDark = tikoColors.isDark
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(Color.White)
+            .background(tikoColors.cardBg)
+            .then(
+                if (isDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -359,20 +383,20 @@ private fun AlertPopupCard(data: DialogData.Alert) {
             .testTag("app_alert_dialog")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // White pill tag with icon
+            // Pill tag with icon
             Row(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF2F0E8))
-                    .border(1.dp, Color(0xFF151515), CircleShape)
+                    .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF2F0E8))
+                    .border(1.dp, if (isDark) tikoColors.cardBorder else Color(0xFF151515), CircleShape)
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Info,
                     contentDescription = null,
-                    tint = Color(0xFF151515),
+                    tint = tikoColors.textPrimary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -381,7 +405,7 @@ private fun AlertPopupCard(data: DialogData.Alert) {
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
-                    color = Color(0xFF151515)
+                    color = tikoColors.textPrimary
                 )
             }
 
@@ -393,19 +417,19 @@ private fun AlertPopupCard(data: DialogData.Alert) {
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 24.sp,
-                color = Color(0xFF151515),
+                color = tikoColors.textPrimary,
                 lineHeight = 28.sp
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Message in Outfit Regular 16sp gray #5B5F66
+            // Message in Outfit Regular 16sp
             Text(
                 text = data.message,
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
-                color = Color(0xFF5B5F66),
+                color = tikoColors.textSecondary,
                 lineHeight = 22.sp
             )
 
@@ -417,7 +441,7 @@ private fun AlertPopupCard(data: DialogData.Alert) {
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF151515))
+                    .background(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515))
                     .clickable { AppDialogController.dismiss() }
                     .testTag("dialog_primary_button"),
                 contentAlignment = Alignment.Center
@@ -427,7 +451,7 @@ private fun AlertPopupCard(data: DialogData.Alert) {
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Color.White
+                    color = if (isDark) Color(0xFF151515) else Color.White
                 )
             }
         }

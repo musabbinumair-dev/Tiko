@@ -76,6 +76,7 @@ import com.example.data.crash.CrashRecorder
 import com.example.ui.components.CrashReportDialog
 import com.example.ui.screens.UpdateRequiredScreen
 import com.example.ui.screens.WelcomeScreen
+import com.example.data.update.UpdateDownloader
 import com.example.data.update.UpdateResult
 import com.example.ui.theme.LocalTikoThemeColors
 import com.example.ui.theme.MyApplicationTheme
@@ -120,6 +121,15 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
     val haptic = LocalHapticFeedback.current
 
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Clean up update APK if app was successfully updated
+    LaunchedEffect(Unit) {
+        try {
+            UpdateDownloader.cleanUpIfUpdated(context)
+        } catch (_: Throwable) {
+            // Safety: ignore cleanup failure
+        }
+    }
 
     // Temporary debug code: Check and show previous crash report on next app start
     LaunchedEffect(Unit) {
@@ -538,7 +548,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                                 taskId = screen.taskId,
                                 viewModel = viewModel,
                                 onNavigate = { viewModel.navigateTo(it) },
-                                onBack = { viewModel.goBack() }
+                                onBack = { viewModel.goBack() },
+                                isDark = isDark
                             )
                         }
                     }
@@ -546,7 +557,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         AddEditTaskScreen(
                             taskId = null,
                             viewModel = viewModel,
-                            onBack = { viewModel.goBack() }
+                            onBack = { viewModel.goBack() },
+                            isDark = isDark
                         )
                     }
                     is Screen.EditTask -> {
@@ -569,7 +581,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                             AddEditTaskScreen(
                                 taskId = screen.taskId,
                                 viewModel = viewModel,
-                                onBack = { viewModel.goBack() }
+                                onBack = { viewModel.goBack() },
+                                isDark = isDark
                             )
                         }
                     }

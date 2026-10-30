@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,11 +38,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.data.update.DownloadState
 import com.example.data.update.UpdateDownloader
 import com.example.data.update.UpdateResult
@@ -51,6 +55,7 @@ import com.example.ui.components.ToastType
 import com.example.ui.theme.OutfitFontFamily
 import com.musab.tiko.BuildConfig
 import kotlinx.coroutines.launch
+import java.io.File
 
 private val PurplePrimary = Color(0xFF6B4EFF)
 private val LightScreenBg = Color(0xFFEFEBDD)
@@ -69,17 +74,67 @@ fun UpdateRequiredScreen(
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     // Using remember instead of rememberSaveable to avoid SaveableStateRegistry crashes on custom sealed class
     var downloadState by remember { mutableStateOf<DownloadState>(DownloadState.Idle) }
+    var canInstallPermission by remember {
+        mutableStateOf(UpdateDownloader.canRequestPackageInstalls(context))
+    }
+    var waitingForInstallPermission by remember { mutableStateOf(false) }
+
+    fun triggerInstall(file: File) {
+        val hasPermission = UpdateDownloader.canRequestPackageInstalls(context)
+        canInstallPermission = hasPermission
+        if (!hasPermission) {
+            waitingForInstallPermission = true
+        } else {
+            waitingForInstallPermission = false
+            val launched = UpdateDownloader.installApk(context, file)
+            if (!launched) {
+                AppToastController.show("Could not launch installer", ToastType.Error)
+            }
+        }
+    }
 
     LaunchedEffect(update) {
         try {
             if (update.versionCode <= 0L) {
                 onError?.invoke()
+                return@LaunchedEffect
+            }
+            // Check if already downloaded and valid
+            val existingFile = UpdateDownloader.getUpdateFile(context)
+            if (existingFile.exists() && existingFile.length() > 0L) {
+                val validationErr = UpdateDownloader.validateApk(context, existingFile, update.versionCode)
+                if (validationErr == null) {
+                    downloadState = DownloadState.Downloaded(existingFile)
+                    canInstallPermission = UpdateDownloader.canRequestPackageInstalls(context)
+                }
             }
         } catch (_: Throwable) {
             onError?.invoke()
+        }
+    }
+
+    // Monitor onResume to re-check install permission and proceed without extra taps
+    DisposableEffect(lifecycleOwner, downloadState, waitingForInstallPermission) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val hasPermission = UpdateDownloader.canRequestPackageInstalls(context)
+                canInstallPermission = hasPermission
+                val currentState = downloadState
+                if (currentState is DownloadState.Downloaded) {
+                    if (hasPermission && waitingForInstallPermission) {
+                        waitingForInstallPermission = false
+                        UpdateDownloader.installApk(context, currentState.file)
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -126,11 +181,13 @@ fun UpdateRequiredScreen(
                         } catch (_: Throwable) {}
                     }
 
-                    downloadState = if (result.isSuccess) {
-                        DownloadState.Downloaded(result.getOrThrow())
+                    if (result.isSuccess) {
+                        val file = result.getOrThrow()
+                        downloadState = DownloadState.Downloaded(file)
+                        triggerInstall(file)
                     } else {
                         val reason = result.exceptionOrNull()?.message ?: "Unknown error"
-                        DownloadState.Failed(reason)
+                        downloadState = DownloadState.Failed(reason)
                     }
                 } catch (e: Throwable) {
                     val reason = e.message ?: e.javaClass.simpleName
@@ -405,29 +462,95 @@ fun UpdateRequiredScreen(
                         }
                     }
                     is DownloadState.Downloaded -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clip(CircleShape)
-                                .background(LimeAccent)
-                                .clickable {
-                                    try {
-                                        AppToastController.show("Install (temporary): File ready at ${state.file.name}", ToastType.Info)
-                                    } catch (_: Throwable) {
-                                        // Ignore
+                        if (!canInstallPermission) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(28.dp))
+                                    .background(if (isDark) Color(0xFF242424) else Color.White)
+                                    .border(
+                                        1.dp,
+                                        if (isDark) Color(0xFF383838) else Color(0xFFDCD8CB),
+                                        RoundedCornerShape(28.dp)
+                                    )
+                                    .padding(24.dp)
+                                    .testTag("update_permission_card")
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    Text(
+                                        text = "Allow Tiko to install updates",
+                                        fontFamily = OutfitFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                        lineHeight = 24.sp,
+                                        color = textPrimary,
+                                        modifier = Modifier.testTag("update_permission_title")
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "To install this update, please grant permission to install apps from this source in settings.",
+                                        fontFamily = OutfitFontFamily,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp,
+                                        color = textSecondary,
+                                        modifier = Modifier.testTag("update_permission_description")
+                                    )
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(52.dp)
+                                            .clip(CircleShape)
+                                            .background(PurplePrimary)
+                                            .clickable {
+                                                waitingForInstallPermission = true
+                                                UpdateDownloader.openUnknownAppSourcesSettings(context)
+                                            }
+                                            .testTag("update_open_settings_button"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Open settings",
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = Color.White
+                                        )
                                     }
                                 }
-                                .testTag("update_install_button"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Download complete ✓  •  Install (temporary)",
-                                fontFamily = OutfitFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color(0xFF151515)
-                            )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .clip(CircleShape)
+                                    .background(buttonBg)
+                                    .clickable {
+                                        val launched = UpdateDownloader.installApk(context, state.file)
+                                        if (!launched) {
+                                            AppToastController.show("Could not launch installer", ToastType.Error)
+                                        }
+                                    }
+                                    .testTag("update_install_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Install",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = buttonTextColor
+                                )
+                            }
                         }
                     }
                 }

@@ -1,21 +1,16 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.app.Activity
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDefaults
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.ui.zIndex
-import com.example.ui.components.AppDialogController
-import com.example.ui.components.AppToastController
-import com.example.ui.components.ToastType
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,18 +21,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
@@ -46,13 +38,18 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.WorkOutline
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,48 +58,43 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.example.ui.viewmodel.Screen
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.data.local.TikoDatabase
 import com.example.data.model.CategoryColors
 import com.example.data.model.CategoryIcons
-import com.example.data.model.CategoryModel
 import com.example.data.model.SubtaskItem
-import android.Manifest
-import android.app.Activity
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import com.example.data.reminder.NotificationPermissionHelper
 import com.example.data.model.TaskEntity
+import com.example.data.reminder.NotificationPermissionHelper
+import com.example.ui.components.AppDialogController
+import com.example.ui.components.AppToastController
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.components.CreateCategoryDialog
 import com.example.ui.components.RoundIconButton
+import com.example.ui.components.ToastType
 import com.example.ui.components.screenTopPadding
 import com.example.ui.theme.OutfitFontFamily
+import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val AddTaskYellow = Color(0xFFFFCF4D)
 private val AddTaskCream = Color(0xFFEFEBDD)
 private val AddTaskBlack = Color(0xFF151515)
 private val CardPurple = Color(0xFF6B4EFF)
-private val CardYellow = Color(0xFFFFB92E)
 private val CardLime = Color(0xFFC8DB6A)
 private val CardRed = Color(0xFFD9534A)
 
@@ -128,7 +120,8 @@ fun AddEditTaskScreen(
     taskId: String?,
     viewModel: TikoViewModel,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean = false
 ) {
     val context = LocalContext.current
     val tasks by viewModel.allTasks.collectAsState()
@@ -312,6 +305,7 @@ fun AddEditTaskScreen(
     }
 
     val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+    val effectiveDark = isDark || tikoColors.isDark
 
     val backgroundGradient = Brush.verticalGradient(
         0.0f to tikoColors.gradientStart,
@@ -343,16 +337,16 @@ fun AddEditTaskScreen(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     onClick = handleBack,
                     contentDescription = "Back",
-                    testTag = "add_task_back_button"
+                    testTag = "add_task_back_button",
+                    isDark = effectiveDark
                 )
 
-                // Centered title "New task" Outfit Bold 20sp
                 Text(
                     text = if (existingTask != null) "Edit task" else "New task",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = AddTaskBlack
+                    color = tikoColors.textPrimary
                 )
 
                 Row(
@@ -377,23 +371,25 @@ fun AddEditTaskScreen(
                                 )
                             },
                             contentDescription = "Delete task",
-                            testTag = "add_task_top_delete_button"
+                            testTag = "add_task_top_delete_button",
+                            isDark = effectiveDark
                         )
                     }
 
-                    // Menu button (three dots): 48dp white circle with 1dp #151515 outline
                     Box {
                         RoundIconButton(
                             icon = Icons.Default.MoreVert,
                             onClick = { showMenu = !showMenu },
                             contentDescription = "Menu",
-                            testTag = "add_task_menu_button"
+                            testTag = "add_task_menu_button",
+                            isDark = effectiveDark
                         )
 
                         if (existingTask != null) {
                             DropdownMenu(
                                 expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
+                                onDismissRequest = { showMenu = false },
+                                modifier = Modifier.background(if (effectiveDark) Color(0xFF242424) else Color.White)
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Delete task", color = CardRed) },
@@ -411,7 +407,10 @@ fun AddEditTaskScreen(
                                                 onBack()
                                             }
                                         )
-                                    }
+                                    },
+                                    colors = MenuDefaults.itemColors(
+                                        textColor = CardRed
+                                    )
                                 )
                             }
                         }
@@ -421,7 +420,7 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 2. Heading "WHAT NEEDS DOING?" Outfit Black 44sp, uppercase, black, letter spacing -1sp, 2 lines
+            // 2. Heading "WHAT NEEDS DOING?"
             Text(
                 text = "WHAT NEEDS\nDOING?",
                 fontFamily = OutfitFontFamily,
@@ -429,12 +428,12 @@ fun AddEditTaskScreen(
                 fontSize = 44.sp,
                 lineHeight = 44.sp,
                 letterSpacing = (-1).sp,
-                color = AddTaskBlack
+                color = tikoColors.textPrimary
             )
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // 3. Purple #6B4EFF card, 28dp radius, 16dp padding
+            // 3. Purple card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -448,19 +447,19 @@ fun AddEditTaskScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // White pill tag "Task title" (32dp high, document icon, Outfit Medium 14sp)
+                        // Pill tag "Task title"
                         Row(
                             modifier = Modifier
                                 .height(32.dp)
                                 .clip(CircleShape)
-                                .background(Color.White)
+                                .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
                                 .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Article,
                                 contentDescription = null,
-                                tint = AddTaskBlack,
+                                tint = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -469,25 +468,25 @@ fun AddEditTaskScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
-                                color = AddTaskBlack
+                                color = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack
                             )
                         }
 
-                        // 44dp white circle with arrow_outward icon at top right
+                        // Arrow outward circle
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White),
                             contentAlignment = Alignment.Center
                         ) {
-                            ArrowOutwardIcon(size = 20.dp, color = AddTaskBlack)
+                            ArrowOutwardIcon(size = 20.dp, color = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Title input below in Outfit Bold 28sp, white text, white placeholder "Type your task..."
+                    // Title input
                     BasicTextField(
                         value = title,
                         onValueChange = {
@@ -534,8 +533,8 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 4. White pill label "Category" (1dp black outline, Outfit Bold 18sp)
-            PillLabel(text = "Category")
+            // 4. Pill label "Category"
+            PillLabel(text = "Category", isDark = effectiveDark)
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -600,8 +599,12 @@ fun AddEditTaskScreen(
                         .width(88.dp)
                         .height(104.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
-                        .border(1.5.dp, AddTaskBlack.copy(alpha = 0.3f), RoundedCornerShape(28.dp))
+                        .background(tikoColors.cardBg)
+                        .border(
+                            1.5.dp,
+                            if (effectiveDark) tikoColors.cardBorder else AddTaskBlack.copy(alpha = 0.3f),
+                            RoundedCornerShape(28.dp)
+                        )
                         .clickable { showNewCategoryDialog = true }
                         .testTag("category_add_new"),
                     contentAlignment = Alignment.Center
@@ -613,7 +616,7 @@ fun AddEditTaskScreen(
                         Icon(
                             imageVector = Icons.Outlined.Add,
                             contentDescription = "New Category",
-                            tint = AddTaskBlack,
+                            tint = tikoColors.textPrimary,
                             modifier = Modifier.size(28.dp)
                         )
                         Spacer(modifier = Modifier.height(6.dp))
@@ -622,7 +625,7 @@ fun AddEditTaskScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = AddTaskBlack
+                            color = tikoColors.textPrimary
                         )
                     }
                 }
@@ -630,27 +633,41 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 5. White pill label "Priority"
-            PillLabel(text = "Priority")
+            // 5. Pill label "Priority"
+            PillLabel(text = "Priority", isDark = effectiveDark)
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 3 equal pills, 48dp high, Outfit Medium 17sp: Low and Medium (white fill, 1dp black outline), selected one has black fill and white text
+            // 3 equal pills: Low, Medium, High
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("Low", "Medium", "High").forEach { p ->
                     val isSelected = priority.equals(p, ignoreCase = true)
+                    val pBg = if (isSelected) {
+                        if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack
+                    } else {
+                        tikoColors.cardBg
+                    }
+                    val pText = if (isSelected) {
+                        if (effectiveDark) Color(0xFF151515) else Color.White
+                    } else {
+                        tikoColors.textPrimary
+                    }
+                    val pBorder = if (isSelected) {
+                        Modifier
+                    } else {
+                        Modifier.border(1.dp, if (effectiveDark) tikoColors.cardBorder else AddTaskBlack, CircleShape)
+                    }
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clip(CircleShape)
-                            .background(if (isSelected) AddTaskBlack else Color.White)
-                            .then(
-                                if (!isSelected) Modifier.border(1.dp, AddTaskBlack, CircleShape) else Modifier
-                            )
+                            .background(pBg)
+                            .then(pBorder)
                             .clickable { priority = p }
                             .testTag("priority_${p.lowercase()}"),
                         contentAlignment = Alignment.Center
@@ -660,7 +677,7 @@ fun AddEditTaskScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 17.sp,
-                            color = if (isSelected) Color.White else AddTaskBlack
+                            color = pText
                         )
                     }
                 }
@@ -668,12 +685,12 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 6. Two cards side by side with 8dp gap, 28dp radius: Date (lime, black text) and Time (black, white text)
+            // 6. Date & Time Cards
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Date card: Lime, black text, icon left, label + value, 36dp white circle with right arrow
+                // Date card: Lime accent
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -722,26 +739,30 @@ fun AddEditTaskScreen(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
-                                tint = AddTaskBlack,
+                                tint = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                 }
 
-                // Time card: Black, white text, icon left, label + value, 36dp white circle with right arrow
+                // Time card: Dark mode styled
+                val timeCardBg = if (effectiveDark) Color(0xFF242424) else AddTaskBlack
+                val timeCardBorder = if (effectiveDark) Modifier.border(1.dp, Color(0xFF383838), RoundedCornerShape(28.dp)) else Modifier
+
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(84.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(AddTaskBlack)
+                        .background(timeCardBg)
+                        .then(timeCardBorder)
                         .clickable { showTimePickerOverlay = true }
                         .padding(horizontal = 16.dp, vertical = 14.dp)
                         .testTag("time_picker_card")
@@ -784,13 +805,13 @@ fun AddEditTaskScreen(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
-                                tint = AddTaskBlack,
+                                tint = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -800,18 +821,21 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 7. White pill label "Notes" placed ABOVE the card (not overlapping it)
-            PillLabel(text = "Notes")
+            // 7. Pill label "Notes"
+            PillLabel(text = "Notes", isDark = effectiveDark)
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // White card, 28dp radius, 120dp high, gray placeholder "Add any additional details..."
+            // Notes card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp)
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White)
+                    .background(tikoColors.cardBg)
+                    .then(
+                        if (effectiveDark) Modifier.border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp)) else Modifier
+                    )
                     .padding(20.dp)
             ) {
                 BasicTextField(
@@ -821,8 +845,9 @@ fun AddEditTaskScreen(
                         fontFamily = OutfitFontFamily,
                         fontWeight = FontWeight.Normal,
                         fontSize = 16.sp,
-                        color = AddTaskBlack
+                        color = tikoColors.textPrimary
                     ),
+                    cursorBrush = SolidColor(tikoColors.textPrimary),
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("task_notes_input"),
@@ -833,7 +858,7 @@ fun AddEditTaskScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 16.sp,
-                                color = Color(0xFF8E8E93)
+                                color = tikoColors.textMuted
                             )
                         }
                         innerTextField()
@@ -843,8 +868,8 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 8. White pill label "Subtasks"
-            PillLabel(text = "Subtasks (${subtasks.size})")
+            // 8. Pill label "Subtasks"
+            PillLabel(text = "Subtasks (${subtasks.size})", isDark = effectiveDark)
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -853,8 +878,8 @@ fun AddEditTaskScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFD6D2C4), RoundedCornerShape(28.dp))
+                    .background(tikoColors.cardBg)
+                    .border(1.dp, tikoColors.cardBorder, RoundedCornerShape(28.dp))
                     .padding(20.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -864,7 +889,7 @@ fun AddEditTaskScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Normal,
                             fontSize = 15.sp,
-                            color = Color(0xFF8E8E93)
+                            color = tikoColors.textMuted
                         )
                     } else {
                         subtasks.forEachIndexed { index, subtask ->
@@ -884,11 +909,11 @@ fun AddEditTaskScreen(
                                         }
                                         .then(
                                             if (subtask.done) {
-                                                Modifier.background(AddTaskBlack)
+                                                Modifier.background(if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack)
                                             } else {
                                                 Modifier
-                                                    .background(Color.White)
-                                                    .border(2.dp, AddTaskBlack, CircleShape)
+                                                    .background(tikoColors.cardBg)
+                                                    .border(2.dp, if (effectiveDark) tikoColors.textMuted else AddTaskBlack, CircleShape)
                                             }
                                         ),
                                     contentAlignment = Alignment.Center
@@ -897,7 +922,7 @@ fun AddEditTaskScreen(
                                         Icon(
                                             imageVector = Icons.Outlined.Check,
                                             contentDescription = "Done",
-                                            tint = Color.White,
+                                            tint = if (effectiveDark) Color(0xFF151515) else Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -910,7 +935,7 @@ fun AddEditTaskScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 16.sp,
-                                    color = if (subtask.done) Color(0xFF8E8E93) else AddTaskBlack,
+                                    color = if (subtask.done) tikoColors.textMuted else tikoColors.textPrimary,
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
@@ -923,10 +948,10 @@ fun AddEditTaskScreen(
                                     modifier = Modifier
                                         .size(32.dp)
                                         .clip(CircleShape)
-                                        .clickable {
-                                            subtasks.removeAt(index)
-                                            AppToastController.show("Subtask removed", ToastType.Info)
-                                        },
+                                    .clickable {
+                                        subtasks.removeAt(index)
+                                        AppToastController.show("Subtask removed", ToastType.Info)
+                                    },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -944,7 +969,7 @@ fun AddEditTaskScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(1.dp)
-                                        .background(Color(0xFFE8E8E8))
+                                        .background(tikoColors.divider)
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                             }
@@ -957,8 +982,8 @@ fun AddEditTaskScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(AddTaskCream.copy(alpha = 0.5f))
-                            .border(1.dp, Color(0xFFDCDAD4), RoundedCornerShape(16.dp))
+                            .background(if (effectiveDark) Color(0xFF1E1E1E) else AddTaskCream.copy(alpha = 0.5f))
+                            .border(1.dp, tikoColors.cardBorder, RoundedCornerShape(16.dp))
                             .padding(horizontal = 14.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -970,15 +995,16 @@ fun AddEditTaskScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 15.sp,
-                                color = AddTaskBlack
+                                color = tikoColors.textPrimary
                             ),
+                            cursorBrush = SolidColor(tikoColors.textPrimary),
                             singleLine = true,
                             decorationBox = { innerTextField ->
                                 if (newSubtaskText.isEmpty()) {
                                     Text(
                                         text = "Add a subtask...",
                                         fontFamily = OutfitFontFamily,
-                                        color = Color(0xFF8E8E8E),
+                                        color = tikoColors.textMuted,
                                         fontSize = 15.sp
                                     )
                                 }
@@ -986,11 +1012,18 @@ fun AddEditTaskScreen(
                             }
                         )
 
+                        val addBtnBg = if (newSubtaskText.isNotBlank()) {
+                            if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack
+                        } else {
+                            if (effectiveDark) Color(0xFFF5F1E6).copy(alpha = 0.2f) else AddTaskBlack.copy(alpha = 0.2f)
+                        }
+                        val addBtnText = if (effectiveDark) Color(0xFF151515) else Color.White
+
                         Box(
                             modifier = Modifier
                                 .height(34.dp)
                                 .clip(CircleShape)
-                                .background(if (newSubtaskText.isNotBlank()) AddTaskBlack else AddTaskBlack.copy(alpha = 0.2f))
+                                .background(addBtnBg)
                                 .clickable(enabled = newSubtaskText.isNotBlank()) {
                                     subtasks.add(SubtaskItem(title = newSubtaskText.trim(), done = false))
                                     newSubtaskText = ""
@@ -1004,7 +1037,7 @@ fun AddEditTaskScreen(
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                color = Color.White
+                                color = addBtnText
                             )
                         }
                     }
@@ -1013,13 +1046,16 @@ fun AddEditTaskScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // 9. Full-width black pill button "Save task" / "Update task", 56dp high, Outfit Bold 18sp, white text
+            // 9. Pill button "Save task" / "Update task"
+            val saveBtnBg = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack
+            val saveBtnText = if (effectiveDark) Color(0xFF151515) else Color.White
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(CircleShape)
-                    .background(AddTaskBlack)
+                    .background(saveBtnBg)
                     .clickable(onClick = { performSave() })
                     .testTag("save_task_button"),
                 contentAlignment = Alignment.Center
@@ -1029,7 +1065,7 @@ fun AddEditTaskScreen(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color.White
+                    color = saveBtnText
                 )
             }
 
@@ -1040,7 +1076,7 @@ fun AddEditTaskScreen(
                         .fillMaxWidth()
                         .height(52.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(tikoColors.cardBg)
                         .border(1.5.dp, Color(0xFFD9534A), CircleShape)
                         .clickable {
                             AppDialogController.confirm(
@@ -1091,8 +1127,8 @@ fun AddEditTaskScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
-                        .border(1.dp, AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
+                        .background(if (effectiveDark) Color(0xFF242424) else Color.White)
+                        .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -1106,13 +1142,18 @@ fun AddEditTaskScreen(
                         DatePicker(
                             state = datePickerState,
                             colors = DatePickerDefaults.colors(
-                                containerColor = Color.White,
-                                titleContentColor = AddTaskBlack,
-                                headlineContentColor = AddTaskBlack,
-                                selectedDayContainerColor = AddTaskBlack,
-                                selectedDayContentColor = Color.White,
+                                containerColor = if (effectiveDark) Color(0xFF242424) else Color.White,
+                                titleContentColor = tikoColors.textPrimary,
+                                headlineContentColor = tikoColors.textPrimary,
+                                selectedDayContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
+                                selectedDayContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
                                 todayDateBorderColor = CardPurple,
-                                todayContentColor = CardPurple
+                                todayContentColor = CardPurple,
+                                dayContentColor = tikoColors.textPrimary,
+                                yearContentColor = tikoColors.textPrimary,
+                                currentYearContentColor = CardPurple,
+                                selectedYearContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
+                                selectedYearContentColor = if (effectiveDark) Color(0xFF151515) else Color.White
                             )
                         )
                         Spacer(modifier = Modifier.height(10.dp))
@@ -1124,8 +1165,8 @@ fun AddEditTaskScreen(
                                 modifier = Modifier
                                     .height(44.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White)
-                                    .border(1.dp, AddTaskBlack, CircleShape)
+                                    .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
+                                    .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack, CircleShape)
                                     .clickable { showDatePickerOverlay = false }
                                     .padding(horizontal = 20.dp),
                                 contentAlignment = Alignment.Center
@@ -1135,7 +1176,7 @@ fun AddEditTaskScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = AddTaskBlack
+                                    color = tikoColors.textPrimary
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
@@ -1143,7 +1184,7 @@ fun AddEditTaskScreen(
                                 modifier = Modifier
                                     .height(44.dp)
                                     .clip(CircleShape)
-                                    .background(AddTaskBlack)
+                                    .background(if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack)
                                     .clickable {
                                         datePickerState.selectedDateMillis?.let { millis ->
                                             val cal = Calendar.getInstance()
@@ -1161,7 +1202,7 @@ fun AddEditTaskScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = Color.White
+                                    color = if (effectiveDark) Color(0xFF151515) else Color.White
                                 )
                             }
                         }
@@ -1189,8 +1230,8 @@ fun AddEditTaskScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
-                        .border(1.dp, AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
+                        .background(if (effectiveDark) Color(0xFF242424) else Color.White)
+                        .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -1206,19 +1247,21 @@ fun AddEditTaskScreen(
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Black,
                             fontSize = 20.sp,
-                            color = AddTaskBlack
+                            color = tikoColors.textPrimary
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         TimePicker(
                             state = timePickerState,
                             colors = TimePickerDefaults.colors(
-                                clockDialColor = Color(0xFFF6F6F6),
+                                clockDialColor = if (effectiveDark) Color(0xFF1E1E1E) else Color(0xFFF6F6F6),
                                 selectorColor = CardPurple,
-                                containerColor = Color.White,
-                                timeSelectorSelectedContainerColor = AddTaskBlack,
-                                timeSelectorSelectedContentColor = Color.White,
-                                timeSelectorUnselectedContainerColor = Color(0xFFF1EFEA),
-                                timeSelectorUnselectedContentColor = AddTaskBlack
+                                containerColor = if (effectiveDark) Color(0xFF242424) else Color.White,
+                                timeSelectorSelectedContainerColor = if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack,
+                                timeSelectorSelectedContentColor = if (effectiveDark) Color(0xFF151515) else Color.White,
+                                timeSelectorUnselectedContainerColor = if (effectiveDark) Color(0xFF1E1E1E) else Color(0xFFF1EFEA),
+                                timeSelectorUnselectedContentColor = tikoColors.textPrimary,
+                                clockDialSelectedContentColor = Color.White,
+                                clockDialUnselectedContentColor = tikoColors.textPrimary
                             )
                         )
                         Spacer(modifier = Modifier.height(18.dp))
@@ -1230,8 +1273,8 @@ fun AddEditTaskScreen(
                                 modifier = Modifier
                                     .height(44.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White)
-                                    .border(1.dp, AddTaskBlack, CircleShape)
+                                    .background(if (effectiveDark) Color(0xFF1E1E1E) else Color.White)
+                                    .border(1.dp, if (effectiveDark) Color(0xFF383838) else AddTaskBlack, CircleShape)
                                     .clickable { showTimePickerOverlay = false }
                                     .padding(horizontal = 20.dp),
                                 contentAlignment = Alignment.Center
@@ -1241,7 +1284,7 @@ fun AddEditTaskScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = AddTaskBlack
+                                    color = tikoColors.textPrimary
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
@@ -1249,7 +1292,7 @@ fun AddEditTaskScreen(
                                 modifier = Modifier
                                     .height(44.dp)
                                     .clip(CircleShape)
-                                    .background(AddTaskBlack)
+                                    .background(if (effectiveDark) Color(0xFFF5F1E6) else AddTaskBlack)
                                     .clickable {
                                         val hour = timePickerState.hour
                                         val minute = timePickerState.minute
@@ -1271,7 +1314,7 @@ fun AddEditTaskScreen(
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = Color.White
+                                    color = if (effectiveDark) Color(0xFF151515) else Color.White
                                 )
                             }
                         }
@@ -1288,19 +1331,22 @@ fun AddEditTaskScreen(
                     category = name
                     showNewCategoryDialog = false
                     AppToastController.show("Category '$name' created", ToastType.Success)
-                }
+                },
+                isDark = effectiveDark
             )
         }
     }
 }
 
 @Composable
-private fun PillLabel(text: String) {
+private fun PillLabel(text: String, isDark: Boolean = false) {
+    val tikoColors = com.example.ui.theme.LocalTikoThemeColors.current
+    val effectiveDark = isDark || tikoColors.isDark
     Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(Color.White)
-            .border(1.dp, AddTaskBlack, CircleShape)
+            .background(tikoColors.cardBg)
+            .border(1.dp, if (effectiveDark) tikoColors.cardBorder else AddTaskBlack, CircleShape)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -1309,7 +1355,7 @@ private fun PillLabel(text: String) {
             fontFamily = OutfitFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
-            color = AddTaskBlack
+            color = tikoColors.textPrimary
         )
     }
 }

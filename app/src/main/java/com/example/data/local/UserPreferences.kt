@@ -18,6 +18,9 @@ class UserPreferences(context: Context) {
     private val _userEmail = MutableStateFlow(prefs.getString("user_email", "") ?: "")
     val userEmail: StateFlow<String> = _userEmail.asStateFlow()
 
+    private val _avatarId = MutableStateFlow(prefs.getString("avatar_id", null))
+    val avatarId: StateFlow<String?> = _avatarId.asStateFlow()
+
     private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean("notif_enabled", false))
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
 
@@ -55,6 +58,15 @@ class UserPreferences(context: Context) {
         if (prefs.contains("dark_mode_enabled")) prefs.getBoolean("dark_mode_enabled", false) else null
     )
     val darkModeEnabled: StateFlow<Boolean?> = _darkModeEnabled.asStateFlow()
+
+    fun setAvatarId(id: String?) {
+        if (id != null) {
+            prefs.edit().putString("avatar_id", id).apply()
+        } else {
+            prefs.edit().remove("avatar_id").apply()
+        }
+        _avatarId.value = id
+    }
 
     fun setDarkModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("dark_mode_enabled", enabled).apply()

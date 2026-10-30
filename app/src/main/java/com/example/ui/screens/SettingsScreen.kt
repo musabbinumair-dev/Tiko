@@ -1492,12 +1492,22 @@ fun ChooseAvatarBottomSheet(
     val savedAvatarId by userPrefs.avatarId.collectAsState()
     val activeAvatarId = selectedAvatarId ?: savedAvatarId
 
-    // Determine if the signed-in user has a Google profile photo
+    val syncCoordinator = remember(context) { com.example.data.sync.SyncCoordinator.getInstance(context) }
+
+    // Determine if the user signed in with Google
+    val isGoogleUser = remember {
+        try {
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            currentUser?.providerData?.any { it.providerId == "google.com" } == true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     val googlePhotoUrl: String? = remember {
         try {
             val raw = com.google.firebase.auth.FirebaseAuth.getInstance()
                 .currentUser?.photoUrl?.toString()?.ifBlank { null }
-            // Upgrade low-res Google URLs for display in the picker
             raw?.replace("=s96-c", "=s400-c")
         } catch (_: Throwable) {
             null
@@ -1537,51 +1547,59 @@ fun ChooseAvatarBottomSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             // ── Default options row ────────────────────────────────────────
-            // Shown above the emoji grid. "null" avatarId means one of these
-            // two default options is active.
-            val isDefault = activeAvatarId == null
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Google photo — only shown for Google/OAuth users that have a photoUrl
-                if (googlePhotoUrl != null) {
+                // "Use Google photo": shown only for users who signed in with Google (FirebaseAuth.currentUser.providerData includes google.com)
+                if (isGoogleUser) {
+                    val isGoogleSelected = activeAvatarId?.trim()?.lowercase() == "google" || (activeAvatarId.isNullOrBlank() && isGoogleUser)
                     DefaultAvatarItem(
-                        label = "Google photo",
-                        isSelected = isDefault,
+                        label = "Use Google photo",
+                        isSelected = isGoogleSelected,
                         onClick = {
-                            if (onAvatarSelected != null) onAvatarSelected(null)
-                            else { userPrefs.setAvatarId(null); onDismiss() }
+                            if (onAvatarSelected != null) onAvatarSelected("google")
+                            else {
+                                syncCoordinator.updateAvatar("google")
+                                onDismiss()
+                            }
                         }
                     ) {
-                        // Show actual Google photo in the circle
-                        coil.compose.SubcomposeAsyncImage(
-                            model = coil.request.ImageRequest.Builder(context)
-                                .data(googlePhotoUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Google photo",
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(androidx.compose.foundation.shape.CircleShape),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            loading = { InitialsCircle(context) },
-                            error = { InitialsCircle(context) }
-                        )
-                    }
-                } else {
-                    // Email/password or guest user — show "My initials" as the only default
-                    DefaultAvatarItem(
-                        label = "My initials",
-                        isSelected = isDefault,
-                        onClick = {
-                            if (onAvatarSelected != null) onAvatarSelected(null)
-                            else { userPrefs.setAvatarId(null); onDismiss() }
+                        if (googlePhotoUrl != null) {
+                            coil.compose.SubcomposeAsyncImage(
+                                model = coil.request.ImageRequest.Builder(context)
+                                    .data(googlePhotoUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Use Google photo",
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(androidx.compose.foundation.shape.CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                loading = { InitialsCircle(context) },
+                                error = { InitialsCircle(context) }
+                            )
+                        } else {
+                            InitialsCircle(context)
                         }
-                    ) {
-                        InitialsCircle(context)
                     }
+                }
+
+                // "Use default initial": always shown. It shows the yellow circle with the user's first initial.
+                val isInitialSelected = activeAvatarId?.trim()?.lowercase() == "initial" || (activeAvatarId.isNullOrBlank() && !isGoogleUser)
+                DefaultAvatarItem(
+                    label = "Use default initial",
+                    isSelected = isInitialSelected,
+                    onClick = {
+                        if (onAvatarSelected != null) onAvatarSelected("initial")
+                        else {
+                            syncCoordinator.updateAvatar("initial")
+                            onDismiss()
+                        }
+                    }
+                ) {
+                    InitialsCircle(context)
                 }
             }
 
@@ -1603,7 +1621,7 @@ fun ChooseAvatarBottomSheet(
                                 if (onAvatarSelected != null) {
                                     onAvatarSelected(avatar.id)
                                 } else {
-                                    userPrefs.setAvatarId(avatar.id)
+                                    syncCoordinator.updateAvatar(avatar.id)
                                     onDismiss()
                                 }
                             }

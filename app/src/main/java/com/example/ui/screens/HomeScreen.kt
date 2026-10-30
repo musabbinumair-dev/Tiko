@@ -275,8 +275,6 @@ private fun HomeHeader(
             com.example.ui.components.UserAvatar(
                 name = userName,
                 size = 52.dp
-                backgroundColor = CardYellow,
-                textColor = HomeBlack
             )
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -740,3 +738,4 @@ fun HomeTaskCard(
 ) {
     TaskCard(task = task, onClick = onClick, onToggle = onToggle, modifier = modifier)
 }
+

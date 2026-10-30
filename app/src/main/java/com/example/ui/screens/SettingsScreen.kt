@@ -282,11 +282,9 @@ fun SettingsScreen(
                             .testTag("profile_avatar_container"),
                         contentAlignment = Alignment.Center
                     ) {
-                        com.example.ui.components.UserInitialsAvatar(
+                        com.example.ui.components.UserAvatar(
                             name = displayName,
                             size = 110.dp,
-                            backgroundColor = CardYellow,
-                            textColor = AppBlack,
                             fontSize = 40.sp
                         )
 
@@ -1378,3 +1376,4 @@ private fun SettingsDivider(isDark: Boolean = false) {
             .background(tikoColors.divider)
     )
 }
+

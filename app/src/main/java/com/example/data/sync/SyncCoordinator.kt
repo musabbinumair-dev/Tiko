@@ -129,7 +129,7 @@ class SyncCoordinator(
             syncManager.start(uid)
         }
 
-        // Write users/{uid} profile document and sync remote avatarId
+        // Write users/{uid} profile document
         scope.launch {
             writeProfileDocument(uid, displayName, email, photoUrl, provider)
         }
@@ -140,7 +140,6 @@ class SyncCoordinator(
             Log.d("TikoSync", "AuthState changed: user signed out")
         }
         activeUserId = null
-        preferences.setAvatarId(null)
         syncManager.stop()
     }
 
@@ -156,41 +155,54 @@ class SyncCoordinator(
 
         try {
             val userDocRef = firestore.collection("users").document(uid)
-
-            val safeDisplayName = displayName?.ifBlank { null }
-                ?: email?.substringBefore("@")?.ifBlank { null }
-                ?: "User"
-            val safeEmail = email?.ifBlank { null } ?: ""
-            val safeProvider = if (provider?.contains("google", true) == true) "google" else "email"
-
-            val profileData = mutableMapOf<String, Any>(
-                "displayName" to safeDisplayName,
-                "email" to safeEmail,
-                "provider" to safeProvider,
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-
-            // Read existing doc to check createdAt and remote avatarId
             val snapshot = try {
                 userDocRef.get().await()
             } catch (e: Exception) {
-                Log.w("TikoProfile", "Failed to read existing profile doc: ${e.message}", e)
+                if (BuildConfig.DEBUG) {
+                    Log.w("TikoSync", "Could not fetch existing profile doc: ${e.message}")
+                }
                 null
             }
 
+            val profileData = mutableMapOf<String, Any>()
+
+            // name: keep existing or use non-blank displayName
+            val safeName = displayName?.ifBlank { null }
+            if (!safeName.isNullOrBlank()) {
+                profileData["name"] = safeName
+            } else if (snapshot == null || !snapshot.contains("name")) {
+                val fallbackName = email?.substringBefore("@")?.replaceFirstChar { it.uppercase() } ?: "User"
+                profileData["name"] = fallbackName
+            }
+
+            // email: only non-blank
+            val safeEmail = email?.ifBlank { null }
+            if (!safeEmail.isNullOrBlank()) {
+                profileData["email"] = safeEmail
+            }
+
+            // photoUrl: only non-blank
+            val safePhotoUrl = photoUrl?.ifBlank { null }
+            if (!safePhotoUrl.isNullOrBlank()) {
+                profileData["photoUrl"] = safePhotoUrl
+            }
+
+            // provider
+            val safeProvider = provider?.ifBlank { null } ?: "password"
+            if (safeProvider.isNotBlank()) {
+                profileData["provider"] = safeProvider
+            }
+
+            // lastLoginAt
+            profileData["lastLoginAt"] = FieldValue.serverTimestamp()
+
+            // createdAt: only write if document doesn't exist or missing createdAt
             if (snapshot == null || !snapshot.exists() || !snapshot.contains("createdAt")) {
                 profileData["createdAt"] = FieldValue.serverTimestamp()
             }
 
-            if (snapshot != null && snapshot.exists() && snapshot.contains("avatarId")) {
-                val remoteAvatarId = snapshot.getString("avatarId")
-                if (!remoteAvatarId.isNullOrBlank()) {
-                    preferences.setAvatarId(remoteAvatarId)
-                }
-            }
-
             if (BuildConfig.DEBUG) {
-                Log.d("TikoSync", "Writing profile doc for uid: $uid (excluding avatarId)")
+                Log.d("TikoSync", "Writing profile doc with keys: ${profileData.keys}")
             }
 
             userDocRef.set(profileData, SetOptions.merge()).await()
@@ -198,36 +210,8 @@ class SyncCoordinator(
                 Log.d("TikoSync", "Profile doc written successfully")
             }
         } catch (e: Exception) {
-            Log.w("TikoProfile", "Failed to write profile document: ${e.message}", e)
-        }
-    }
-
-    fun updateAvatar(avatarId: String?) {
-        if (avatarId != null) {
-            preferences.setAvatarId(avatarId)
-        }
-        val uid = try {
-            FirebaseAuth.getInstance().currentUser?.uid
-        } catch (_: Throwable) {
-            null
-        } ?: activeUserId ?: try { authProvider()?.currentUser?.uid } catch (_: Throwable) { null } ?: return
-
-        if (uid.isBlank()) return
-
-        scope.launch {
-            try {
-                val firestore = firestoreProvider() ?: return@launch
-                val userDocRef = firestore.collection("users").document(uid)
-                val data = mutableMapOf<String, Any>(
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-                if (avatarId != null) {
-                    data["avatarId"] = avatarId
-                }
-                userDocRef.set(data, SetOptions.merge()).await()
-                Log.d("TikoProfile", "Successfully saved avatarId '$avatarId' to users/$uid")
-            } catch (e: Exception) {
-                Log.w("TikoProfile", "Failed to write avatarId to Firestore: ${e.message}", e)
+            if (BuildConfig.DEBUG) {
+                Log.e("TikoSync", "Failed to write profile document: ${e.message}")
             }
         }
     }
@@ -240,9 +224,7 @@ class SyncCoordinator(
         syncManager.deleteAllUserTasks(userId)
         try {
             firestoreProvider()?.collection("users")?.document(userId)?.delete()?.await()
-        } catch (e: Exception) {
-            Log.w("TikoProfile", "Failed to delete user profile document: ${e.message}", e)
-        }
+        } catch (_: Exception) {}
     }
 
     companion object {

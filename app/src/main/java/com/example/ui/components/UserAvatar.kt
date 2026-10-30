@@ -73,11 +73,14 @@ fun getAvatarById(id: String?): AvatarOption? {
 
 /**
  * Reusable user avatar composable.
- * - Respects avatarId values:
- *   - "google": shows the Google photo (with initial as fallback)
- *   - "initial": shows the letter circle
- *   - emoji id (e.g. "cat"): shows that emoji avatar
- *   - empty or missing: default, which is Google photo for Google users and letter circle for email users
+ * - When an avatarId is saved/provided, displays that preset avatar (emoji on colored circle).
+ * - With no avatarId:
+ *   - For Google users: loads their photo (FirebaseAuth.currentUser.photoUrl) via Coil.
+ *     Upgrades '=s96-c' URLs to '=s400-c' for crisp high-resolution rendering.
+ *     While loading or on failure, falls back to the yellow circle with first initial.
+ *   - For Email/Password users: displays the yellow circle with their first initial.
+ * - Handles null/blank names, photos, or avatar IDs safely without crashing.
+ * - Supports optional onClick or custom modifier with click listener bounded to the circle.
  */
 @Composable
 fun UserAvatar(
@@ -137,8 +140,6 @@ fun UserAvatar(
         null
     }
 
-    val isGoogleUser = currentUser?.providerData?.any { it.providerId == "google.com" } == true
-
     val effectiveName = name?.ifBlank { null }
         ?: currentUser?.displayName?.ifBlank { null }
         ?: currentUser?.email?.ifBlank { null }
@@ -161,13 +162,14 @@ fun UserAvatar(
 
     val initial = effectiveName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: ""
 
-    val shouldShowGooglePhoto = when (effectiveAvatarId?.trim()?.lowercase()) {
-        "google" -> true
-        "initial" -> false
-        else -> isGoogleUser && !highResPhotoUrl.isNullOrBlank()
-    }
-
-    if (shouldShowGooglePhoto && !highResPhotoUrl.isNullOrBlank()) {
+    if (highResPhotoUrl.isNullOrBlank()) {
+        InitialAvatarFallback(
+            size = size,
+            initial = initial,
+            fontSize = fontSize,
+            modifier = combinedModifier
+        )
+    } else {
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(highResPhotoUrl)
@@ -193,13 +195,6 @@ fun UserAvatar(
                     fontSize = fontSize
                 )
             }
-        )
-    } else {
-        InitialAvatarFallback(
-            size = size,
-            initial = initial,
-            fontSize = fontSize,
-            modifier = combinedModifier
         )
     }
 }

@@ -47,7 +47,6 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.TrackChanges
-import android.util.Log
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -57,7 +56,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.zIndex
@@ -809,6 +807,7 @@ fun SettingsScreen(
         ChooseAvatarBottomSheet(
             selectedAvatarId = avatarId,
             onAvatarSelected = { newId ->
+                // null means "reset to default" (Google photo or initials)
                 preferences.setAvatarId(newId)
                 showAvatarSheet = false
             },
@@ -1421,7 +1420,8 @@ fun ChooseAvatarBottomSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     selectedAvatarId: String? = null,
-    onAvatarSelected: ((String) -> Unit)? = null
+    // null means "reset to default" (Google photo for Google users, initials for email users)
+    onAvatarSelected: ((String?) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1431,8 +1431,16 @@ fun ChooseAvatarBottomSheet(
     val savedAvatarId by userPrefs.avatarId.collectAsState()
     val activeAvatarId = selectedAvatarId ?: savedAvatarId
 
-    LaunchedEffect(Unit) {
-        Log.d("TikoAvatar", "sheet opened")
+    // Determine if the signed-in user has a Google profile photo
+    val googlePhotoUrl: String? = remember {
+        try {
+            val raw = com.google.firebase.auth.FirebaseAuth.getInstance()
+                .currentUser?.photoUrl?.toString()?.ifBlank { null }
+            // Upgrade low-res Google URLs for display in the picker
+            raw?.replace("=s96-c", "=s400-c")
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     ModalBottomSheet(
@@ -1467,7 +1475,58 @@ fun ChooseAvatarBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 12 avatars in 4 columns by 3 rows
+            // ── Default options row ────────────────────────────────────────
+            // Shown above the emoji grid. "null" avatarId means one of these
+            // two default options is active.
+            val isDefault = activeAvatarId == null
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Google photo — only shown for Google/OAuth users that have a photoUrl
+                if (googlePhotoUrl != null) {
+                    DefaultAvatarItem(
+                        label = "Google photo",
+                        isSelected = isDefault,
+                        onClick = {
+                            if (onAvatarSelected != null) onAvatarSelected(null)
+                            else { userPrefs.setAvatarId(null); onDismiss() }
+                        }
+                    ) {
+                        // Show actual Google photo in the circle
+                        coil.compose.SubcomposeAsyncImage(
+                            model = coil.request.ImageRequest.Builder(context)
+                                .data(googlePhotoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Google photo",
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            loading = { InitialsCircle(context) },
+                            error = { InitialsCircle(context) }
+                        )
+                    }
+                } else {
+                    // Email/password or guest user — show "My initials" as the only default
+                    DefaultAvatarItem(
+                        label = "My initials",
+                        isSelected = isDefault,
+                        onClick = {
+                            if (onAvatarSelected != null) onAvatarSelected(null)
+                            else { userPrefs.setAvatarId(null); onDismiss() }
+                        }
+                    ) {
+                        InitialsCircle(context)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ── Emoji preset grid ──────────────────────────────────────────
             PresetAvatars.chunked(4).forEachIndexed { rowIndex, rowAvatars ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1495,6 +1554,89 @@ fun ChooseAvatarBottomSheet(
                 }
             }
         }
+    }
+}
+
+/** Small circle showing the current user's first initial on yellow, used inside the default option tiles. */
+@Composable
+private fun InitialsCircle(context: android.content.Context) {
+    val name: String = remember(context) {
+        try {
+            val fb = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            fb?.displayName?.ifBlank { null }
+                ?: fb?.email?.substringBefore("@")?.ifBlank { null }
+                ?: UserPreferences(context).userName.value
+        } catch (_: Throwable) {
+            UserPreferences(context).userName.value
+        }
+    }
+    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: ""
+    Box(
+        modifier = Modifier
+            .size(64.dp)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(Color(0xFFFFB92E)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (initial.isNotBlank()) {
+            Text(
+                text = initial,
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 26.sp,
+                color = Color(0xFF151515)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Person,
+                contentDescription = null,
+                tint = Color(0xFF151515),
+                modifier = Modifier.size(32.dp)
+            )
+        }
+    }
+}
+
+/**
+ * A labelled tile used for the "Google photo" and "My initials" default options.
+ * [content] is the 64dp circle rendered inside.
+ */
+@Composable
+private fun DefaultAvatarItem(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .testTag("avatar_option_default_${label.lowercase().replace(' ', '_')}")
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .then(
+                    if (isSelected) Modifier.border(3.dp, Color(0xFF6B4EFF), androidx.compose.foundation.shape.CircleShape)
+                    else Modifier
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            content()
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            fontFamily = OutfitFontFamily,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 12.sp,
+            color = if (isSelected) Color(0xFF6B4EFF) else Color(0xFF6B6B6B),
+            textAlign = TextAlign.Center
+        )
     }
 }
 

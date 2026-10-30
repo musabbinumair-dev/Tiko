@@ -11,8 +11,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-sealed class DownloadState {
-    object Idle : DownloadState()
+sealed class DownloadState : java.io.Serializable {
+    data object Idle : DownloadState()
     data class Downloading(val progressPercent: Int) : DownloadState()
     data class Failed(val reason: String) : DownloadState()
     data class Downloaded(val file: File) : DownloadState()
@@ -23,7 +23,16 @@ object UpdateDownloader {
     const val APK_URL = "https://github.com/musabbinumair-dev/Tiko/releases/latest/download/tiko.apk"
 
     fun getUpdateFile(context: Context): File {
-        val dir = context.getExternalFilesDir(null) ?: context.cacheDir
+        val dir = try {
+            context.getExternalFilesDir(null) ?: context.cacheDir ?: context.filesDir
+        } catch (_: Throwable) {
+            context.cacheDir ?: context.filesDir
+        }
+        try {
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+        } catch (_: Throwable) {}
         return File(dir, "tiko-update.apk")
     }
 
@@ -32,10 +41,17 @@ object UpdateDownloader {
         expectedVersionCode: Long,
         onProgress: (Int) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        val updateFile = getUpdateFile(context)
-        if (updateFile.exists()) {
-            updateFile.delete()
+        val updateFile = try {
+            getUpdateFile(context)
+        } catch (e: Throwable) {
+            return@withContext Result.failure(Exception("Cannot access storage: ${e.message}", e))
         }
+
+        try {
+            if (updateFile.exists()) {
+                updateFile.delete()
+            }
+        } catch (_: Throwable) {}
 
         var currentUrl = APK_URL
         var redirects = 0
@@ -52,19 +68,27 @@ object UpdateDownloader {
                     setRequestProperty("User-Agent", "Tiko-Android-Downloader")
                 }
 
-                val statusCode = connection.responseCode
+                val statusCode = try {
+                    connection.responseCode
+                } catch (e: Throwable) {
+                    try { connection.disconnect() } catch (_: Throwable) {}
+                    throw IOException("Network error: ${e.message}", e)
+                }
+
                 if (statusCode in 300..399) {
                     val location = connection.getHeaderField("Location")
                         ?: throw IOException("HTTP $statusCode redirect missing Location header")
-                    connection.disconnect()
+                    try { connection.disconnect() } catch (_: Throwable) {}
                     currentUrl = location
                     redirects++
                     continue
                 }
 
                 if (statusCode !in 200..299) {
-                    val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-                    connection.disconnect()
+                    val err = try {
+                        connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    } catch (_: Throwable) { "" }
+                    try { connection.disconnect() } catch (_: Throwable) {}
                     throw IOException("HTTP $statusCode ${connection.responseMessage}$err")
                 }
 
@@ -86,68 +110,83 @@ object UpdateDownloader {
                             val percent = ((bytesDownloaded * 100) / fileLength).toInt().coerceIn(0, 100)
                             if (percent != lastReportedPercent) {
                                 lastReportedPercent = percent
-                                onProgress(percent)
+                                try {
+                                    onProgress(percent)
+                                } catch (_: Throwable) {}
                             }
                         }
                         bytesRead = inputStream.read(buffer)
                     }
                     outputStream.flush()
                 } finally {
-                    inputStream.close()
-                    outputStream.close()
-                    connection.disconnect()
+                    try { inputStream.close() } catch (_: Throwable) {}
+                    try { outputStream.close() } catch (_: Throwable) {}
+                    try { connection.disconnect() } catch (_: Throwable) {}
                 }
                 break
             }
 
             // Validate package archive
-            val validationError = validateApk(context, updateFile, expectedVersionCode)
+            val validationError = try {
+                validateApk(context, updateFile, expectedVersionCode)
+            } catch (e: Throwable) {
+                "Failed to validate APK: ${e.message}"
+            }
+
             if (validationError != null) {
-                if (updateFile.exists()) updateFile.delete()
+                try {
+                    if (updateFile.exists()) updateFile.delete()
+                } catch (_: Throwable) {}
                 return@withContext Result.failure(IOException(validationError))
             }
 
             Result.success(updateFile)
-        } catch (e: Exception) {
-            if (updateFile.exists()) {
-                updateFile.delete()
-            }
-            Result.failure(e)
+        } catch (e: Throwable) {
+            try {
+                if (updateFile.exists()) {
+                    updateFile.delete()
+                }
+            } catch (_: Throwable) {}
+            Result.failure(if (e is Exception) e else Exception(e.message ?: "Download failed", e))
         }
     }
 
     private fun validateApk(context: Context, file: File, expectedVersionCode: Long): String? {
-        if (!file.exists() || file.length() == 0L) {
-            return "Downloaded file is empty or missing"
-        }
-        val pm = context.packageManager
-        val pkgInfo = try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                pm.getPackageArchiveInfo(file.absolutePath, PackageManager.PackageInfoFlags.of(0L))
+        try {
+            if (!file.exists() || file.length() == 0L) {
+                return "Downloaded file is empty or missing"
+            }
+            val pm = context.packageManager ?: return "PackageManager unavailable"
+            val pkgInfo = try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    pm.getPackageArchiveInfo(file.absolutePath, PackageManager.PackageInfoFlags.of(0L))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageArchiveInfo(file.absolutePath, 0)
+                }
+            } catch (e: Throwable) {
+                return "Failed to parse APK: ${e.message}"
+            } ?: return "Invalid APK package archive"
+
+            val packageName = pkgInfo.packageName
+            if (packageName != "com.musab.tiko") {
+                return "Invalid package name: $packageName"
+            }
+
+            val apkVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                pkgInfo.longVersionCode
             } else {
                 @Suppress("DEPRECATION")
-                pm.getPackageArchiveInfo(file.absolutePath, 0)
+                pkgInfo.versionCode.toLong()
             }
-        } catch (e: Exception) {
-            return "Failed to parse APK: ${e.message}"
-        } ?: return "Invalid APK package archive"
 
-        val packageName = pkgInfo.packageName
-        if (packageName != "com.musab.tiko") {
-            return "Invalid package name: $packageName"
+            if (apkVersionCode < expectedVersionCode) {
+                return "APK version ($apkVersionCode) is lower than expected ($expectedVersionCode)"
+            }
+
+            return null
+        } catch (e: Throwable) {
+            return "Failed to validate APK: ${e.message}"
         }
-
-        val apkVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-            pkgInfo.longVersionCode
-        } else {
-            @Suppress("DEPRECATION")
-            pkgInfo.versionCode.toLong()
-        }
-
-        if (apkVersionCode < expectedVersionCode) {
-            return "APK version ($apkVersionCode) is lower than expected ($expectedVersionCode)"
-        }
-
-        return null
     }
 }

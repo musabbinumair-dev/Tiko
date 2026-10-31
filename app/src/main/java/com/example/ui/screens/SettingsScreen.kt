@@ -42,6 +42,8 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import com.example.data.update.UpdateChecker
+import com.example.data.update.UpdateResult
 import com.example.ui.theme.TikoDialog
 import com.example.ui.theme.TikoTextField
 import com.example.ui.theme.TikoPrimaryButton
@@ -840,7 +842,7 @@ fun SettingsScreen(
             item {
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = "Version ${BuildConfig.VERSION_NAME}",
+                    text = "Version ${BuildConfig.VERSION_NAME} • Check for updates",
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp,
@@ -848,6 +850,31 @@ fun SettingsScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable {
+                            scope.launch {
+                                AppToastController.show("Checking for updates…", ToastType.Info)
+                                when (val result = UpdateChecker.check()) {
+                                    is UpdateResult.UpdateAvailable -> {
+                                        AppToastController.show(
+                                            "Update ${result.versionName} ready!",
+                                            ToastType.Success
+                                        )
+                                    }
+                                    is UpdateResult.UpToDate -> {
+                                        AppToastController.show(
+                                            "Tiko is up to date (${BuildConfig.VERSION_NAME})",
+                                            ToastType.Success
+                                        )
+                                    }
+                                    is UpdateResult.CheckFailed -> {
+                                        AppToastController.show(
+                                            "Check failed: ${result.reason}",
+                                            ToastType.Error
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         .testTag("profile_app_version")
                 )
             }

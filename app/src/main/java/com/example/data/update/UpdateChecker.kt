@@ -55,14 +55,6 @@ object UpdateChecker {
     }
 
     suspend fun check(): UpdateResult = withContext(Dispatchers.IO) {
-        if (com.musab.tiko.BuildConfig.DEBUG) {
-            val upToDate = UpdateResult.UpToDate
-            try {
-                _result.value = upToDate
-            } catch (_: Throwable) {}
-            return@withContext upToDate
-        }
-
         val checkResult = try {
             val responseBody = fetchWithRedirects(UPDATE_URL)
             parseAndCompare(responseBody)

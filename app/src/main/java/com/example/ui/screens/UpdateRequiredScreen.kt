@@ -167,12 +167,16 @@ fun UpdateRequiredScreen(
         }
     }
 
-    // Prevent closing via system back button; minimize app instead
+    // Allow dismissing update screen on system back if onError handler provided
     BackHandler(enabled = true) {
-        try {
-            activity?.moveTaskToBack(true)
-        } catch (_: Throwable) {
-            // Ignore
+        if (onError != null) {
+            onError.invoke()
+        } else {
+            try {
+                activity?.moveTaskToBack(true)
+            } catch (_: Throwable) {
+                // Ignore
+            }
         }
     }
 
@@ -420,6 +424,19 @@ fun UpdateRequiredScreen(
                                 color = buttonTextColor
                             )
                         }
+                        if (onError != null) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "Remind me later",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                color = textSecondary,
+                                modifier = Modifier
+                                    .clickable { onError.invoke() }
+                                    .testTag("update_later_button")
+                            )
+                        }
                     }
                     is DownloadState.Downloading -> {
                         Box(
@@ -601,6 +618,19 @@ fun UpdateRequiredScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
                                     color = buttonTextColor
+                                )
+                            }
+                            if (onError != null) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "Remind me later",
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 15.sp,
+                                    color = textSecondary,
+                                    modifier = Modifier
+                                        .clickable { onError.invoke() }
+                                        .testTag("update_installed_later_button")
                                 )
                             }
                         }

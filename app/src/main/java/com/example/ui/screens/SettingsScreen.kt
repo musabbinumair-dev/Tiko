@@ -330,7 +330,7 @@ fun SettingsScreen(
             item {
                 Spacer(modifier = Modifier.height(10.dp))
                 val user = currentUser
-                val displayName = user?.displayName ?: userName.ifBlank { "Guest" }
+                val displayName = user?.displayName?.ifBlank { null } ?: userName.ifBlank { null } ?: "User"
                 val displayEmail = user?.email ?: userEmail.ifBlank { "user@example.com" }
                 Column(
                     modifier = Modifier.fillMaxWidth(),

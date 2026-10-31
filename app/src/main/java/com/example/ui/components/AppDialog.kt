@@ -2,31 +2,43 @@ package com.example.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
@@ -34,7 +46,9 @@ import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,9 +57,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -55,11 +72,12 @@ import com.example.ui.theme.TikoDialog
 import com.example.ui.theme.TikoPrimaryButton
 import com.example.ui.theme.TikoSecondaryButton
 import com.example.ui.theme.TikoDestructiveButton
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -238,46 +256,48 @@ object AppDialogController {
 @Composable
 fun AppOverlayHost(modifier: Modifier = Modifier) {
     val dialog = AppDialogController.currentDialog
+    val bottomSheetDialog = dialog?.asBottomSheet()
+
+    // Keep the last bottom sheet in composition long enough to play its exit animation.
+    var sheetData by remember { mutableStateOf<DialogData?>(null) }
+    var sheetVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(bottomSheetDialog) {
+        if (bottomSheetDialog != null) {
+            sheetData = bottomSheetDialog
+            sheetVisible = true
+        } else if (sheetData != null) {
+            sheetVisible = false
+            delay(SheetExitDurationMillis + 20L)
+            sheetData = null
+        }
+    }
+
+    BackHandler(enabled = dialog != null) {
+        AppDialogController.dismiss()
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .zIndex(9999f)
     ) {
-        // 1. Dialog Host
-        if (dialog != null) {
-            BackHandler {
-                AppDialogController.dismiss()
+        // 1. Bottom sheet dialogs (draggable, animated, dismiss on outside tap)
+        when (val data = sheetData) {
+            is DialogData.DeleteAccount -> {
+                DeleteAccountBottomSheet(data = data, visible = sheetVisible)
             }
+            is DialogData.Logout -> {
+                LogoutBottomSheet(data = data, visible = sheetVisible)
+            }
+            else -> Unit
+        }
+
+        // 2. Centered dialogs
+        if (dialog != null && bottomSheetDialog == null) {
             when (dialog) {
-                is DialogData.DeleteAccount -> {
-                    DeleteAccountBottomSheet(data = dialog)
-                }
-                is DialogData.Logout -> {
-                    LogoutBottomSheet(data = dialog)
-                }
                 is DialogData.Confirm -> {
-                    if (dialog.title.contains("delete account", ignoreCase = true)) {
-                        DeleteAccountBottomSheet(
-                            data = DialogData.DeleteAccount(
-                                onConfirm = dialog.onConfirm,
-                                onCancel = dialog.onCancel
-                            )
-                        )
-                    } else if (dialog.title.contains("log out", ignoreCase = true) || dialog.title.contains("logout", ignoreCase = true)) {
-                        LogoutBottomSheet(
-                            data = DialogData.Logout(
-                                title = "Log out?",
-                                message = "Are you sure you want to log out\nfrom your account?",
-                                confirmText = dialog.confirmText,
-                                cancelText = dialog.cancelText,
-                                onConfirm = dialog.onConfirm,
-                                onCancel = dialog.onCancel
-                            )
-                        )
-                    } else {
-                        ConfirmDialogCard(data = dialog)
-                    }
+                    ConfirmDialogCard(data = dialog)
                 }
                 is DialogData.Alert -> {
                     AlertPopupCard(data = dialog)
@@ -306,12 +326,34 @@ fun AppOverlayHost(modifier: Modifier = Modifier) {
                         }
                     }
                 }
+                else -> Unit
             }
         }
 
-        // 2. Toast Host (slides in from the top)
+        // 3. Toast Host (slides in from the top)
         AppToastHost()
     }
+}
+
+private fun DialogData.asBottomSheet(): DialogData? = when (this) {
+    is DialogData.DeleteAccount -> this
+    is DialogData.Logout -> this
+    is DialogData.Confirm -> when {
+        title.contains("delete account", ignoreCase = true) -> DialogData.DeleteAccount(
+            onConfirm = onConfirm,
+            onCancel = onCancel
+        )
+        title.contains("log out", ignoreCase = true) || title.contains("logout", ignoreCase = true) -> DialogData.Logout(
+            title = "Log out?",
+            message = "Are you sure you want to log out\nfrom your account?",
+            confirmText = confirmText,
+            cancelText = cancelText,
+            onConfirm = onConfirm,
+            onCancel = onCancel
+        )
+        else -> null
+    }
+    else -> null
 }
 
 @Composable
@@ -469,216 +511,272 @@ private fun AlertPopupCard(data: DialogData.Alert) {
     )
 }
 
-@Composable
-private fun LogoutBottomSheet(data: DialogData.Logout) {
-    val tikoColors = LocalTikoThemeColors.current
-    val isDark = tikoColors.isDark
+private const val SheetExitDurationMillis = 260L
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                AppDialogController.dismiss()
-            },
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 520.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { /* Consume clicks to prevent dismissing when tapping inside */ }
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
-                .testTag("logout_modal")
+@Composable
+private fun TikoBottomSheet(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    testTag: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val isDark = LocalTikoThemeColors.current.isDark
+    val density = LocalDensity.current
+    val dismissThresholdPx = with(density) { 96.dp.toPx() }
+
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+    val animatedDragOffset by animateFloatAsState(
+        targetValue = dragOffset,
+        animationSpec = if (isDragging) {
+            tween(0)
+        } else {
+            spring(dampingRatio = 0.82f, stiffness = 520f)
+        },
+        label = "bottomSheetDragOffset"
+    )
+
+    // Start hidden so the enter animation always plays the first time the sheet appears.
+    val backdropVisibility = remember { MutableTransitionState(false) }
+    backdropVisibility.targetState = visible
+    val sheetVisibility = remember { MutableTransitionState(false) }
+    sheetVisibility.targetState = visible
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Dimmed backdrop — fades in and out with the sheet.
+        AnimatedVisibility(
+            visibleState = backdropVisibility,
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(SheetExitDurationMillis.toInt())),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        enabled = visible
+                    ) {
+                        onDismiss()
+                    }
+            )
+        }
+
+        // Sheet — slides in/out and follows the drag gesture.
+        AnimatedVisibility(
+            visibleState = sheetVisibility,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(SheetExitDurationMillis.toInt(), easing = FastOutLinearInEasing)
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 14.dp, bottom = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .widthIn(max = 520.dp)
+                    .offset { IntOffset(0, animatedDragOffset.roundToInt()) }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragStart = { isDragging = true },
+                            onDragEnd = {
+                                isDragging = false
+                                if (dragOffset > dismissThresholdPx) {
+                                    onDismiss()
+                                } else {
+                                    dragOffset = 0f
+                                }
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                dragOffset = 0f
+                            },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffset = (dragOffset + dragAmount).coerceAtLeast(0f)
+                            }
+                        )
+                    }
+                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                    .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
+                    .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { /* Consume taps inside the sheet */ }
+                    .testTag(testTag)
             ) {
-                // Top drag handle indicator
-                Box(
-                    modifier = Modifier
-                        .width(42.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(if (isDark) Color(0xFF383838) else Color(0xFFD6D6D6))
-                )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // Logout graphic from root Logout.png
-                Image(
-                    painter = painterResource(id = R.drawable.logout_graphic),
-                    contentDescription = "Log out graphic",
-                    modifier = Modifier
-                        .size(112.dp)
-                        .testTag("logout_graphic"),
-                    contentScale = ContentScale.Fit
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Title: "Log out?"
-                Text(
-                    text = data.title,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                    color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.testTag("logout_dialog_title")
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Subtitle / message
-                Text(
-                    text = data.message,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp,
-                    color = if (isDark) Color(0xFFA8A39A) else Color(0xFF5B5B5B),
-                    textAlign = TextAlign.Center,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("logout_dialog_message")
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    content = content
                 )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // Action Buttons Row: Cancel (light pill) & Log out (black pill)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("logout_dialog_actions"),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Cancel button (light neutral pill)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF2C2C2C) else Color(0xFFF0EFEB))
-                            .clickable {
-                                data.onCancel()
-                            }
-                            .testTag("dialog_secondary_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = data.cancelText,
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
-                        )
-                    }
-
-                    // Log out button (black pill)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515))
-                            .clickable {
-                                data.onConfirm()
-                            }
-                            .testTag("dialog_primary_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = data.confirmText,
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = if (isDark) Color(0xFF151515) else Color.White
-                        )
-                    }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun DeleteAccountBottomSheet(data: DialogData.DeleteAccount) {
-    val tikoColors = LocalTikoThemeColors.current
-    val isDark = tikoColors.isDark
+private fun SheetDragHandle(isDark: Boolean) {
+    Box(
+        modifier = Modifier
+            .width(42.dp)
+            .height(4.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(if (isDark) Color(0xFF383838) else Color(0xFFD6D6D6))
+    )
+}
+
+@Composable
+private fun LogoutBottomSheet(data: DialogData.Logout, visible: Boolean) {
+    val isDark = LocalTikoThemeColors.current.isDark
+
+    TikoBottomSheet(
+        visible = visible,
+        onDismiss = { AppDialogController.dismiss() },
+        testTag = "logout_modal"
+    ) {
+        Spacer(modifier = Modifier.height(14.dp))
+
+        SheetDragHandle(isDark = isDark)
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Logout graphic from root Logout.png
+        Image(
+            painter = painterResource(id = R.drawable.logout_graphic),
+            contentDescription = "Log out graphic",
+            modifier = Modifier
+                .size(112.dp)
+                .testTag("logout_graphic"),
+            contentScale = ContentScale.Fit
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Title: "Log out?"
+        Text(
+            text = data.title,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag("logout_dialog_title")
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Subtitle / message
+        Text(
+            text = data.message,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Normal,
+            fontSize = 16.sp,
+            lineHeight = 22.sp,
+            color = if (isDark) Color(0xFFA8A39A) else Color(0xFF5B5B5B),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("logout_dialog_message")
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Action Buttons Row: Cancel (light pill) & Log out (black pill)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("logout_dialog_actions"),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Cancel button (light neutral pill)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(54.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF2C2C2C) else Color(0xFFF0EFEB))
+                    .clickable {
+                        data.onCancel()
+                    }
+                    .testTag("dialog_secondary_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = data.cancelText,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+                )
+            }
+
+            // Log out button (black pill)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(54.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515))
+                    .clickable {
+                        data.onConfirm()
+                    }
+                    .testTag("dialog_primary_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = data.confirmText,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = if (isDark) Color(0xFF151515) else Color.White
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+    }
+}
+
+@Composable
+private fun DeleteAccountBottomSheet(data: DialogData.DeleteAccount, visible: Boolean) {
+    val isDark = LocalTikoThemeColors.current.isDark
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
     var confirmInput by remember { mutableStateOf("") }
     val isConfirmed = confirmInput.trim().equals("DELETE", ignoreCase = true)
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                AppDialogController.dismiss()
-            },
-        contentAlignment = Alignment.BottomCenter
+    TikoBottomSheet(
+        visible = visible,
+        onDismiss = { AppDialogController.dismiss() },
+        testTag = "delete_account_modal"
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 520.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { /* Consume clicks to prevent dismissing when tapping inside */ }
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(if (isDark) Color(0xFF1E1E1E) else Color.White)
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
-                .testTag("delete_account_modal")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Top row with round Close 'X' button on the right
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF2C2C2C) else Color(0xFFEEEEEE))
-                            .clickable {
-                                data.onCancel()
-                            }
-                            .testTag("delete_account_close_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = "Close",
-                            tint = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+        Spacer(modifier = Modifier.height(14.dp))
 
+        SheetDragHandle(isDark = isDark)
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // Collapse the illustration while the keyboard is open so the whole
+        // confirmation form stays visible above the IME.
+        AnimatedVisibility(
+            visible = !imeVisible,
+            enter = fadeIn(animationSpec = tween(160)) + expandVertically(animationSpec = tween(220)),
+            exit = fadeOut(animationSpec = tween(140)) + shrinkVertically(animationSpec = tween(220))
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Delete graphic from root Delete.png
@@ -686,153 +784,153 @@ private fun DeleteAccountBottomSheet(data: DialogData.DeleteAccount) {
                     painter = painterResource(id = R.drawable.delete_graphic),
                     contentDescription = "Delete account graphic",
                     modifier = Modifier
-                        .size(114.dp)
+                        .size(112.dp)
                         .testTag("delete_account_graphic"),
                     contentScale = ContentScale.Fit
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
-
-                // Title: "DELETE ACCOUNT?"
-                Text(
-                    text = data.title,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 28.sp,
-                    color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515),
-                    textAlign = TextAlign.Center,
-                    letterSpacing = (-0.5).sp,
-                    modifier = Modifier.testTag("delete_account_dialog_title")
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Subtitle / message
-                Text(
-                    text = data.message,
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp,
-                    color = if (isDark) Color(0xFFA8A39A) else Color(0xFF5A5A5A),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .testTag("delete_account_dialog_message")
-                )
-
-                Spacer(modifier = Modifier.height(22.dp))
-
-                // Pill confirmation input: "Type DELETE"
-                BasicTextField(
-                    value = confirmInput,
-                    onValueChange = { confirmInput = it },
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp,
-                        color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
-                    ),
-                    cursorBrush = SolidColor(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)),
-                    decorationBox = { innerTextField ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(54.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0EFEB))
-                                .padding(horizontal = 20.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (confirmInput.isEmpty()) {
-                                Text(
-                                    text = "Type DELETE",
-                                    fontFamily = OutfitFontFamily,
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 16.sp,
-                                    color = if (isDark) Color(0xFF777777) else Color(0xFF8E8E93)
-                                )
-                            }
-                            innerTextField()
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("delete_confirm_input")
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Action Buttons Row: Cancel (light pill) & Delete Account (black pill)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("delete_account_dialog_actions"),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Cancel button (light neutral pill)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF2C2C2C) else Color(0xFFF0EFEB))
-                            .clickable {
-                                data.onCancel()
-                            }
-                            .testTag("dialog_secondary_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = data.cancelText,
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
-                        )
-                    }
-
-                    // Delete Account button (black pill)
-                    Box(
-                        modifier = Modifier
-                            .weight(1.15f)
-                            .height(54.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isConfirmed) {
-                                    if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
-                                } else {
-                                    if (isDark) Color(0xFF333333) else Color(0xFF151515).copy(alpha = 0.5f)
-                                }
-                            )
-                            .clickable {
-                                if (isConfirmed) {
-                                    data.onConfirm()
-                                } else {
-                                    AppToastController.show("Please type DELETE to confirm", ToastType.Warning)
-                                }
-                            }
-                            .testTag("dialog_primary_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = data.confirmText,
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = if (isConfirmed) {
-                                if (isDark) Color(0xFF151515) else Color.White
-                            } else {
-                                if (isDark) Color(0xFF777777) else Color.White.copy(alpha = 0.6f)
-                            }
-                        )
-                    }
-                }
             }
         }
+
+        // Title: "DELETE ACCOUNT?"
+        Text(
+            text = data.title,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag("delete_account_dialog_title")
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Subtitle / message
+        Text(
+            text = data.message,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Normal,
+            fontSize = 16.sp,
+            lineHeight = 22.sp,
+            color = if (isDark) Color(0xFFA8A39A) else Color(0xFF5B5B5B),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("delete_account_dialog_message")
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // Pill confirmation input: "Type DELETE"
+        BasicTextField(
+            value = confirmInput,
+            onValueChange = { confirmInput = it },
+            singleLine = true,
+            textStyle = TextStyle(
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 16.sp,
+                color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+            ),
+            cursorBrush = SolidColor(if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)),
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0EFEB))
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (confirmInput.isEmpty()) {
+                        Text(
+                            text = "Type DELETE",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 16.sp,
+                            color = if (isDark) Color(0xFF777777) else Color(0xFF8E8E93)
+                        )
+                    }
+                    innerTextField()
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("delete_confirm_input")
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Action Buttons Row: Cancel (light pill) & Delete Account (black pill)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("delete_account_dialog_actions"),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Cancel button (light neutral pill)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(54.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF2C2C2C) else Color(0xFFF0EFEB))
+                    .clickable {
+                        data.onCancel()
+                    }
+                    .testTag("dialog_secondary_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = data.cancelText,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+                )
+            }
+
+            // Delete Account button (black pill)
+            Box(
+                modifier = Modifier
+                    .weight(1.15f)
+                    .height(54.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isConfirmed) {
+                            if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+                        } else {
+                            if (isDark) Color(0xFF333333) else Color(0xFF151515).copy(alpha = 0.5f)
+                        }
+                    )
+                    .clickable {
+                        if (isConfirmed) {
+                            data.onConfirm()
+                        } else {
+                            AppToastController.show("Please type DELETE to confirm", ToastType.Warning)
+                        }
+                    }
+                    .testTag("dialog_primary_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = data.confirmText,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = if (isConfirmed) {
+                        if (isDark) Color(0xFF151515) else Color.White
+                    } else {
+                        if (isDark) Color(0xFF777777) else Color.White.copy(alpha = 0.6f)
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
     }
 }
 

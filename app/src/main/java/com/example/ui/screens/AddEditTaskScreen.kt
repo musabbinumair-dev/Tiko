@@ -163,8 +163,6 @@ fun AddEditTaskScreen(
 
     var showDatePickerOverlay by remember { mutableStateOf(false) }
     var showTimePickerOverlay by remember { mutableStateOf(false) }
-    val isOverlayActive = showDatePickerOverlay || showTimePickerOverlay
-    val screenBlurModifier = if (isOverlayActive) Modifier.blur(16.dp) else Modifier
 
     val handleBack = {
         if (title.isNotBlank() && existingTask == null) {
@@ -320,7 +318,6 @@ fun AddEditTaskScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .then(screenBlurModifier)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
@@ -1108,12 +1105,12 @@ fun AddEditTaskScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Custom Foodpanda-style Floating Date Picker Modal (100% Mockup match without dots)
+        // Dim backdrop — fades in/out independently of the sheet slide animation
         AnimatedVisibility(
             visible = showDatePickerOverlay,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier.fillMaxSize().zIndex(100f)
+            enter = fadeIn(animationSpec = tween(180)),
+            exit = fadeOut(animationSpec = tween(180)),
+            modifier = Modifier.fillMaxSize().zIndex(99f)
         ) {
             Box(
                 modifier = Modifier
@@ -1122,7 +1119,19 @@ fun AddEditTaskScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { showDatePickerOverlay = false },
+                    ) { /* only drag-down closes; backdrop tap does nothing */ }
+            )
+        }
+
+        // Custom Foodpanda-style Floating Date Picker Modal (100% Mockup match without dots)
+        AnimatedVisibility(
+            visible = showDatePickerOverlay,
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it }),
+            modifier = Modifier.fillMaxSize().zIndex(100f)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 TikoFloatingDatePickerModal(
@@ -1226,6 +1235,8 @@ fun TikoFloatingDatePickerModal(
         SimpleDateFormat("MMMM yyyy", Locale.US).format(displayedCalendar.time)
     }
 
+    // Build a flat list of 42 cells (6 rows × 7) — always the same count so the
+    // card never changes height when switching between 4-week and 6-week months.
     val gridWeeks = remember(displayedCalendar) {
         val weeks = mutableListOf<List<TikoCalendarDay>>()
         val cal = (displayedCalendar.clone() as Calendar).apply {
@@ -1235,72 +1246,33 @@ fun TikoFloatingDatePickerModal(
         val daysInCurrentMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
         val prevDaysCount = (firstDayOfWeek + 5) % 7
 
-        val prevCal = (cal.clone() as Calendar).apply {
-            add(Calendar.MONTH, -1)
-        }
+        val prevCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
         val daysInPrevMonth = prevCal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
         val allCells = mutableListOf<TikoCalendarDay>()
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
         for (i in (daysInPrevMonth - prevDaysCount + 1)..daysInPrevMonth) {
-            val dCal = (prevCal.clone() as Calendar).apply {
-                set(Calendar.DAY_OF_MONTH, i)
-            }
+            val dCal = (prevCal.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, i) }
             allCells.add(TikoCalendarDay(i, false, sdf.format(dCal.time)))
         }
-
         for (i in 1..daysInCurrentMonth) {
-            val dCal = (cal.clone() as Calendar).apply {
-                set(Calendar.DAY_OF_MONTH, i)
-            }
+            val dCal = (cal.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, i) }
             allCells.add(TikoCalendarDay(i, true, sdf.format(dCal.time)))
         }
-
-        val trailing = (7 - (allCells.size % 7)) % 7
-        if (trailing > 0) {
-            val nextCal = (cal.clone() as Calendar).apply {
-                add(Calendar.MONTH, 1)
-            }
-            for (i in 1..trailing) {
-                val dCal = (nextCal.clone() as Calendar).apply {
-                    set(Calendar.DAY_OF_MONTH, i)
-                }
-                allCells.add(TikoCalendarDay(i, false, sdf.format(dCal.time)))
-            }
+        // Always pad to exactly 42 cells (6 rows) so height is constant
+        val nextCal = (cal.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+        var nextDay = 1
+        while (allCells.size < 42) {
+            val dCal = (nextCal.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, nextDay++) }
+            allCells.add(TikoCalendarDay(nextDay - 1, false, sdf.format(dCal.time)))
         }
 
         allCells.chunked(7).forEach { weeks.add(it) }
         weeks
     }
 
-    val todayCal = Calendar.getInstance()
-    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val todayStr = sdf.format(todayCal.time)
-
-    val tomorrowCal = (todayCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
-    val tomorrowStr = sdf.format(tomorrowCal.time)
-
-    val thisWeekCal = (todayCal.clone() as Calendar).apply {
-        val currentDow = get(Calendar.DAY_OF_WEEK)
-        val daysUntilSunday = if (currentDow == Calendar.SUNDAY) 0 else (8 - currentDow)
-        add(Calendar.DAY_OF_YEAR, daysUntilSunday)
-    }
-    val thisWeekStr = sdf.format(thisWeekCal.time)
-
-    val nextWeekCal = (todayCal.clone() as Calendar).apply {
-        val currentDow = get(Calendar.DAY_OF_WEEK)
-        val daysUntilNextMonday = if (currentDow == Calendar.SUNDAY) 1 else (9 - currentDow)
-        add(Calendar.DAY_OF_YEAR, daysUntilNextMonday)
-    }
-    val nextWeekStr = sdf.format(nextWeekCal.time)
-
-    val quickOptions = listOf(
-        Triple("Today", todayStr, todayCal),
-        Triple("Tomorrow", tomorrowStr, tomorrowCal),
-        Triple("This week", thisWeekStr, thisWeekCal),
-        Triple("Next week", nextWeekStr, nextWeekCal)
-    )
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
 
     BackHandler { onDismiss() }
 
@@ -1314,12 +1286,14 @@ fun TikoFloatingDatePickerModal(
             .padding(bottom = 20.dp)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
+                    onDragEnd = { dragOffsetY = 0f },
+                    onDragCancel = { dragOffsetY = 0f },
                     onVerticalDrag = { _, dragAmount ->
                         if (dragAmount > 0) {
                             dragOffsetY += dragAmount
-                            if (dragOffsetY > 100f) {
-                                onDismiss()
-                            }
+                            if (dragOffsetY > 120f) onDismiss()
+                        } else {
+                            dragOffsetY = 0f
                         }
                     }
                 )
@@ -1332,22 +1306,22 @@ fun TikoFloatingDatePickerModal(
             .clip(RoundedCornerShape(32.dp))
             .background(if (isDark) Color(0xFF1F1F1F) else AddTaskCream)
             .then(
-                if (isDark) Modifier.border(1.dp, Color(0xFF333333), RoundedCornerShape(32.dp)) else Modifier
+                if (isDark) Modifier.border(1.dp, Color(0xFF333333), RoundedCornerShape(32.dp))
+                else Modifier
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
-            ) { /* Intercept tap */ }
+            ) { /* intercept taps so they don't reach the backdrop */ }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(top = 10.dp, bottom = 20.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(top = 10.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Foodpanda style top drag handle
+            // Drag handle
             Box(
                 modifier = Modifier
                     .width(44.dp)
@@ -1358,7 +1332,6 @@ fun TikoFloatingDatePickerModal(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Title "Select date" centered (no cross icon)
             Text(
                 text = "Select date",
                 fontFamily = OutfitFontFamily,
@@ -1370,7 +1343,7 @@ fun TikoFloatingDatePickerModal(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Month navigation row: < [Month Year] >
+            // Month navigation row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1422,7 +1395,7 @@ fun TikoFloatingDatePickerModal(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Calendar Grid Card
+            // Calendar grid card — fixed height so it never resizes between months
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1431,6 +1404,7 @@ fun TikoFloatingDatePickerModal(
                     .padding(horizontal = 14.dp, vertical = 16.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
+                    // Day-of-week header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1450,11 +1424,12 @@ fun TikoFloatingDatePickerModal(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    // 6 fixed-height rows — height never changes
                     gridWeeks.forEach { week ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .height(42.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1463,7 +1438,7 @@ fun TikoFloatingDatePickerModal(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(38.dp)
+                                        .fillMaxHeight()
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
@@ -1484,7 +1459,9 @@ fun TikoFloatingDatePickerModal(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(CircleShape)
-                                                .background(if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
+                                                .background(
+                                                    if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+                                                ),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -1504,7 +1481,8 @@ fun TikoFloatingDatePickerModal(
                                                 if (isDark) Color(0xFF666666) else Color(0xFFB0B0B0)
                                             },
                                             fontFamily = OutfitFontFamily,
-                                            fontWeight = if (cell.isCurrentMonth) FontWeight.Bold else FontWeight.Medium,
+                                            fontWeight = if (cell.isCurrentMonth) FontWeight.Bold
+                                                         else FontWeight.Medium,
                                             fontSize = 15.sp
                                         )
                                     }
@@ -1515,76 +1493,9 @@ fun TikoFloatingDatePickerModal(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Quick Select Header Pill
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF2B2B2B) else Color.White)
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Quick select",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                quickOptions.forEach { (label, dateVal, targetCal) ->
-                    val isSelected = tempSelectedDate == dateVal
-                    val optionBg = if (isSelected) {
-                        CardPurple
-                    } else {
-                        if (isDark) Color(0xFF2B2B2B) else Color.White
-                    }
-                    val optionTextColor = if (isSelected) {
-                        Color.White
-                    } else {
-                        if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(CircleShape)
-                            .background(optionBg)
-                            .clickable {
-                                tempSelectedDate = dateVal
-                                displayedCalendar = (targetCal.clone() as Calendar)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = optionTextColor,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Done Button
+            // Done button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1609,7 +1520,6 @@ fun TikoFloatingDatePickerModal(
         }
     }
 }
-
 private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other
 
 @Composable

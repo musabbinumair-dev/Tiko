@@ -1197,8 +1197,6 @@ fun SettingsScreen(
     }
 }
 
-/**
- * Square-ish Stat Card (Purple, Yellow, Lime):
 // ─── Theme selector ──────────────────────────────────────────────────────────
 
 private enum class ThemeOption { Light, System, Dark }

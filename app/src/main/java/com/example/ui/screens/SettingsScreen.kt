@@ -2,7 +2,8 @@ package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import com.example.ui.theme.LocalTikoThemeColors
 import androidx.compose.foundation.Image
@@ -99,7 +100,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -1213,43 +1216,78 @@ private fun ThemeSelector(
     }
 
     val options = ThemeOption.entries.toList()
-    val trackBg  = if (isDark) Color(0xFF2A2A2A) else Color(0xFFDDD9CF)
-    val thumbBg  = if (isDark) Color(0xFF3D3D3D) else Color.White
-    val activeText  = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+    val trackBg      = if (isDark) Color(0xFF2A2A2A) else Color(0xFFDDD9CF)
+    val trackBorder  = if (isDark) Color(0xFF3A3A3A) else Color(0xFFCCC8BE)
+    val thumbTop     = if (isDark) Color(0xFFF5F1E6) else Color(0xFFFFFFFF)
+    val thumbBottom  = if (isDark) Color(0xFFE8E3D2) else Color(0xFFF6F5F2)
+    val activeText   = if (isDark) Color(0xFF151515) else Color(0xFF151515)
     val inactiveText = if (isDark) Color(0xFF666666) else Color(0xFFAAAAAA)
 
-    // Width per segment — measure based on longest label "System"
     val segmentWidth = 62.dp
     val trackHeight  = 36.dp
-    val thumbPad     = 3.dp
+    val pad          = 3.dp
 
-    val selectedIndex = options.indexOf(selected)
-    val thumbOffsetAnim by animateDpAsState(
-        targetValue = segmentWidth * selectedIndex + thumbPad,
-        animationSpec = tween(durationMillis = 250),
-        label = "theme_thumb"
+    val selectedIndex = options.indexOf(selected).toFloat()
+
+    // Dual-spring — same tuning as AppBottomNav
+    val leadIndex by animateFloatAsState(
+        targetValue = selectedIndex,
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = 420f),
+        label = "theme_lead"
+    )
+    val trailIndex by animateFloatAsState(
+        targetValue = selectedIndex,
+        animationSpec = spring(dampingRatio = 0.86f, stiffness = 280f),
+        label = "theme_trail"
     )
 
     Box(
         modifier = Modifier
             .width(segmentWidth * options.size)
             .height(trackHeight)
+            .shadow(
+                elevation = 2.dp,
+                shape = CircleShape,
+                spotColor = Color.Black.copy(alpha = if (isDark) 0.20f else 0.07f),
+                ambientColor = Color.Black.copy(alpha = if (isDark) 0.10f else 0.03f)
+            )
             .clip(CircleShape)
             .background(trackBg)
+            .border(1.dp, trackBorder, CircleShape)
             .testTag("theme_selector")
     ) {
-        // Sliding thumb
+        // Stretchy glassy thumb
+        val minIdx = minOf(leadIndex, trailIndex)
+        val maxIdx = maxOf(leadIndex, trailIndex)
+        val thumbLeft  = (minIdx * segmentWidth.value + pad.value).dp
+        val thumbWidth = (segmentWidth.value - pad.value + (maxIdx - minIdx) * segmentWidth.value).dp
+        val stretchRatio = (maxIdx - minIdx).coerceIn(0f, 1f)
+        val squishY = (1f - stretchRatio * 0.06f).coerceIn(0.92f, 1f)
+
         Box(
             modifier = Modifier
-                .padding(vertical = thumbPad)
-                .offset(x = thumbOffsetAnim)
-                .width(segmentWidth - thumbPad)
+                .padding(vertical = pad)
+                .offset(x = thumbLeft)
+                .width(thumbWidth)
                 .fillMaxHeight()
+                .graphicsLayer { scaleY = squishY }
                 .clip(CircleShape)
-                .background(thumbBg)
+                .background(
+                    Brush.verticalGradient(listOf(thumbTop, thumbBottom))
+                )
+                .border(
+                    0.5.dp,
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.9f),
+                            Color(0xFFD4D0C8).copy(alpha = 0.5f)
+                        )
+                    ),
+                    CircleShape
+                )
         )
 
-        // Labels row — on top of thumb
+        // Labels row — rendered above the thumb
         Row(modifier = Modifier.matchParentSize()) {
             options.forEach { option ->
                 Box(

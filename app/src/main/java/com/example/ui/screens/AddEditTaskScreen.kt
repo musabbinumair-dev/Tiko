@@ -12,9 +12,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +22,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraintsimport androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,6 +61,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,7 +74,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -1542,54 +1542,93 @@ fun TikoAmPmToggle(
     isDark: Boolean = false
 ) {
     val containerBg = if (isDark) Color(0xFF2B2B2B) else Color(0xFFE5E0CE)
-    val pillColor = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+    // Glassy frosted pill — light: white gradient, dark: elevated surface
+    val pillColorTop    = if (isDark) Color(0xFFF5F1E6) else Color(0xFFFFFFFF)
+    val pillColorBottom = if (isDark) Color(0xFFEAE5D4) else Color(0xFFF6F5F2)
 
-    // Animate text colors so AM/PM labels cross-fade as the pill slides — no overlap
+    // Animate text colors so AM/PM labels cross-fade as the pill slides
     val amColor by animateColorAsState(
-        targetValue = if (!isPm) (if (isDark) AddTaskBlack else Color.White)
-                      else (if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
+        targetValue = if (!isPm) (if (isDark) AddTaskBlack else AddTaskBlack)
+                      else (if (isDark) Color(0xFF888480) else Color(0xFF888480)),
         animationSpec = tween(220),
         label = "am_color"
     )
     val pmColor by animateColorAsState(
-        targetValue = if (isPm) (if (isDark) AddTaskBlack else Color.White)
-                      else (if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
+        targetValue = if (isPm) (if (isDark) AddTaskBlack else AddTaskBlack)
+                      else (if (isDark) Color(0xFF888480) else Color(0xFF888480)),
         animationSpec = tween(220),
         label = "pm_color"
     )
 
-    Box(
+    // Each segment is exactly half the track width
+    // Target index: 0 = AM, 1 = PM
+    val targetIndex = if (isPm) 1f else 0f
+
+    // Dual-spring stretchy physics — same as AppBottomNav
+    val leadIndex by animateFloatAsState(
+        targetValue = targetIndex,
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = 420f),
+        label = "ampm_lead"
+    )
+    val trailIndex by animateFloatAsState(
+        targetValue = targetIndex,
+        animationSpec = spring(dampingRatio = 0.86f, stiffness = 280f),
+        label = "ampm_trail"
+    )
+
+    BoxWithConstraints(
         modifier = Modifier
             .width(180.dp)
             .height(44.dp)
+            .shadow(
+                elevation = 4.dp,
+                shape = CircleShape,
+                spotColor = Color.Black.copy(alpha = if (isDark) 0.22f else 0.08f),
+                ambientColor = Color.Black.copy(alpha = if (isDark) 0.10f else 0.04f)
+            )
             .clip(CircleShape)
             .background(containerBg)
-            .padding(4.dp)
+            .border(1.dp, if (isDark) Color(0xFF3A3A3A) else Color(0xFFD4CFC0), CircleShape)
+            .padding(3.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        // Sliding pill — no text inside, just the background indicator
-        val selectedOffset by animateDpAsState(
-            targetValue = if (isPm) 86.dp else 0.dp,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
-            ),
-            label = "pill_offset"
-        )
+        val totalWidth = maxWidth
+        val segW = totalWidth / 2          // width per segment
+
+        val minIdx = minOf(leadIndex, trailIndex)
+        val maxIdx = maxOf(leadIndex, trailIndex)
+        val leftOffset  = (minIdx * segW.value).dp
+        val pillWidth   = segW + ((maxIdx - minIdx) * segW.value).dp
+        val stretchRatio = (maxIdx - minIdx).coerceIn(0f, 1f)
+        val squishY = (1f - stretchRatio * 0.06f).coerceIn(0.92f, 1f)
+
+        // Glassy frosted sliding pill
         Box(
             modifier = Modifier
-                .offset(x = selectedOffset)
-                .width(86.dp)
+                .offset(x = leftOffset)
+                .width(pillWidth)
                 .fillMaxHeight()
+                .graphicsLayer { scaleY = squishY }
                 .clip(CircleShape)
-                .background(pillColor)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(pillColorTop, pillColorBottom)
+                    )
+                )
+                .border(
+                    0.5.dp,
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.9f),
+                            Color(0xFFDDD9CE).copy(alpha = 0.6f)
+                        )
+                    ),
+                    CircleShape
+                )
         )
 
-        // Labels drawn above the pill — colors animate, no text duplication
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        // Labels drawn above the pill
+        Row(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
                     .weight(1f)

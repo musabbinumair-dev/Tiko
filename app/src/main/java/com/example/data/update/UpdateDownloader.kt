@@ -1,25 +1,24 @@
 package com.example.data.update
 
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.musab.tiko.BuildConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 
-sealed class DownloadState : java.io.Serializable {
+sealed class DownloadState {
     data object Idle : DownloadState()
+    data class Pending(val message: String = "Starting…") : DownloadState()
     data class Downloading(val progressPercent: Int) : DownloadState()
+    data class Paused(val message: String = "Waiting for network…") : DownloadState()
     data class Failed(val reason: String) : DownloadState()
     data class Downloaded(val file: File) : DownloadState()
 }
@@ -30,9 +29,9 @@ object UpdateDownloader {
 
     fun getUpdateFile(context: Context): File {
         val dir = try {
-            context.getExternalFilesDir(null) ?: context.cacheDir ?: context.filesDir
+            context.getExternalFilesDir("updates") ?: context.getExternalFilesDir(null) ?: context.cacheDir
         } catch (_: Throwable) {
-            context.cacheDir ?: context.filesDir
+            context.cacheDir
         }
         try {
             if (!dir.exists()) {
@@ -125,118 +124,100 @@ object UpdateDownloader {
         }
     }
 
-    suspend fun downloadApk(
-        context: Context,
-        expectedVersionCode: Long,
-        onProgress: (Int) -> Unit
-    ): Result<File> = withContext(Dispatchers.IO) {
-        val updateFile = try {
-            getUpdateFile(context)
-        } catch (e: Throwable) {
-            return@withContext Result.failure(Exception("Cannot access storage: ${e.message}", e))
-        }
-
+    fun startDownload(context: Context, expectedVersionCode: Long): Long {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        
+        // Delete old file before starting new download
+        val targetFile = getUpdateFile(context)
         try {
-            if (updateFile.exists()) {
-                updateFile.delete()
+            if (targetFile.exists()) {
+                targetFile.delete()
             }
         } catch (_: Throwable) {}
 
-        var currentUrl = APK_URL
-        var redirects = 0
-        val maxRedirects = 5
+        val request = DownloadManager.Request(Uri.parse(APK_URL)).apply {
+            setTitle("Downloading Tiko update")
+            setDescription("Tiko ${expectedVersionCode}")
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+            setDestinationUri(Uri.fromFile(targetFile))
+        }
 
-        try {
-            while (redirects < maxRedirects) {
-                val url = URL(currentUrl)
-                val connection = (url.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 15_000
-                    readTimeout = 15_000
-                    instanceFollowRedirects = true
-                    requestMethod = "GET"
-                    setRequestProperty("User-Agent", "Tiko-Android-Downloader")
+        return downloadManager.enqueue(request)
+    }
+
+    fun queryDownloadStatus(context: Context, downloadId: Long): DownloadState {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor: Cursor? = try {
+            downloadManager.query(query)
+        } catch (_: Throwable) {
+            null
+        }
+
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val bytesDownloadedIndex = it.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                val bytesTotalIndex = it.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                val reasonIndex = it.getColumnIndex(DownloadManager.COLUMN_REASON)
+
+                if (statusIndex < 0) {
+                    return DownloadState.Failed("Cannot query download status")
                 }
 
-                val statusCode = try {
-                    connection.responseCode
-                } catch (e: Throwable) {
-                    try { connection.disconnect() } catch (_: Throwable) {}
-                    throw IOException("Network error: ${e.message}", e)
-                }
+                val status = it.getInt(statusIndex)
+                val bytesDownloaded = if (bytesDownloadedIndex >= 0) it.getLong(bytesDownloadedIndex) else 0L
+                val bytesTotal = if (bytesTotalIndex >= 0) it.getLong(bytesTotalIndex) else 0L
 
-                if (statusCode in 300..399) {
-                    val location = connection.getHeaderField("Location")
-                        ?: throw IOException("HTTP $statusCode redirect missing Location header")
-                    try { connection.disconnect() } catch (_: Throwable) {}
-                    currentUrl = location
-                    redirects++
-                    continue
-                }
-
-                if (statusCode !in 200..299) {
-                    val err = try {
-                        connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-                    } catch (_: Throwable) { "" }
-                    try { connection.disconnect() } catch (_: Throwable) {}
-                    throw IOException("HTTP $statusCode ${connection.responseMessage}$err")
-                }
-
-                val fileLength = connection.contentLength
-                val inputStream = connection.inputStream
-                val outputStream = FileOutputStream(updateFile)
-
-                val buffer = ByteArray(8192)
-                var bytesDownloaded = 0L
-                var lastReportedPercent = -1
-
-                try {
-                    var bytesRead = inputStream.read(buffer)
-                    while (bytesRead != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        bytesDownloaded += bytesRead
-
-                        if (fileLength > 0) {
-                            val percent = ((bytesDownloaded * 100) / fileLength).toInt().coerceIn(0, 100)
-                            if (percent != lastReportedPercent) {
-                                lastReportedPercent = percent
-                                try {
-                                    onProgress(percent)
-                                } catch (_: Throwable) {}
-                            }
+                return when (status) {
+                    DownloadManager.STATUS_PENDING -> DownloadState.Pending()
+                    DownloadManager.STATUS_RUNNING -> {
+                        val percent = if (bytesTotal > 0) {
+                            ((bytesDownloaded * 100) / bytesTotal).toInt().coerceIn(0, 100)
+                        } else {
+                            0
                         }
-                        bytesRead = inputStream.read(buffer)
+                        DownloadState.Downloading(percent)
                     }
-                    outputStream.flush()
-                } finally {
-                    try { inputStream.close() } catch (_: Throwable) {}
-                    try { outputStream.close() } catch (_: Throwable) {}
-                    try { connection.disconnect() } catch (_: Throwable) {}
+                    DownloadManager.STATUS_PAUSED -> DownloadState.Paused()
+                    DownloadManager.STATUS_SUCCESSFUL -> {
+                        val file = getUpdateFile(context)
+                        if (file.exists()) {
+                            DownloadState.Downloaded(file)
+                        } else {
+                            DownloadState.Failed("Download completed but file not found")
+                        }
+                    }
+                    DownloadManager.STATUS_FAILED -> {
+                        val reason = if (reasonIndex >= 0) {
+                            val reasonCode = it.getInt(reasonIndex)
+                            getFailureReason(reasonCode)
+                        } else {
+                            "Download failed"
+                        }
+                        DownloadState.Failed(reason)
+                    }
+                    else -> DownloadState.Failed("Unknown download status: $status")
                 }
-                break
             }
+        }
 
-            // Validate package archive
-            val validationError = try {
-                validateApk(context, updateFile, expectedVersionCode)
-            } catch (e: Throwable) {
-                "Failed to validate APK: ${e.message}"
-            }
+        return DownloadState.Failed("Download not found")
+    }
 
-            if (validationError != null) {
-                try {
-                    if (updateFile.exists()) updateFile.delete()
-                } catch (_: Throwable) {}
-                return@withContext Result.failure(IOException(validationError))
-            }
-
-            Result.success(updateFile)
-        } catch (e: Throwable) {
-            try {
-                if (updateFile.exists()) {
-                    updateFile.delete()
-                }
-            } catch (_: Throwable) {}
-            Result.failure(if (e is Exception) e else Exception(e.message ?: "Download failed", e))
+    private fun getFailureReason(reasonCode: Int): String {
+        return when (reasonCode) {
+            DownloadManager.ERROR_CANNOT_RESUME -> "Cannot resume download"
+            DownloadManager.ERROR_DEVICE_NOT_FOUND -> "No storage device found"
+            DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "File already exists"
+            DownloadManager.ERROR_FILE_ERROR -> "Storage error"
+            DownloadManager.ERROR_HTTP_DATA_ERROR -> "HTTP data error"
+            DownloadManager.ERROR_INSUFFICIENT_SPACE -> "Insufficient storage space"
+            DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "Too many redirects"
+            DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "HTTP error"
+            DownloadManager.ERROR_UNKNOWN -> "Unknown error"
+            else -> "Download failed (code: $reasonCode)"
         }
     }
 
@@ -247,7 +228,7 @@ object UpdateDownloader {
             }
             val pm = context.packageManager ?: return "PackageManager unavailable"
             val pkgInfo = try {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     pm.getPackageArchiveInfo(file.absolutePath, PackageManager.PackageInfoFlags.of(0L))
                 } else {
                     @Suppress("DEPRECATION")
@@ -262,7 +243,7 @@ object UpdateDownloader {
                 return "Invalid package name: $packageName"
             }
 
-            val apkVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            val apkVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 pkgInfo.longVersionCode
             } else {
                 @Suppress("DEPRECATION")

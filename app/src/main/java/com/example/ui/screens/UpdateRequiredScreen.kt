@@ -32,7 +32,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +46,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.data.local.UserPreferences
 import com.example.data.update.DownloadState
 import com.example.data.update.UpdateDownloader
 import com.example.data.update.UpdateResult
@@ -55,6 +58,8 @@ import com.example.ui.components.AppToastController
 import com.example.ui.components.ToastType
 import com.example.ui.theme.OutfitFontFamily
 import com.musab.tiko.BuildConfig
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -102,10 +107,10 @@ fun UpdateRequiredScreen(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
-    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Using remember instead of rememberSaveable to avoid SaveableStateRegistry crashes on custom sealed class
+    val userPreferences = remember { UserPreferences(context) }
+    
     var downloadState by remember { mutableStateOf<DownloadState>(DownloadState.Idle) }
     var canInstallPermission by remember {
         mutableStateOf(UpdateDownloader.canRequestPackageInstalls(context))
@@ -126,23 +131,105 @@ fun UpdateRequiredScreen(
         }
     }
 
+    // Check existing download on entry/resume
     LaunchedEffect(update) {
         try {
             if (update.versionCode <= 0L) {
                 onError?.invoke()
                 return@LaunchedEffect
             }
-            // Check if already downloaded and valid
-            val existingFile = UpdateDownloader.getUpdateFile(context)
-            if (existingFile.exists() && existingFile.length() > 0L) {
-                val validationErr = UpdateDownloader.validateApk(context, existingFile, update.versionCode)
-                if (validationErr == null) {
-                    downloadState = DownloadState.Downloaded(existingFile)
-                    canInstallPermission = UpdateDownloader.canRequestPackageInstalls(context)
+
+            val savedDownloadId = userPreferences.updateDownloadId.value
+            val expectedVersionCode = userPreferences.updateExpectedVersionCode.value
+
+            if (savedDownloadId > 0 && expectedVersionCode == update.versionCode) {
+                // Resume existing download
+                val state = UpdateDownloader.queryDownloadStatus(context, savedDownloadId)
+                when (state) {
+                    is DownloadState.Downloaded -> {
+                        // Validate and prepare for install
+                        val validationErr = UpdateDownloader.validateApk(context, state.file, update.versionCode)
+                        if (validationErr == null) {
+                            downloadState = state
+                            canInstallPermission = UpdateDownloader.canRequestPackageInstalls(context)
+                        } else {
+                            // Validation failed, delete and clear
+                            try {
+                                state.file.delete()
+                            } catch (_: Throwable) {}
+                            userPreferences.clearUpdateDownload()
+                            downloadState = DownloadState.Idle
+                        }
+                    }
+                    is DownloadState.Failed -> {
+                        downloadState = state
+                    }
+                    else -> {
+                        downloadState = state
+                    }
+                }
+            } else {
+                // Check if already downloaded and valid
+                val existingFile = UpdateDownloader.getUpdateFile(context)
+                if (existingFile.exists() && existingFile.length() > 0L) {
+                    val validationErr = UpdateDownloader.validateApk(context, existingFile, update.versionCode)
+                    if (validationErr == null) {
+                        downloadState = DownloadState.Downloaded(existingFile)
+                        canInstallPermission = UpdateDownloader.canRequestPackageInstalls(context)
+                    }
                 }
             }
         } catch (_: Throwable) {
             onError?.invoke()
+        }
+    }
+
+    // Poll download progress while screen is started
+    LifecycleStartEffect(downloadState) {
+        val job = lifecycleOwner.lifecycleScope.launch {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (isActive) {
+                    val currentState = downloadState
+                    if (currentState is DownloadState.Downloading || 
+                        currentState is DownloadState.Pending || 
+                        currentState is DownloadState.Paused) {
+                        
+                        val savedDownloadId = userPreferences.updateDownloadId.value
+                        if (savedDownloadId > 0) {
+                            val newState = UpdateDownloader.queryDownloadStatus(context, savedDownloadId)
+                            
+                            // Handle state transitions
+                            when (newState) {
+                                is DownloadState.Downloaded -> {
+                                    val validationErr = UpdateDownloader.validateApk(context, newState.file, update.versionCode)
+                                    if (validationErr == null) {
+                                        downloadState = newState
+                                        triggerInstall(newState.file)
+                                    } else {
+                                        try {
+                                            newState.file.delete()
+                                        } catch (_: Throwable) {}
+                                        userPreferences.clearUpdateDownload()
+                                        downloadState = DownloadState.Failed(validationErr)
+                                    }
+                                }
+                                is DownloadState.Failed -> {
+                                    userPreferences.clearUpdateDownload()
+                                    downloadState = newState
+                                }
+                                else -> {
+                                    downloadState = newState
+                                }
+                            }
+                        }
+                    }
+                    delay(300)
+                }
+            }
+        }
+        
+        onStopOrDispose {
+            job.cancel()
         }
     }
 
@@ -183,6 +270,7 @@ fun UpdateRequiredScreen(
     val screenBg = if (isDark) DarkScreenBg else LightScreenBg
     val textPrimary = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
     val textSecondary = if (isDark) Color(0xFFA8A39A) else Color(0xFF6B6B6B)
+    val textMuted = if (isDark) Color(0xFF6B6B6B) else Color(0xFF9B9B9B)
 
     val chipInstalledBg = if (isDark) Color(0xFF242424) else Color.White
     val chipInstalledBorder = if (isDark) Color(0xFF383838) else Color(0xFFDCD8CB)
@@ -204,31 +292,10 @@ fun UpdateRequiredScreen(
 
     fun startDownload() {
         try {
-            downloadState = DownloadState.Downloading(0)
-            scope.launch {
-                try {
-                    val result = UpdateDownloader.downloadApk(
-                        context = context,
-                        expectedVersionCode = update.versionCode
-                    ) { percent ->
-                        try {
-                            downloadState = DownloadState.Downloading(percent)
-                        } catch (_: Throwable) {}
-                    }
-
-                    if (result.isSuccess) {
-                        val file = result.getOrThrow()
-                        downloadState = DownloadState.Downloaded(file)
-                        triggerInstall(file)
-                    } else {
-                        val reason = result.exceptionOrNull()?.message ?: "Unknown error"
-                        downloadState = DownloadState.Failed(reason)
-                    }
-                } catch (e: Throwable) {
-                    val reason = e.message ?: e.javaClass.simpleName
-                    downloadState = DownloadState.Failed(reason)
-                }
-            }
+            val downloadId = UpdateDownloader.startDownload(context, update.versionCode)
+            userPreferences.setUpdateDownloadId(downloadId)
+            userPreferences.setUpdateExpectedVersionCode(update.versionCode)
+            downloadState = DownloadState.Pending()
         } catch (e: Throwable) {
             val reason = e.message ?: e.javaClass.simpleName
             downloadState = DownloadState.Failed(reason)
@@ -355,7 +422,6 @@ fun UpdateRequiredScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-
                         // Release notes inside purple card (max about 6 lines, scrollable)
                         Box(
                             modifier = Modifier
@@ -438,37 +504,117 @@ fun UpdateRequiredScreen(
                             )
                         }
                     }
-                    is DownloadState.Downloading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF242424) else Color(0xFFE0DBD0))
-                                .testTag("update_downloading_box"),
-                            contentAlignment = Alignment.CenterStart
+                    is DownloadState.Pending -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            val progressFraction = (state.progressPercent / 100f).coerceIn(0f, 1f)
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(progressFraction)
+                                    .fillMaxWidth()
                                     .height(56.dp)
-                                    .background(PurplePrimary)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 20.dp),
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF242424) else Color(0xFFE0DBD0))
+                                    .testTag("update_pending_box"),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Downloading… ${state.progressPercent}%",
+                                    text = state.message,
                                     fontFamily = OutfitFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
                                     color = if (isDark) Color.White else Color(0xFF151515)
                                 )
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "You can leave the app, the download will continue.",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp,
+                                color = textMuted,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    is DownloadState.Downloading -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF242424) else Color(0xFFE0DBD0))
+                                    .testTag("update_downloading_box"),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                val progressFraction = (state.progressPercent / 100f).coerceIn(0f, 1f)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(progressFraction)
+                                        .height(56.dp)
+                                        .background(PurplePrimary)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Downloading… ${state.progressPercent}%",
+                                        fontFamily = OutfitFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = if (isDark) Color.White else Color(0xFF151515)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "You can leave the app, the download will continue.",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp,
+                                color = textMuted,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    is DownloadState.Paused -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF242424) else Color(0xFFE0DBD0))
+                                    .testTag("update_paused_box"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = state.message,
+                                    fontFamily = OutfitFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = if (isDark) Color.White else Color(0xFF151515)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "You can leave the app, the download will continue.",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp,
+                                color = textMuted,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                     is DownloadState.Failed -> {
@@ -495,7 +641,10 @@ fun UpdateRequiredScreen(
                                         .height(52.dp)
                                         .clip(CircleShape)
                                         .background(buttonBg)
-                                        .clickable { startDownload() }
+                                        .clickable { 
+                                            userPreferences.clearUpdateDownload()
+                                            startDownload() 
+                                        }
                                         .testTag("update_try_again_button"),
                                     contentAlignment = Alignment.Center
                                 ) {

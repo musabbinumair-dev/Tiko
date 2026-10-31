@@ -59,6 +59,12 @@ class UserPreferences(context: Context) {
     )
     val darkModeEnabled: StateFlow<Boolean?> = _darkModeEnabled.asStateFlow()
 
+    private val _updateDownloadId = MutableStateFlow(prefs.getLong("update_download_id", -1L))
+    val updateDownloadId: StateFlow<Long> = _updateDownloadId.asStateFlow()
+
+    private val _updateExpectedVersionCode = MutableStateFlow(prefs.getLong("update_expected_version_code", -1L))
+    val updateExpectedVersionCode: StateFlow<Long> = _updateExpectedVersionCode.asStateFlow()
+
     fun setAvatarId(id: String?) {
         if (id != null) {
             prefs.edit().putString("avatar_id", id).apply()
@@ -136,6 +142,25 @@ class UserPreferences(context: Context) {
     fun setHasShownExactAlarmNotice(shown: Boolean) {
         prefs.edit().putBoolean("has_shown_exact_alarm_notice", shown).apply()
         _hasShownExactAlarmNotice.value = shown
+    }
+
+    fun setUpdateDownloadId(downloadId: Long) {
+        prefs.edit().putLong("update_download_id", downloadId).apply()
+        _updateDownloadId.value = downloadId
+    }
+
+    fun setUpdateExpectedVersionCode(versionCode: Long) {
+        prefs.edit().putLong("update_expected_version_code", versionCode).apply()
+        _updateExpectedVersionCode.value = versionCode
+    }
+
+    fun clearUpdateDownload() {
+        prefs.edit()
+            .remove("update_download_id")
+            .remove("update_expected_version_code")
+            .apply()
+        _updateDownloadId.value = -1L
+        _updateExpectedVersionCode.value = -1L
     }
 
     fun clearUser() {

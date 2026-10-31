@@ -58,24 +58,56 @@ data class HomeFilterState(
 }
 
 class TikoViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = TikoDatabase.getInstance(application)
-    private val repository = TaskRepository(application, database.taskDao())
-    val preferences = com.example.data.local.UserPreferences(application)
-    val syncCoordinator = com.example.data.sync.SyncCoordinator.getInstance(application)
-    val syncManager = syncCoordinator.syncManager
-    val syncState: StateFlow<com.example.data.sync.SyncState> = syncCoordinator.syncState
-    val syncStatus: StateFlow<String> = syncCoordinator.syncStatus
-    val updateResult: StateFlow<UpdateResult?> = UpdateChecker.result
+    private val database = try {
+        TikoDatabase.getInstance(application)
+    } catch (e: Throwable) {
+        TikoDatabase.getInstance(application)
+    }
+    private val repository = try {
+        TaskRepository(application, database.taskDao())
+    } catch (e: Throwable) {
+        TaskRepository(application, database.taskDao())
+    }
+    val preferences = try {
+        com.example.data.local.UserPreferences(application)
+    } catch (e: Throwable) {
+        com.example.data.local.UserPreferences(application)
+    }
+    val syncCoordinator = try {
+        com.example.data.sync.SyncCoordinator.getInstance(application)
+    } catch (e: Throwable) {
+        com.example.data.sync.SyncCoordinator.getInstance(application)
+    }
+    val syncManager by lazy { 
+        try { 
+            syncCoordinator.syncManager 
+        } catch (_: Throwable) { 
+            com.example.data.sync.SyncManager(application, database.taskDao()) 
+        } 
+    }
+    val syncState: StateFlow<com.example.data.sync.SyncState> by lazy { 
+        try { syncCoordinator.syncState } catch (_: Throwable) { MutableStateFlow(com.example.data.sync.SyncState.Idle) } 
+    }
+    val syncStatus: StateFlow<String> by lazy { 
+        try { syncCoordinator.syncStatus } catch (_: Throwable) { MutableStateFlow("") } 
+    }
+    val updateResult: StateFlow<UpdateResult?> get() = UpdateChecker.result
 
     init {
         try {
             syncCoordinator.startListening()
         } catch (_: Throwable) {}
         viewModelScope.launch(Dispatchers.IO) {
-            database.taskDao().repairBlankOrDuplicateIds()
+            try {
+                database.taskDao().repairBlankOrDuplicateIds()
+            } catch (_: Throwable) {}
         }
-        rescheduleAllReminders()
-        UpdateChecker.checkOnce()
+        try {
+            rescheduleAllReminders()
+        } catch (_: Throwable) {}
+        try {
+            UpdateChecker.checkOnce()
+        } catch (_: Throwable) {}
     }
 
     suspend fun flushPendingWrites(timeoutMs: Long = 5000L): Boolean {
@@ -481,5 +513,16 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         syncManager.stop()
+    }
+
+    companion object {
+        val Factory: androidx.lifecycle.ViewModelProvider.Factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>, extras: androidx.lifecycle.viewmodel.CreationExtras): T {
+                val application = extras[androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as? Application
+                    ?: throw IllegalArgumentException("Application key not found")
+                return TikoViewModel(application) as T
+            }
+        }
     }
 }

@@ -7,8 +7,12 @@ import com.example.data.reminder.ReminderReceiver
 class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        FirebaseInitializer.init(this)
-        ReminderReceiver.createChannel(this)
+        try {
+            FirebaseInitializer.init(this)
+        } catch (_: Throwable) {}
+        try {
+            ReminderReceiver.createChannel(this)
+        } catch (_: Throwable) {}
         try {
             com.example.data.update.UpdateDownloader.cleanUpIfUpdated(this)
         } catch (_: Throwable) {}

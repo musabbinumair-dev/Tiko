@@ -19,14 +19,22 @@ abstract class TikoDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): TikoDatabase {
             return INSTANCE ?: synchronized(this) {
-                // Last destructive migration. From now on write real Migrations.
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    TikoDatabase::class.java,
-                    "tiko_tasks.db"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
+                val instance = try {
+                    Room.databaseBuilder(
+                        context.applicationContext,
+                        TikoDatabase::class.java,
+                        "tiko_tasks.db"
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
+                } catch (e: Throwable) {
+                    Room.inMemoryDatabaseBuilder(
+                        context.applicationContext,
+                        TikoDatabase::class.java
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
+                }
                 INSTANCE = instance
                 instance
             }

@@ -214,8 +214,6 @@ fun SettingsScreen(
     var editNameInput by remember { mutableStateOf(userName) }
     var editEmailInput by remember { mutableStateOf(userEmail) }
     var showLanguageDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var deletePasswordInput by remember { mutableStateOf("") }
 
     // Inline update-check status — drives the version line text, no toasts
     var updateCheckStatus by remember { mutableStateOf<String?>(null) }
@@ -817,11 +815,11 @@ fun SettingsScreen(
                             .background(if (darkModeOn) Color(0xFF242424) else Color(0xFF151515))
                             .border(1.dp, if (darkModeOn) Color(0xFF383838) else Color.Transparent, CircleShape)
                             .clickable {
-                                AppDialogController.confirm(
-                                    title = "Log Out",
-                                    message = "Are you sure you want to log out of your account?",
+                                AppDialogController.showLogout(
+                                    title = "Log out?",
+                                    message = "Are you sure you want to log out\nfrom your account?",
                                     confirmText = "Log out",
-                                    destructive = true,
+                                    cancelText = "Cancel",
                                     onConfirm = {
                                         scope.launch {
                                             val flushSuccess = viewModel.flushPendingWrites(5000L)
@@ -875,8 +873,30 @@ fun SettingsScreen(
                             .clip(CircleShape)
                             .background(Color(0xFFFF3B30))
                             .clickable {
-                                deletePasswordInput = ""
-                                showDeleteDialog = true
+                                AppDialogController.showDeleteAccount(
+                                    onConfirm = {
+                                        scope.launch {
+                                            val uid = currentUser?.uid
+                                            if (!uid.isNullOrBlank()) {
+                                                try {
+                                                    viewModel.syncCoordinator.deleteUserData(uid)
+                                                } catch (_: Exception) {
+                                                    // continue to account deletion
+                                                }
+                                            }
+                                            when (val deleteResult = authRepository.deleteAccount()) {
+                                                is AuthResult.Success -> {
+                                                    viewModel.logout()
+                                                    AppToastController.show("Account deleted", ToastType.Success)
+                                                    onNavigate(Screen.Welcome)
+                                                }
+                                                is AuthResult.Error -> {
+                                                    AppToastController.show(deleteResult.message, ToastType.Error)
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
                             }
                             .testTag("profile_delete_button"),
                         contentAlignment = Alignment.Center
@@ -1073,140 +1093,6 @@ fun SettingsScreen(
                     onClick = { showLanguageDialog = false },
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-        )
-    }
-
-    // 3. Delete Account Modal Popup Dialog
-    if (showDeleteDialog) {
-        var passwordVisible by remember { mutableStateOf(false) }
-        val tikoColors = LocalTikoThemeColors.current
-        TikoDialog(
-            title = "Delete Account",
-            onDismiss = {
-                showDeleteDialog = false
-                deletePasswordInput = ""
-            },
-            content = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .height(32.dp)
-                            .clip(CircleShape)
-                            .background(if (tikoColors.isDark) Color(0xFF3B1E1E) else Color(0xFFFFEEEE))
-                            .border(1.dp, Color(0xFFFF3B30), CircleShape)
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.DeleteOutline,
-                            contentDescription = null,
-                            tint = Color(0xFFFF3B30),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Permanent Action",
-                            fontFamily = OutfitFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color(0xFFFF3B30)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "This will permanently remove your account, profile, and all saved tasks. This cannot be undone.",
-                        fontFamily = OutfitFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 16.sp,
-                        color = tikoColors.textSecondary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    TikoTextField(
-                        value = deletePasswordInput,
-                        onValueChange = { deletePasswordInput = it },
-                        label = "Password",
-                        placeholder = "Optional if Google Sign-In",
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            val icon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                    tint = tikoColors.textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    )
-                }
-            },
-            actions = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    TikoSecondaryButton(
-                        text = "Cancel",
-                        onClick = {
-                            showDeleteDialog = false
-                            deletePasswordInput = ""
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    TikoDestructiveButton(
-                        text = "Delete",
-                        onClick = {
-                            scope.launch {
-                                val uid = currentUser?.uid
-                                val performAccountDeletion: suspend () -> Unit = {
-                                    if (!uid.isNullOrBlank()) {
-                                        try {
-                                            viewModel.syncCoordinator.deleteUserData(uid)
-                                        } catch (_: Exception) {
-                                            // continue to account deletion
-                                        }
-                                    }
-                                    when (val deleteResult = authRepository.deleteAccount()) {
-                                        is AuthResult.Success -> {
-                                            viewModel.logout()
-                                            AppToastController.show("Account deleted", ToastType.Success)
-                                            showDeleteDialog = false
-                                            onNavigate(Screen.Welcome)
-                                        }
-                                        is AuthResult.Error -> {
-                                            AppToastController.show(deleteResult.message, ToastType.Error)
-                                        }
-                                    }
-                                }
-
-                                if (deletePasswordInput.isNotBlank()) {
-                                    when (val reauth = authRepository.reauthenticate(deletePasswordInput)) {
-                                        is AuthResult.Success -> {
-                                            performAccountDeletion()
-                                        }
-                                        is AuthResult.Error -> {
-                                            performAccountDeletion()
-                                        }
-                                    }
-                                } else {
-                                    performAccountDeletion()
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
         )
     }

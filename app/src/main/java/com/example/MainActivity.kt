@@ -99,7 +99,7 @@ open class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun TikoApp(viewModel: TikoViewModel = viewModel()) {
+fun TikoApp(viewModel: TikoViewModel = viewModel(factory = TikoViewModel.Factory)) {
     val context = LocalContext.current
     val authRepository = remember(context) { AuthRepository(context) }
     val currentUser by authRepository.currentUser.collectAsState(initial = null)

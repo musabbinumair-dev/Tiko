@@ -87,7 +87,7 @@ val LocalTikoThemeColors = compositionLocalOf {
 
 @Composable
 fun rememberAnimatedTikoColors(isDark: Boolean): TikoThemeColors {
-    val duration = 380
+    val duration = 220
     val spec = tween<Color>(durationMillis = duration, easing = FastOutSlowInEasing)
 
     val screenBg by animateColorAsState(if (isDark) Color(0xFF141414) else Color(0xFFEFEBDD), spec, label = "screenBg")

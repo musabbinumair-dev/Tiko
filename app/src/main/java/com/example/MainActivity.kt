@@ -165,8 +165,8 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
 
     val view = androidx.compose.ui.platform.LocalView.current
     if (!view.isInEditMode) {
-        androidx.compose.runtime.SideEffect {
-            val window = (context as? ComponentActivity)?.window
+        val window = (context as? ComponentActivity)?.window
+        androidx.compose.runtime.LaunchedEffect(isDark) {
             if (window != null) {
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
             }

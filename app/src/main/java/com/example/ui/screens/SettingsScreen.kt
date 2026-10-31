@@ -158,6 +158,7 @@ fun SettingsScreen(
     val userEmail by preferences.userEmail.collectAsState()
     val avatarId by preferences.avatarId.collectAsState()
     val notifEnabled by preferences.notificationsEnabled.collectAsState()
+    val isGuestMode by preferences.isGuestMode.collectAsState()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as? Activity
@@ -355,9 +356,9 @@ fun SettingsScreen(
                             name = displayName,
                             size = 110.dp,
                             fontSize = 40.sp,
-                            avatarId = avatarId,
+                            avatarId = if (isGuestMode) null else avatarId,
                             onClick = {
-                                showAvatarSheet = true
+                                if (!isGuestMode) showAvatarSheet = true
                             },
                             modifier = Modifier.testTag("profile_avatar")
                         )
@@ -959,13 +960,15 @@ fun SettingsScreen(
                         label = "Name",
                         placeholder = "Enter name"
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TikoTextField(
-                        value = editEmailInput,
-                        onValueChange = { editEmailInput = it },
-                        label = "Email",
-                        placeholder = "Enter email"
-                    )
+                    if (!isGuestMode) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TikoTextField(
+                            value = editEmailInput,
+                            onValueChange = { editEmailInput = it },
+                            label = "Email",
+                            placeholder = "Enter email"
+                        )
+                    }
                 }
             },
             actions = {
@@ -982,7 +985,9 @@ fun SettingsScreen(
                         text = "Save",
                         onClick = {
                             preferences.setUserName(editNameInput.trim())
-                            preferences.setUserEmail(editEmailInput.trim())
+                            if (!isGuestMode) {
+                                preferences.setUserEmail(editEmailInput.trim())
+                            }
                             showEditProfileDialog = false
                             AppToastController.show("Profile updated", ToastType.Success)
                         },

@@ -264,6 +264,7 @@ private fun HomeHeader(
     val preferences = viewModel.preferences
     val userName by preferences.userName.collectAsState()
     val avatarId by preferences.avatarId.collectAsState()
+    val isGuestMode by preferences.isGuestMode.collectAsState()
     val displayName = if (userName.isNotBlank()) userName else "User"
 
     Row(
@@ -278,7 +279,7 @@ private fun HomeHeader(
             com.example.ui.components.UserAvatar(
                 name = userName,
                 size = 52.dp,
-                avatarId = avatarId
+                avatarId = if (isGuestMode) null else avatarId
             )
 
             Spacer(modifier = Modifier.width(12.dp))

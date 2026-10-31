@@ -1214,7 +1214,7 @@ fun SettingsScreen(
 
 // ─── Theme selector ──────────────────────────────────────────────────────────
 
-private enum class ThemeOption { Light, System, Dark }
+private enum class ThemeOption { Light, Dark, System }
 
 @Composable
 private fun ThemeSelector(
@@ -1279,10 +1279,11 @@ private fun ThemeSelector(
 
         Box(
             modifier = Modifier
+                .align(Alignment.CenterStart)
                 .padding(vertical = pad)
                 .offset(x = thumbLeft)
                 .width(thumbWidth)
-                .fillMaxHeight()
+                .height(trackHeight - pad * 2)
                 .graphicsLayer { scaleY = squishY }
                 .clip(CircleShape)
                 .background(

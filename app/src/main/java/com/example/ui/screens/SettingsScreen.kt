@@ -212,6 +212,10 @@ fun SettingsScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deletePasswordInput by remember { mutableStateOf("") }
 
+    // Inline update-check status — drives the version line text, no toasts
+    var updateCheckStatus by remember { mutableStateOf<String?>(null) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+
     // Dynamic stats calculation from real data only
     val completedCount = remember(tasks) { tasks.count { it.done } }
     val doneCount = completedCount.toString()
@@ -871,38 +875,38 @@ fun SettingsScreen(
 
             item {
                 Spacer(modifier = Modifier.height(20.dp))
+                val versionLine = when {
+                    isCheckingUpdate -> "Checking for updates…"
+                    updateCheckStatus != null -> updateCheckStatus!!
+                    else -> "Version ${BuildConfig.VERSION_NAME} • Check for updates"
+                }
+                val lineColor = when {
+                    updateCheckStatus?.startsWith("Update") == true -> Color(0xFF6B4EFF)
+                    updateCheckStatus?.startsWith("Failed") == true -> Color(0xFFD9534A)
+                    else -> tikoColors.textMuted
+                }
                 Text(
-                    text = "Version ${BuildConfig.VERSION_NAME} • Check for updates",
+                    text = versionLine,
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp,
-                    color = tikoColors.textMuted,
+                    color = lineColor,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .clickable(enabled = !isCheckingUpdate) {
                             scope.launch {
-                                AppToastController.show("Checking for updates…", ToastType.Info)
+                                isCheckingUpdate = true
+                                updateCheckStatus = null
                                 when (val result = UpdateChecker.check()) {
-                                    is UpdateResult.UpdateAvailable -> {
-                                        AppToastController.show(
-                                            "Update ${result.versionName} ready!",
-                                            ToastType.Success
-                                        )
-                                    }
-                                    is UpdateResult.UpToDate -> {
-                                        AppToastController.show(
-                                            "Tiko is up to date (${BuildConfig.VERSION_NAME})",
-                                            ToastType.Success
-                                        )
-                                    }
-                                    is UpdateResult.CheckFailed -> {
-                                        AppToastController.show(
-                                            "Check failed: ${result.reason}",
-                                            ToastType.Error
-                                        )
-                                    }
+                                    is UpdateResult.UpdateAvailable ->
+                                        updateCheckStatus = "Update ${result.versionName} available — tap to install"
+                                    is UpdateResult.UpToDate ->
+                                        updateCheckStatus = "Up to date (${BuildConfig.VERSION_NAME})"
+                                    is UpdateResult.CheckFailed ->
+                                        updateCheckStatus = "Failed: ${result.reason}"
                                 }
+                                isCheckingUpdate = false
                             }
                         }
                         .testTag("profile_app_version")

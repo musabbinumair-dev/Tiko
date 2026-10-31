@@ -55,7 +55,6 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -115,6 +114,7 @@ import com.example.ui.components.AppBlack
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.AppCreamBackground
 import com.example.ui.components.ArrowOutwardIcon
+import com.example.ui.components.AnimatedStreakEmoji
 import com.example.ui.components.CardLime
 import com.example.ui.components.CardPurple
 import com.example.ui.components.CardYellow
@@ -475,17 +475,43 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Card 2: Yellow #FFB92E "Day Streak"
-                    ProfileStatCard(
-                        number = streakText,
-                        label = "Day Streak",
-                        backgroundColor = CardYellow,
-                        contentColor = AppBlack,
-                        icon = Icons.Outlined.LocalFireDepartment,
-                        testTag = "stat_card_streak",
-                        isDark = darkModeOn,
-                        modifier = Modifier.weight(1f)
-                    )
+                    // Card 2: Yellow #FFB92E "Day Streak" — Duolingo-style streak card
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(CardYellow)
+                            .padding(14.dp)
+                            .testTag("stat_card_streak"),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            AnimatedStreakEmoji(modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = streakText,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 34.sp,
+                                lineHeight = 36.sp,
+                                color = AppBlack,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Day Streak",
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp,
+                                color = AppBlack,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
 
                     // Card 3: Lime #C8DB6A "On time"
                     ProfileStatCard(

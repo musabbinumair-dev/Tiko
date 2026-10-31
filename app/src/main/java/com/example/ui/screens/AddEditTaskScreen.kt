@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -14,7 +15,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.ui.draw.blur
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -1143,12 +1144,12 @@ fun AddEditTaskScreen(
             }
         }
 
-        // Custom Foodpanda-style Floating Time Picker Modal (100% Mockup match)
+        // Dim backdrop for time picker — fades independently of the sheet slide
         AnimatedVisibility(
             visible = showTimePickerOverlay,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier.fillMaxSize().zIndex(100f)
+            enter = fadeIn(animationSpec = tween(180)),
+            exit = fadeOut(animationSpec = tween(180)),
+            modifier = Modifier.fillMaxSize().zIndex(99f)
         ) {
             Box(
                 modifier = Modifier
@@ -1157,7 +1158,19 @@ fun AddEditTaskScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { showTimePickerOverlay = false },
+                    ) { /* only drag-down closes */ }
+            )
+        }
+
+        // Custom Foodpanda-style Floating Time Picker Modal (100% Mockup match)
+        AnimatedVisibility(
+            visible = showTimePickerOverlay,
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it }),
+            modifier = Modifier.fillMaxSize().zIndex(100f)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 TikoFloatingTimePickerModal(
@@ -1529,6 +1542,22 @@ fun TikoAmPmToggle(
     isDark: Boolean = false
 ) {
     val containerBg = if (isDark) Color(0xFF2B2B2B) else Color(0xFFE5E0CE)
+    val pillColor = if (isDark) Color(0xFFF5F1E6) else AddTaskBlack
+
+    // Animate text colors so AM/PM labels cross-fade as the pill slides — no overlap
+    val amColor by animateColorAsState(
+        targetValue = if (!isPm) (if (isDark) AddTaskBlack else Color.White)
+                      else (if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
+        animationSpec = tween(220),
+        label = "am_color"
+    )
+    val pmColor by animateColorAsState(
+        targetValue = if (isPm) (if (isDark) AddTaskBlack else Color.White)
+                      else (if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
+        animationSpec = tween(220),
+        label = "pm_color"
+    )
+
     Box(
         modifier = Modifier
             .width(180.dp)
@@ -1537,9 +1566,14 @@ fun TikoAmPmToggle(
             .background(containerBg)
             .padding(4.dp)
     ) {
+        // Sliding pill — no text inside, just the background indicator
         val selectedOffset by animateDpAsState(
             targetValue = if (isPm) 86.dp else 0.dp,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "pill_offset"
         )
         Box(
             modifier = Modifier
@@ -1547,17 +1581,10 @@ fun TikoAmPmToggle(
                 .width(86.dp)
                 .fillMaxHeight()
                 .clip(CircleShape)
-                .background(if (isDark) Color(0xFFF5F1E6) else AddTaskBlack),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = if (isPm) "PM" else "AM",
-                fontFamily = OutfitFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = if (isDark) AddTaskBlack else Color.White
-            )
-        }
+                .background(pillColor)
+        )
+
+        // Labels drawn above the pill — colors animate, no text duplication
         Row(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.SpaceAround,
@@ -1578,7 +1605,7 @@ fun TikoAmPmToggle(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = if (!isPm) (if (isDark) AddTaskBlack else Color.White) else (if (isDark) Color(0xFFF5F1E6) else AddTaskBlack)
+                    color = amColor
                 )
             }
             Box(
@@ -1596,7 +1623,7 @@ fun TikoAmPmToggle(
                     fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = if (isPm) (if (isDark) AddTaskBlack else Color.White) else (if (isDark) Color(0xFFF5F1E6) else AddTaskBlack)
+                    color = pmColor
                 )
             }
         }
@@ -1659,12 +1686,14 @@ fun TikoFloatingTimePickerModal(
             .padding(bottom = 20.dp)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
+                    onDragEnd = { dragOffsetY = 0f },
+                    onDragCancel = { dragOffsetY = 0f },
                     onVerticalDrag = { _, dragAmount ->
                         if (dragAmount > 0) {
                             dragOffsetY += dragAmount
-                            if (dragOffsetY > 100f) {
-                                onDismiss()
-                            }
+                            if (dragOffsetY > 120f) onDismiss()
+                        } else {
+                            dragOffsetY = 0f
                         }
                     }
                 )
@@ -1682,14 +1711,13 @@ fun TikoFloatingTimePickerModal(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
-            ) { /* Intercept tap */ }
+            ) { /* intercept taps */ }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(top = 10.dp, bottom = 20.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(top = 10.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Foodpanda style top drag handle

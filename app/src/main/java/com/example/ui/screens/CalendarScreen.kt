@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,6 +46,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -680,7 +682,7 @@ private fun SingleCalendarOverlappingCard(
                     placeable.placeRelative(0, 0)
                 }
             }
-            .height(cardHeight)
+            .heightIn(min = 130.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(actualBg)
             .then(cardBorderModifier)
@@ -688,7 +690,7 @@ private fun SingleCalendarOverlappingCard(
             .padding(16.dp)
             .testTag("calendar_card_${card.id}")
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             // Top Row: Category tag (left) + Arrow outward circle (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -743,15 +745,16 @@ private fun SingleCalendarOverlappingCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Title: Outfit Bold 26sp
+            // Title: Outfit Bold 26sp, up to 2 lines with ellipsis
             Text(
                 text = card.title,
                 fontFamily = OutfitFontFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
+                fontSize = 24.sp,
                 color = titleTextColor,
-                lineHeight = 30.sp,
-                maxLines = 1
+                lineHeight = 28.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(4.dp))

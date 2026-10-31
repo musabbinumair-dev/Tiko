@@ -477,7 +477,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel()) {
                         when (screen.tab) {
                             NavigationTab.HOME -> HomeScreen(
                                 viewModel = viewModel,
-                                tasks = allTasks,
+                                tasks = viewModel.homeFilteredTasks.collectAsState().value,
                                 stats = stats,
                                 onNavigate = { viewModel.navigateTo(it) },
                                 isDark = isDark

@@ -49,6 +49,14 @@ data class TodayStats(
     val streak: Int = 0
 )
 
+data class HomeFilterState(
+    val categories: Set<String> = emptySet(),   // empty = all
+    val priorities: Set<String> = emptySet(),   // empty = all
+    val status: String = "All"                  // "All", "Pending", "Done"
+) {
+    val isActive: Boolean get() = categories.isNotEmpty() || priorities.isNotEmpty() || status != "All"
+}
+
 class TikoViewModel(application: Application) : AndroidViewModel(application) {
     private val database = TikoDatabase.getInstance(application)
     private val repository = TaskRepository(application, database.taskDao())
@@ -99,6 +107,34 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
 
     val allTasks: StateFlow<List<TaskEntity>> = repository.allTasks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _homeFilter = MutableStateFlow(HomeFilterState())
+    val homeFilter: StateFlow<HomeFilterState> = _homeFilter.asStateFlow()
+
+    val homeFilteredTasks: StateFlow<List<TaskEntity>> = allTasks
+        .combine(_homeFilter) { tasks, filter ->
+            tasks.filter { task ->
+                val categoryMatch = filter.categories.isEmpty() ||
+                    filter.categories.any { it.equals(task.category, ignoreCase = true) }
+                val priorityMatch = filter.priorities.isEmpty() ||
+                    filter.priorities.any { it.equals(task.priority, ignoreCase = true) }
+                val statusMatch = when (filter.status) {
+                    "Pending" -> !task.done
+                    "Done"    -> task.done
+                    else      -> true
+                }
+                categoryMatch && priorityMatch && statusMatch
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setHomeFilter(filter: HomeFilterState) {
+        _homeFilter.value = filter
+    }
+
+    fun clearHomeFilter() {
+        _homeFilter.value = HomeFilterState()
+    }
 
     private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Loading))
     val screenStack: StateFlow<List<Screen>> = _screenStack.asStateFlow()

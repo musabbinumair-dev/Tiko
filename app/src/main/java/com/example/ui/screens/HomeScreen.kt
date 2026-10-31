@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -36,8 +40,11 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -45,7 +52,10 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,10 +96,12 @@ import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.theme.TikoCardFill
 import com.example.ui.theme.TikoOutline
 import com.example.ui.theme.TikoText
+import com.example.ui.viewmodel.HomeFilterState
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.Screen
 import com.example.ui.viewmodel.TikoViewModel
 import com.example.ui.viewmodel.TodayStats
+import kotlinx.coroutines.launch
 
 // Specific palette for restyled Home design
 private val HomeCreamBackground = Color(0xFFEFEBDD)
@@ -113,7 +125,7 @@ private data class HomeCardData(
     val isLastTaller: Boolean = false
 )
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: TikoViewModel,
@@ -123,9 +135,16 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     isDark: Boolean = false
 ) {
+    val activeFilter by viewModel.homeFilter.collectAsState()
+    val categories by viewModel.categories.collectAsState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    var showFilterSheet by remember { mutableStateOf(false) }
+
+    // Draft filter edited inside the sheet; only applied on "Apply"
+    var draftFilter by remember(showFilterSheet) { mutableStateOf(activeFilter) }
     // Map active tasks to card data without mock fallbacks
-    val cardModels = remember(tasks) {
-        val palette = listOf(
+    val cardModels = remember(tasks) {        val palette = listOf(
             CardPurple to Color.White,
             CardYellow to HomeBlack,
             CardBlack to Color.White,
@@ -182,8 +201,9 @@ fun HomeScreen(
             item(key = "title_row") {
                 Spacer(modifier = Modifier.height(16.dp))
                 HomeTitleRow(
-                    onFilterClick = { onNavigate(Screen.Main(NavigationTab.LISTS)) },
-                    onFilterLongClick = { onNavigate(Screen.NotFound) },
+                    onFilterClick = { showFilterSheet = true },
+                    filterActive = activeFilter.isActive,
+                    onFilterLongClick = { viewModel.clearHomeFilter() },
                     isDark = isDark
                 )
             }
@@ -252,6 +272,41 @@ fun HomeScreen(
                 )
         )
     }
+
+    // Filter bottom sheet
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            sheetState = sheetState,
+            containerColor = if (isDark) Color(0xFF1C1C1C) else Color(0xFFEFEBDD),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 12.dp, bottom = 4.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF444444) else Color(0xFFCCCAC2))
+                )
+            }
+        ) {
+            FilterSheetContent(
+                draft = draftFilter,
+                categories = categories.map { it.name },
+                isDark = isDark,
+                onDraftChange = { draftFilter = it },
+                onApply = {
+                    viewModel.setHomeFilter(draftFilter)
+                    scope.launch { sheetState.hide() }.invokeOnCompletion { showFilterSheet = false }
+                },
+                onClear = {
+                    draftFilter = HomeFilterState()
+                    viewModel.clearHomeFilter()
+                    scope.launch { sheetState.hide() }.invokeOnCompletion { showFilterSheet = false }
+                }
+            )
+        }
+    }
 }
 
 // HEADER
@@ -319,6 +374,7 @@ private fun HomeHeader(
 @Composable
 private fun HomeTitleRow(
     onFilterClick: () -> Unit,
+    filterActive: Boolean = false,
     onFilterLongClick: (() -> Unit)? = null,
     isDark: Boolean = false
 ) {
@@ -339,32 +395,45 @@ private fun HomeTitleRow(
             modifier = Modifier.testTag("home_title_my_tasks")
         )
 
-        // Filters pill: frosted glassmorphic glassy pill, height 40dp, tune icon + Outfit Medium 16sp
-        FrostedGlassPill(
-            modifier = Modifier.height(40.dp),
-            onClick = onFilterClick,
-            onLongClick = onFilterLongClick,
-            testTag = "home_filters_pill",
-            isDark = isDark
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+        // Filters pill with optional active badge dot
+        Box {
+            FrostedGlassPill(
+                modifier = Modifier.height(40.dp),
+                onClick = onFilterClick,
+                onLongClick = onFilterLongClick,
+                testTag = "home_filters_pill",
+                isDark = isDark
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Tune,
-                    contentDescription = "Filters",
-                    tint = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Filters",
-                    fontFamily = OutfitFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp,
-                    color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Tune,
+                        contentDescription = "Filters",
+                        tint = if (isDark) Color(0xFFF5F1E6) else HomeBlack,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Filters",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16.sp,
+                        color = if (isDark) Color(0xFFF5F1E6) else HomeBlack
+                    )
+                }
+            }
+            // Purple dot badge when a filter is active
+            if (filterActive) {
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-4).dp, y = 4.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF6B4EFF))
                 )
             }
         }
@@ -657,6 +726,206 @@ private fun SingleOverlappingCard(
 }
 
 
+
+// ─── Filter sheet ────────────────────────────────────────────────────────────
+
+@Composable
+private fun FilterSheetContent(
+    draft: HomeFilterState,
+    categories: List<String>,
+    isDark: Boolean,
+    onDraftChange: (HomeFilterState) -> Unit,
+    onApply: () -> Unit,
+    onClear: () -> Unit
+) {
+    val textPrimary  = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+    val textSecondary = if (isDark) Color(0xFFA8A39A) else Color(0xFF6B6B6B)
+    val chipUnselBg  = if (isDark) Color(0xFF2A2A2A) else Color.White
+    val chipUnselBorder = if (isDark) Color(0xFF3A3A3A) else Color(0xFFDDD9CF)
+    val purplePrimary = Color(0xFF6B4EFF)
+    val buttonBg = if (isDark) Color(0xFFF0EADC) else Color(0xFF151515)
+    val buttonText = if (isDark) Color(0xFF151515) else Color.White
+
+    val priorities = listOf("Low", "Medium", "High")
+    val statuses   = listOf("All", "Pending", "Done")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 24.dp)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Header row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Filters",
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 22.sp,
+                color = textPrimary
+            )
+            if (draft.isActive) {
+                Text(
+                    text = "Clear all",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    color = purplePrimary,
+                    modifier = Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { onClear() }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Category ──────────────────────────────────────────────────────────
+        FilterSectionLabel("Category", textSecondary)
+        Spacer(modifier = Modifier.height(10.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(categories) { cat ->
+                val selected = draft.categories.contains(cat)
+                FilterChip(
+                    label = cat,
+                    selected = selected,
+                    isDark = isDark,
+                    chipUnselBg = chipUnselBg,
+                    chipUnselBorder = chipUnselBorder,
+                    textPrimary = textPrimary
+                ) {
+                    val newSet = if (selected) draft.categories - cat else draft.categories + cat
+                    onDraftChange(draft.copy(categories = newSet))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // ── Priority ──────────────────────────────────────────────────────────
+        FilterSectionLabel("Priority", textSecondary)
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            priorities.forEach { pri ->
+                val selected = draft.priorities.contains(pri)
+                FilterChip(
+                    label = pri,
+                    selected = selected,
+                    isDark = isDark,
+                    chipUnselBg = chipUnselBg,
+                    chipUnselBorder = chipUnselBorder,
+                    textPrimary = textPrimary
+                ) {
+                    val newSet = if (selected) draft.priorities - pri else draft.priorities + pri
+                    onDraftChange(draft.copy(priorities = newSet))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // ── Status ────────────────────────────────────────────────────────────
+        FilterSectionLabel("Status", textSecondary)
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            statuses.forEach { status ->
+                val selected = draft.status == status
+                FilterChip(
+                    label = status,
+                    selected = selected,
+                    isDark = isDark,
+                    chipUnselBg = chipUnselBg,
+                    chipUnselBorder = chipUnselBorder,
+                    textPrimary = textPrimary
+                ) { onDraftChange(draft.copy(status = status)) }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // ── Apply button ──────────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .clip(CircleShape)
+                .background(buttonBg)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onApply() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (draft.isActive) "Apply filters" else "Done",
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = buttonText
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilterSectionLabel(text: String, color: Color) {
+    Text(
+        text = text.uppercase(),
+        fontFamily = OutfitFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        letterSpacing = 1.sp,
+        color = color
+    )
+}
+
+@Composable
+private fun FilterChip(
+    label: String,
+    selected: Boolean,
+    isDark: Boolean,
+    chipUnselBg: Color,
+    chipUnselBorder: Color,
+    textPrimary: Color,
+    onClick: () -> Unit
+) {
+    val bg     = if (selected) Color(0xFF6B4EFF) else chipUnselBg
+    val border = if (selected) Color.Transparent else chipUnselBorder
+    val text   = if (selected) Color.White else textPrimary
+
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .border(1.dp, border, CircleShape)
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = onClick
+            )
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontFamily = OutfitFontFamily,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 14.sp,
+            color = text
+        )
+    }
+}
+
+// ─── Task cards ───────────────────────────────────────────────────────────────
 
 // TaskCard alias for Lists and Calendar screens compatibility
 @Composable

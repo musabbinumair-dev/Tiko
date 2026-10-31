@@ -71,6 +71,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.Canvas
 import com.musab.tiko.R
 import com.example.data.model.TaskEntity
+import com.example.ui.components.AnimatedStreakEmoji
 import com.example.ui.components.AppBottomNav
 import com.example.ui.components.ArrowOutwardIcon
 import com.example.ui.components.EmptyState
@@ -451,13 +452,10 @@ private fun HomeStatPills(stats: TodayStats, isDark: Boolean = false) {
                 modifier = Modifier.padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocalFireDepartment,
-                    contentDescription = null,
-                    tint = pillIconTint,
-                    modifier = Modifier.size(18.dp)
+                AnimatedStreakEmoji(
+                    modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(3.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${stats.streak} day streak",
                     fontFamily = OutfitFontFamily,

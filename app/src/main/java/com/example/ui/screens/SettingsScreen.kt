@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -728,20 +730,22 @@ fun SettingsScreen(
 
                         SettingsDivider(isDark = darkModeOn)
 
-                        // 3. Dark mode (gray toggle, off)
+                        // 3. Theme selection — capsule with Light / System / Dark
                         SettingsRow(
                             icon = Icons.Outlined.DarkMode,
-                            label = "Dark mode",
+                            label = "Theme",
                             isDark = darkModeOn,
                             trailing = {
-                                ProfileSwitch(
-                                    checked = darkModeOn,
-                                    onCheckedChange = { checked ->
-                                        preferences.setDarkModeEnabled(checked)
-                                        AppToastController.show(if (checked) "Dark mode enabled" else "Dark mode disabled", ToastType.Success)
-                                    },
+                                ThemeSelector(
+                                    darkModePref = darkModePref,
                                     isDark = darkModeOn,
-                                    testTag = "switch_dark_mode"
+                                    onSelect = { option ->
+                                        when (option) {
+                                            ThemeOption.Light  -> preferences.setDarkModeEnabled(false)
+                                            ThemeOption.Dark   -> preferences.setDarkModeEnabled(true)
+                                            ThemeOption.System -> preferences.clearDarkModeEnabled()
+                                        }
+                                    }
                                 )
                             }
                         )
@@ -1183,6 +1187,88 @@ fun SettingsScreen(
 
 /**
  * Square-ish Stat Card (Purple, Yellow, Lime):
+// ─── Theme selector ──────────────────────────────────────────────────────────
+
+private enum class ThemeOption { Light, System, Dark }
+
+@Composable
+private fun ThemeSelector(
+    darkModePref: Boolean?,
+    isDark: Boolean,
+    onSelect: (ThemeOption) -> Unit
+) {
+    val selected = when (darkModePref) {
+        false -> ThemeOption.Light
+        true  -> ThemeOption.Dark
+        null  -> ThemeOption.System
+    }
+
+    val options = ThemeOption.entries.toList()
+    val trackBg  = if (isDark) Color(0xFF2A2A2A) else Color(0xFFDDD9CF)
+    val thumbBg  = if (isDark) Color(0xFF3D3D3D) else Color.White
+    val activeText  = if (isDark) Color(0xFFF5F1E6) else Color(0xFF151515)
+    val inactiveText = if (isDark) Color(0xFF666666) else Color(0xFFAAAAAA)
+
+    // Width per segment — measure based on longest label "System"
+    val segmentWidth = 62.dp
+    val trackHeight  = 36.dp
+    val thumbPad     = 3.dp
+
+    val selectedIndex = options.indexOf(selected)
+    val thumbOffsetAnim by animateDpAsState(
+        targetValue = segmentWidth * selectedIndex + thumbPad,
+        animationSpec = tween(durationMillis = 250),
+        label = "theme_thumb"
+    )
+
+    Box(
+        modifier = Modifier
+            .width(segmentWidth * options.size)
+            .height(trackHeight)
+            .clip(CircleShape)
+            .background(trackBg)
+            .testTag("theme_selector")
+    ) {
+        // Sliding thumb
+        Box(
+            modifier = Modifier
+                .padding(vertical = thumbPad)
+                .offset(x = thumbOffsetAnim)
+                .width(segmentWidth - thumbPad)
+                .fillMaxHeight()
+                .clip(CircleShape)
+                .background(thumbBg)
+        )
+
+        // Labels row — on top of thumb
+        Row(modifier = Modifier.matchParentSize()) {
+            options.forEach { option ->
+                Box(
+                    modifier = Modifier
+                        .width(segmentWidth)
+                        .fillMaxHeight()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { onSelect(option) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = option.name,
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = if (option == selected) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 13.sp,
+                        color = if (option == selected) activeText else inactiveText
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Profile stat card ────────────────────────────────────────────────────────
+
+/**
  * White circle icon top-left, white arrow_outward circle top-right,
  * Number Outfit ExtraBold 34sp, Label Outfit Medium 15sp.
  */

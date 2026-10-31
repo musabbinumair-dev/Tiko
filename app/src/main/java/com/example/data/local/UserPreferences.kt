@@ -79,6 +79,11 @@ class UserPreferences(context: Context) {
         _darkModeEnabled.value = enabled
     }
 
+    fun clearDarkModeEnabled() {
+        prefs.edit().remove("dark_mode_enabled").apply()
+        _darkModeEnabled.value = null
+    }
+
     fun setUserName(name: String) {
         prefs.edit().putString("user_name", name).apply()
         _userName.value = name

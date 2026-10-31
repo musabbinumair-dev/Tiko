@@ -486,40 +486,54 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Card 2: Yellow #FFB92E "Day Streak" — Duolingo-style streak card
+                    // Card 2: Yellow #FFB92E "Day Streak" — matches ProfileStatCard layout
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(24.dp))
                             .background(CardYellow)
                             .padding(14.dp)
-                            .testTag("stat_card_streak"),
-                        contentAlignment = Alignment.TopCenter
+                            .testTag("stat_card_streak")
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            AnimatedStreakEmoji(modifier = Modifier.size(48.dp))
-                            Spacer(modifier = Modifier.height(8.dp))
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Top row: streak emoji (left) + arrow circle (right)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AnimatedStreakEmoji(modifier = Modifier.size(30.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    ArrowOutwardIcon(size = 14.dp, color = AppBlack)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
                             Text(
                                 text = streakText,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 34.sp,
                                 lineHeight = 36.sp,
-                                color = AppBlack,
-                                textAlign = TextAlign.Center
+                                color = AppBlack
                             )
+
                             Spacer(modifier = Modifier.height(2.dp))
+
                             Text(
                                 text = "Day Streak",
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 15.sp,
-                                color = AppBlack,
-                                textAlign = TextAlign.Center
+                                color = AppBlack
                             )
                         }
                     }

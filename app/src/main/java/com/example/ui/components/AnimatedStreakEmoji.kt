@@ -255,7 +255,7 @@ fun AnimatedStreakEmoji(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(20.dp)) {
+        Canvas(modifier = Modifier.matchParentSize()) {
             val canvasW = size.width
             val canvasH = size.height
 

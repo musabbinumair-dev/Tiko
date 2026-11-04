@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.data.local.TikoDatabase
@@ -17,11 +18,18 @@ import com.musab.tiko.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return
+        val scheduledTime = intent.getLongExtra(EXTRA_SCHEDULED_TIME, -1L)
+        val now = System.currentTimeMillis()
+        val delay = if (scheduledTime > 0) now - scheduledTime else 0L
+
+        Log.d("TikoReminder", "ReminderReceiver fired: taskId=$taskId, delay=${delay}ms, scheduled=$scheduledTime, now=$now")
+        ReminderScheduler.recordFiredDelay(context, delay)
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -29,12 +37,39 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
                     return@launch
                 }
-                val database = TikoDatabase.getInstance(context)
-                val task = database.taskDao().getTaskByIdOnce(taskId)
-                if (task == null || task.done || task.deleted) {
-                    return@launch
+
+                // Query Room database with a short timeout so we remain fast
+                val taskFromDb = withTimeoutOrNull(2000L) {
+                    try {
+                        val database = TikoDatabase.getInstance(context)
+                        database.taskDao().getTaskByIdOnce(taskId)
+                    } catch (e: Exception) {
+                        Log.w("TikoReminder", "Failed to query task from DB: ${e.message}")
+                        null
+                    }
                 }
-                showNotification(context, task)
+
+                if (taskFromDb != null) {
+                    if (taskFromDb.done || taskFromDb.deleted) {
+                        Log.d("TikoReminder", "Task $taskId is done or deleted; dropping reminder notification.")
+                        return@launch
+                    }
+                    showNotification(context, taskFromDb)
+                } else {
+                    // Fallback to extras if Room lookup is slow or fails
+                    val title = intent.getStringExtra(EXTRA_TASK_TITLE) ?: ""
+                    if (title.isNotBlank()) {
+                        Log.d("TikoReminder", "Room lookup timed out or failed; posting notification from extras for taskId=$taskId")
+                        val fallbackTask = TaskEntity(
+                            id = taskId,
+                            title = title,
+                            category = intent.getStringExtra(EXTRA_TASK_CATEGORY) ?: "Work",
+                            notes = intent.getStringExtra(EXTRA_TASK_NOTES) ?: "",
+                            dueTime = intent.getStringExtra(EXTRA_TASK_DUE_TIME) ?: TaskEntity.DEFAULT_DUE_TIME
+                        )
+                        showNotification(context, fallbackTask)
+                    }
+                }
             } finally {
                 pendingResult?.finish()
             }
@@ -134,6 +169,11 @@ class ReminderReceiver : BroadcastReceiver() {
         const val CHANNEL_ID = "task_reminders"
         const val CHANNEL_NAME = "Task reminders"
         const val EXTRA_TASK_ID = "task_id"
+        const val EXTRA_TASK_TITLE = "task_title"
+        const val EXTRA_TASK_CATEGORY = "task_category"
+        const val EXTRA_TASK_NOTES = "task_notes"
+        const val EXTRA_TASK_DUE_TIME = "task_due_time"
+        const val EXTRA_SCHEDULED_TIME = "scheduled_time"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
 
         fun createChannel(context: Context) {

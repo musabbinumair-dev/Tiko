@@ -115,6 +115,49 @@ class NotificationReminderTest {
     }
 
     @Test
+    fun testShortGapTimingRules() {
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+            timeZone = java.util.TimeZone.getDefault()
+        }
+        val dateStr = "2026-10-15"
+        val dueTimeStr = "3:46 PM"
+        val dueEpoch = sdf.parse("$dateStr 15:46:00")!!.time
+
+        // 1. now 3:45:20 with due 3:46 and each offset (30 min, 15 min, 1 hour, at time)
+        val now34520 = sdf.parse("$dateStr 15:45:20")!!.time
+        assertEquals(dueEpoch, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "30 min before", now34520))
+        assertEquals(dueEpoch, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "15 min before", now34520))
+        assertEquals(dueEpoch, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "1 hour before", now34520))
+        assertEquals(dueEpoch, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "at time", now34520))
+        assertNull(ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "none", now34520))
+
+        // 2. now 3:45:50 with due 3:46:00
+        val now34550 = sdf.parse("$dateStr 15:45:50")!!.time
+        assertEquals(dueEpoch, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "15 min before", now34550))
+        assertEquals(dueEpoch, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "at time", now34550))
+
+        // 3. now 3:46:20 with due 3:46:00 (due within current minute: <= 60s in past)
+        val now34620 = sdf.parse("$dateStr 15:46:20")!!.time
+        assertEquals(now34620 + 2000L, ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "15 min before", now34620))
+
+        // 4. now 3:48 with due 3:46 (due more than 60s in past)
+        val now348 = sdf.parse("$dateStr 15:48:00")!!.time
+        assertNull(ReminderScheduler.computeTriggerTime(dateStr, dueTimeStr, "15 min before", now348))
+
+        // 5. no due date
+        assertNull(ReminderScheduler.computeTriggerTime("", "3:46 PM", "15 min before", now34520))
+
+        // 6. blank time (default 9:00 AM)
+        val tomorrowDate = "2026-10-16"
+        val expected9AM = sdf.parse("$tomorrowDate 09:00:00")!!.time
+        assertEquals(expected9AM, ReminderScheduler.computeTriggerTime(tomorrowDate, "", "at time", now34520))
+
+        // 7. a task due tomorrow (normal: trigger = due - offset)
+        val expectedTomorrowTrigger = sdf.parse("$tomorrowDate 10:00:00")!!.time - 30 * 60 * 1000L
+        assertEquals(expectedTomorrowTrigger, ReminderScheduler.computeTriggerTime(tomorrowDate, "10:00 AM", "30 min before", now34520))
+    }
+
+    @Test
     fun testNotificationChannelCreated() {
         ReminderReceiver.createChannel(context)
         val channel = notificationManager.getNotificationChannel(ReminderReceiver.CHANNEL_ID)
@@ -174,9 +217,19 @@ class NotificationReminderTest {
 
     @Test
     fun testCancelRemovesScheduledAlarmAndNotification() {
-        val taskId = "task-to-cancel"
-        ReminderScheduler.cancel(context, taskId)
-        assertNotNull(context)
+        preferences.setNotificationsEnabled(true)
+        val task = TaskEntity(
+            id = "task-to-cancel",
+            title = "Task To Cancel",
+            dueDate = "2029-01-01",
+            dueTime = "10:00 AM",
+            reminder = "15 min before"
+        )
+        ReminderScheduler.schedule(context, task)
+        assertEquals(1, shadowAlarmManager.scheduledAlarms.size)
+
+        ReminderScheduler.cancel(context, task.id)
+        assertEquals(0, shadowAlarmManager.scheduledAlarms.size)
     }
 
     @Test

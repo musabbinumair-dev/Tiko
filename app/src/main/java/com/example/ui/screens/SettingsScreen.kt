@@ -7,11 +7,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import com.example.ui.theme.LocalTikoThemeColors
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.example.data.reminder.ReminderScheduler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +75,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import java.text.SimpleDateFormat
 import androidx.compose.runtime.Composable
@@ -137,6 +141,7 @@ private data class WeeklyBarData(
     val isHighlight: Boolean = false
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: TikoViewModel,
@@ -167,12 +172,18 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as? Activity
     var systemNotifGranted by remember { mutableStateOf(NotificationPermissionHelper.hasNotificationPermission(context)) }
+    var exactAlarmAllowed by remember { mutableStateOf(NotificationPermissionHelper.canScheduleExactAlarms(context)) }
+    var batteryOptimizationIgnored by remember { mutableStateOf(NotificationPermissionHelper.isIgnoringBatteryOptimizations(context)) }
+    val isAggressiveBrand = remember { NotificationPermissionHelper.isAggressiveBrand() }
+    var showDiagnosticsDialog by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 val granted = NotificationPermissionHelper.hasNotificationPermission(context)
                 systemNotifGranted = granted
+                exactAlarmAllowed = NotificationPermissionHelper.canScheduleExactAlarms(context)
+                batteryOptimizationIgnored = NotificationPermissionHelper.isIgnoringBatteryOptimizations(context)
                 if (!granted && preferences.notificationsEnabled.value) {
                     preferences.setNotificationsEnabled(false)
                     viewModel.cancelAllReminders()
@@ -187,6 +198,11 @@ fun SettingsScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
+
+    val needsNotificationPermission = !systemNotifGranted
+    val needsExactAlarm = (Build.VERSION.SDK_INT in 31..32) && !exactAlarmAllowed
+    val needsBatteryOptimization = !batteryOptimizationIgnored
+    val showReliabilityCard = needsNotificationPermission || needsExactAlarm || needsBatteryOptimization
 
     val notificationsOn = notifEnabled && systemNotifGranted
 
@@ -726,6 +742,38 @@ fun SettingsScreen(
                             }
                         )
 
+                        if (showReliabilityCard) {
+                            SettingsDivider(isDark = darkModeOn)
+                            RemindersReliabilityCard(
+                                needsNotificationPermission = needsNotificationPermission,
+                                needsExactAlarm = needsExactAlarm,
+                                needsBatteryOptimization = needsBatteryOptimization,
+                                isAggressiveBrand = isAggressiveBrand,
+                                darkModeOn = darkModeOn,
+                                onAllowNotifications = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        if (activity != null && NotificationPermissionHelper.isPermanentlyDenied(activity, preferences)) {
+                                            NotificationPermissionHelper.openNotificationSettings(context)
+                                        } else {
+                                            preferences.setHasRequestedNotificationPermission(true)
+                                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    } else {
+                                        NotificationPermissionHelper.openNotificationSettings(context)
+                                    }
+                                },
+                                onEnableExactAlarms = {
+                                    NotificationPermissionHelper.openExactAlarmSettings(context)
+                                },
+                                onDisableBatterySaver = {
+                                    NotificationPermissionHelper.openBatteryOptimizationSettings(context)
+                                },
+                                onOpenAppDetails = {
+                                    NotificationPermissionHelper.openAppDetailsSettings(context)
+                                }
+                            )
+                        }
+
                         SettingsDivider(isDark = darkModeOn)
 
                         // 2. Reminders (chevron)
@@ -933,21 +981,27 @@ fun SettingsScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = !isCheckingUpdate) {
-                            scope.launch {
-                                isCheckingUpdate = true
-                                updateCheckStatus = null
-                                when (val result = UpdateChecker.check()) {
-                                    is UpdateResult.UpdateAvailable ->
-                                        updateCheckStatus = "Update ${result.versionName} available — tap to install"
-                                    is UpdateResult.UpToDate ->
-                                        updateCheckStatus = "Up to date (${BuildConfig.VERSION_NAME})"
-                                    is UpdateResult.CheckFailed ->
-                                        updateCheckStatus = "Failed: ${result.reason}"
+                        .combinedClickable(
+                            enabled = !isCheckingUpdate,
+                            onClick = {
+                                scope.launch {
+                                    isCheckingUpdate = true
+                                    updateCheckStatus = null
+                                    when (val result = UpdateChecker.check()) {
+                                        is UpdateResult.UpdateAvailable ->
+                                            updateCheckStatus = "Update ${result.versionName} available — tap to install"
+                                        is UpdateResult.UpToDate ->
+                                            updateCheckStatus = "Up to date (${BuildConfig.VERSION_NAME})"
+                                        is UpdateResult.CheckFailed ->
+                                            updateCheckStatus = "Failed: ${result.reason}"
+                                    }
+                                    isCheckingUpdate = false
                                 }
-                                isCheckingUpdate = false
+                            },
+                            onLongClick = {
+                                showDiagnosticsDialog = true
                             }
-                        }
+                        )
                         .testTag("profile_app_version")
                 )
             }
@@ -971,6 +1025,66 @@ fun SettingsScreen(
     }
 
     // DIALOGS & BOTTOM SHEETS
+
+    // Temporary diagnostics dialog (debug)
+    if (showDiagnosticsDialog) {
+        val pendingReminders = remember(tasks) {
+            tasks.filter { !it.done && !it.deleted && it.dueDate.isNotBlank() }
+                .mapNotNull { ReminderScheduler.computeTriggerTime(it.dueDate, it.dueTime, it.reminder) }
+                .filter { it >= System.currentTimeMillis() - 60_000L }
+        }
+        val nextTrigger = pendingReminders.minOrNull()
+        val nextTriggerStr = if (nextTrigger != null) {
+            SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(nextTrigger))
+        } else {
+            "None scheduled"
+        }
+        val lastDelay = ReminderScheduler.getLastFiredDelay(context)
+        val lastDelayStr = if (lastDelay != null) {
+            val sign = if (lastDelay >= 0) "+" else ""
+            "$sign${lastDelay} ms"
+        } else {
+            "No reminders fired yet"
+        }
+
+        TikoDialog(
+            title = "Reminder Diagnostics",
+            onDismiss = { showDiagnosticsDialog = false },
+            content = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CardPurple.copy(alpha = 0.12f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Temporary debug code",
+                            fontFamily = OutfitFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = CardPurple
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    DiagnosticItem("Notifications", if (systemNotifGranted) "Granted" else "Denied", isGood = systemNotifGranted)
+                    DiagnosticItem("Exact Alarms", if (Build.VERSION.SDK_INT >= 31) (if (exactAlarmAllowed) "Allowed" else "Denied") else "N/A (< API 31)", isGood = exactAlarmAllowed)
+                    DiagnosticItem("Battery Saver", if (batteryOptimizationIgnored) "Ignored (OK)" else "Restricted", isGood = batteryOptimizationIgnored)
+                    DiagnosticItem("Pending Reminders", "${pendingReminders.size} active", isGood = true)
+                    DiagnosticItem("Next Trigger (Local)", nextTriggerStr, isGood = true)
+                    DiagnosticItem("Last Fired Delay", lastDelayStr, isGood = true)
+                }
+            },
+            actions = {
+                TikoPrimaryButton(
+                    text = "Close",
+                    onClick = { showDiagnosticsDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
+    }
 
     // 0. Choose Avatar Modal Bottom Sheet
     if (showAvatarSheet) {
@@ -1691,5 +1805,201 @@ private fun AvatarGridItem(
                 textAlign = TextAlign.Center
             )
         }
+    }
+}
+
+@Composable
+private fun RemindersReliabilityCard(
+    needsNotificationPermission: Boolean,
+    needsExactAlarm: Boolean,
+    needsBatteryOptimization: Boolean,
+    isAggressiveBrand: Boolean,
+    darkModeOn: Boolean,
+    onAllowNotifications: () -> Unit,
+    onEnableExactAlarms: () -> Unit,
+    onDisableBatterySaver: () -> Unit,
+    onOpenAppDetails: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tikoColors = LocalTikoThemeColors.current
+    val bgCard = if (darkModeOn) Color(0xFF262016) else Color(0xFFFFF9EE)
+    val borderCard = CardYellow
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(bgCard)
+            .border(1.5.dp, borderCard, RoundedCornerShape(28.dp))
+            .padding(18.dp)
+            .testTag("reminders_reliability_card")
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(CardYellow),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = null,
+                        tint = AppBlack,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Make reminders reliable",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = tikoColors.textPrimary
+                    )
+                    Text(
+                        text = "Ensure alerts arrive on time",
+                        fontFamily = OutfitFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        color = tikoColors.textMuted
+                    )
+                }
+            }
+
+            if (needsNotificationPermission) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Notification permission is missing. Reminders cannot pop up.",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 14.sp,
+                    color = tikoColors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ReliabilityPillButton(
+                    text = "Allow notifications",
+                    onClick = onAllowNotifications,
+                    backgroundColor = CardPurple,
+                    contentColor = Color.White
+                )
+            }
+
+            if (needsExactAlarm) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Exact alarm scheduling is disabled. Reminders may be delayed.",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 14.sp,
+                    color = tikoColors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ReliabilityPillButton(
+                    text = "Enable exact alarms",
+                    onClick = onEnableExactAlarms,
+                    backgroundColor = CardYellow,
+                    contentColor = AppBlack
+                )
+            }
+
+            if (needsBatteryOptimization) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Some phones delay reminders to save battery.",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 14.sp,
+                    color = tikoColors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ReliabilityPillButton(
+                    text = "Ignore battery optimization",
+                    onClick = onDisableBatterySaver,
+                    backgroundColor = if (darkModeOn) Color(0xFF333333) else AppBlack,
+                    contentColor = Color.White
+                )
+            }
+
+            if (isAggressiveBrand) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Tip: Enable Autostart in system settings so reminders arrive on time.",
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 13.sp,
+                    color = tikoColors.textMuted
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ReliabilityPillButton(
+                    text = "App details",
+                    onClick = onOpenAppDetails,
+                    backgroundColor = if (darkModeOn) Color(0xFF333333) else Color(0xFFDDD9CF),
+                    contentColor = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReliabilityPillButton(
+    text: String,
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 9.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = contentColor
+        )
+    }
+}
+
+@Composable
+private fun DiagnosticItem(
+    label: String,
+    value: String,
+    isGood: Boolean
+) {
+    val tikoColors = LocalTikoThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            color = tikoColors.textMuted
+        )
+        Text(
+            text = value,
+            fontFamily = OutfitFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = if (isGood) tikoColors.textPrimary else Color(0xFFD9534A)
+        )
     }
 }

@@ -345,10 +345,6 @@ class SyncManager(
 
                 // Clean up synced tombstones
                 taskDao.deleteSyncedTombstones()
-                try {
-                    val preferences = com.example.data.local.UserPreferences(context)
-                    com.example.data.streak.StreakManager.recalculateOnAppOpen(context, preferences, taskDao)
-                } catch (_: Exception) {}
             }
         }
     }

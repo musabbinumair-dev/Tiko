@@ -65,39 +65,6 @@ class UserPreferences(context: Context) {
     private val _updateExpectedVersionCode = MutableStateFlow(prefs.getLong("update_expected_version_code", -1L))
     val updateExpectedVersionCode: StateFlow<Long> = _updateExpectedVersionCode.asStateFlow()
 
-    private val _currentStreak = MutableStateFlow(prefs.getInt("streak_current", 0))
-    val currentStreak: StateFlow<Int> = _currentStreak.asStateFlow()
-
-    private val _longestStreak = MutableStateFlow(prefs.getInt("streak_longest", 0))
-    val longestStreak: StateFlow<Int> = _longestStreak.asStateFlow()
-
-    private val _lastCompletedDay = MutableStateFlow(prefs.getString("streak_last_day", "") ?: "")
-    val lastCompletedDay: StateFlow<String> = _lastCompletedDay.asStateFlow()
-
-    private val _streakDays = MutableStateFlow(loadStreakDays())
-    val streakDays: StateFlow<Set<String>> = _streakDays.asStateFlow()
-
-    private val _streakRemindersEnabled = MutableStateFlow(prefs.getBoolean("streak_reminders_enabled", true))
-    val streakRemindersEnabled: StateFlow<Boolean> = _streakRemindersEnabled.asStateFlow()
-
-    private val _streakReminderTime = MutableStateFlow(prefs.getString("streak_reminder_time", "8:00 PM") ?: "8:00 PM")
-    val streakReminderTime: StateFlow<String> = _streakReminderTime.asStateFlow()
-
-    private fun loadStreakDays(): Set<String> {
-        val json = prefs.getString("streak_days_json", "[]") ?: "[]"
-        return try {
-            val array = JSONArray(json)
-            val set = mutableSetOf<String>()
-            for (i in 0 until array.length()) {
-                val str = array.getString(i)
-                if (str.isNotBlank()) set.add(str)
-            }
-            set
-        } catch (_: Exception) {
-            emptySet()
-        }
-    }
-
     fun setAvatarId(id: String?) {
         if (id != null) {
             prefs.edit().putString("avatar_id", id).apply()
@@ -199,30 +166,6 @@ class UserPreferences(context: Context) {
             .apply()
         _updateDownloadId.value = -1L
         _updateExpectedVersionCode.value = -1L
-    }
-
-    fun setStreakData(current: Int, longest: Int, lastDay: String, days: Set<String>) {
-        val daysJson = JSONArray(days.toList()).toString()
-        prefs.edit()
-            .putInt("streak_current", current)
-            .putInt("streak_longest", longest)
-            .putString("streak_last_day", lastDay)
-            .putString("streak_days_json", daysJson)
-            .apply()
-        _currentStreak.value = current
-        _longestStreak.value = longest
-        _lastCompletedDay.value = lastDay
-        _streakDays.value = days
-    }
-
-    fun setStreakRemindersEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("streak_reminders_enabled", enabled).apply()
-        _streakRemindersEnabled.value = enabled
-    }
-
-    fun setStreakReminderTime(time: String) {
-        prefs.edit().putString("streak_reminder_time", time).apply()
-        _streakReminderTime.value = time
     }
 
     fun clearUser() {

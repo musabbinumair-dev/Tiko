@@ -189,21 +189,6 @@ class SyncCoordinator(
                 }
             }
 
-            if (snapshot != null && snapshot.exists() && snapshot.contains("streak")) {
-                val remoteStreak = snapshot.get("streak") as? Map<String, Any?>
-                val taskDao = TikoDatabase.getInstance(context).taskDao()
-                com.example.data.streak.StreakManager.mergeFromFirestore(context, preferences, taskDao, remoteStreak)
-            }
-
-            val currentStreakData = com.example.data.streak.StreakManager.loadFromPreferences(preferences)
-            profileData["streak"] = mapOf(
-                "currentStreak" to currentStreakData.currentStreak,
-                "longestStreak" to currentStreakData.longestStreak,
-                "lastCompletedDay" to currentStreakData.lastCompletedDay,
-                "streakDays" to currentStreakData.streakDays.toList(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-
             if (BuildConfig.DEBUG) {
                 Log.d("TikoSync", "Writing profile doc for uid: $uid (excluding avatarId)")
             }

@@ -101,10 +101,6 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 database.taskDao().repairBlankOrDuplicateIds()
             } catch (_: Throwable) {}
-            try {
-                com.example.data.streak.StreakManager.recalculateOnAppOpen(getApplication(), preferences, database.taskDao())
-                com.example.data.streak.StreakReminderScheduler.schedule(getApplication(), preferences)
-            } catch (_: Throwable) {}
         }
         try {
             rescheduleAllReminders()
@@ -112,15 +108,6 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         try {
             UpdateChecker.checkOnce()
         } catch (_: Throwable) {}
-    }
-
-    fun checkAndRecalculateStreak() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                com.example.data.streak.StreakManager.recalculateOnAppOpen(getApplication(), preferences, database.taskDao())
-                com.example.data.streak.StreakReminderScheduler.schedule(getApplication(), preferences)
-            } catch (_: Throwable) {}
-        }
     }
 
     suspend fun flushPendingWrites(timeoutMs: Long = 5000L): Boolean {
@@ -228,13 +215,17 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedCalendarDate = MutableStateFlow(TikoDatabase.getTodayDateString())
     val selectedCalendarDate: StateFlow<String> = _selectedCalendarDate.asStateFlow()
 
-    val todayStats: StateFlow<TodayStats> = allTasks.combine(preferences.currentStreak) { tasks, currentStreak ->
+    val todayStats: StateFlow<TodayStats> = allTasks.combine(MutableStateFlow(Unit)) { tasks, _ ->
         val doneCount = tasks.count { it.done }
         val pendingCount = tasks.count { !it.done }
+        val completedDates = tasks.filter { it.done && it.dueDate.isNotBlank() }
+            .map { it.dueDate }
+            .distinct()
+        val streak = if (doneCount > 0) completedDates.size.coerceAtLeast(1) else 0
         TodayStats(
             done = doneCount,
             pending = pendingCount,
-            streak = currentStreak
+            streak = streak
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayStats())
 

@@ -1064,6 +1064,16 @@ fun SettingsScreen(
                     DiagnosticItem("Pending Reminders", "${pendingReminders.size} active", isGood = true)
                     DiagnosticItem("Next Trigger (Local)", nextTriggerStr, isGood = true)
                     DiagnosticItem("Last Fired Delay", lastDelayStr, isGood = true)
+                    val currentStreakVal by preferences.currentStreak.collectAsState()
+                    val longestStreakVal by preferences.longestStreak.collectAsState()
+                    val lastCompletedDayVal by preferences.lastCompletedDay.collectAsState()
+                    val streakDaysVal by preferences.streakDays.collectAsState()
+                    val todayKeyVal = com.example.data.streak.StreakManager.todayDateKey()
+                    DiagnosticItem("Current Streak", currentStreakVal.toString(), isGood = currentStreakVal > 0)
+                    DiagnosticItem("Longest Streak", longestStreakVal.toString(), isGood = true)
+                    DiagnosticItem("Last Completed Day", lastCompletedDayVal.ifBlank { "None" }, isGood = true)
+                    DiagnosticItem("Today's Date Key", todayKeyVal, isGood = true)
+                    DiagnosticItem("Streak Days Stored", "${streakDaysVal.size} days", isGood = true)
                 }
             },
             actions = {

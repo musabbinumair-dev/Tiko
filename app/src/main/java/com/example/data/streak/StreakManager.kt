@@ -82,14 +82,6 @@ object StreakManager {
 
     /**
      * Core pure function to recompute StreakData from an arbitrary set of completed date keys.
-     * Rules:
-     * - Prunes streakDays to the last 60 days from [todayKey].
-     * - Finds the latest date in streakDays as [lastCompletedDay].
-     * - If streakDays is empty, currentStreak = 0.
-     * - If [todayKey] is in streakDays, count backward consecutively from today.
-     * - Else if [yesterdayKey] is in streakDays, count backward consecutively from yesterday.
-     * - Else, currentStreak = 0 (streak is broken).
-     * - longestStreak = max(existingLongest, currentStreak).
      */
     fun computeStreak(
         streakDays: Set<String>,
@@ -166,9 +158,6 @@ object StreakManager {
         )
     }
 
-    /**
-     * Pure function for when a task is completed on [completionDateKey].
-     */
     fun onTaskCompleted(
         currentData: StreakData,
         completionDateKey: String,
@@ -182,10 +171,6 @@ object StreakManager {
         )
     }
 
-    /**
-     * Pure function for when a task is undone or deleted.
-     * Takes the list of remaining done tasks in the system to determine remaining valid completion days.
-     */
     fun onTaskUndoneOrDeleted(
         currentData: StreakData,
         remainingDoneTasks: List<TaskEntity>,
@@ -201,10 +186,6 @@ object StreakManager {
         )
     }
 
-    /**
-     * Pure function for app launch / resume checks:
-     * If lastCompletedDay is not today and not yesterday, currentStreak becomes 0.
-     */
     fun checkAndRecalculateOnLaunch(
         currentData: StreakData,
         todayKey: String
@@ -216,10 +197,6 @@ object StreakManager {
         )
     }
 
-    /**
-     * Pure function for merging remote Firestore streak data.
-     * Takes union of streakDays, max of longestStreak, and recomputes currentStreak.
-     */
     fun mergeRemoteStreak(
         local: StreakData,
         remote: StreakData,
@@ -234,9 +211,6 @@ object StreakManager {
         )
     }
 
-    /**
-     * Computes weekly Monday-Sunday completion chart data for the current calendar week.
-     */
     fun computeWeeklyData(
         streakDays: Set<String>,
         tasks: List<TaskEntity>,
@@ -244,7 +218,7 @@ object StreakManager {
         referenceDate: LocalDate = LocalDate.now(zoneId)
     ): List<WeeklyBarData> {
         val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        val dayOfWeekIndex = (referenceDate.dayOfWeek.value - 1).coerceIn(0, 6) // Mon=0 .. Sun=6
+        val dayOfWeekIndex = (referenceDate.dayOfWeek.value - 1).coerceIn(0, 6)
         val mondayDate = referenceDate.minusDays(dayOfWeekIndex.toLong())
 
         val counts = IntArray(7)
@@ -252,11 +226,9 @@ object StreakManager {
         for (i in 0..6) {
             val date = mondayDate.plusDays(i.toLong())
             val dateKey = dateToDateKey(date)
-            // Count done tasks completed on this date
             val taskCount = tasks.count { task ->
                 task.done && !task.deleted && taskToDateKey(task, zoneId) == dateKey
             }
-            // If tasks were archived but streakDays recorded the day, show at least 1
             val effectiveCount = if (taskCount > 0) taskCount else if (streakDays.contains(dateKey)) 1 else 0
             counts[i] = effectiveCount
         }
@@ -271,7 +243,7 @@ object StreakManager {
     }
 
     // -------------------------------------------------------------
-    // Android State, Persistence & Firestore Sync
+    // Android State, Persistence & Firestore Sync with detailed logging
     // -------------------------------------------------------------
 
     fun loadFromPreferences(preferences: UserPreferences): StreakData {
@@ -295,44 +267,58 @@ object StreakManager {
         _streakState.value = data
     }
 
-    /**
-     * Called whenever a task is completed.
-     */
-    fun recordTaskCompletion(
+    suspend fun recordTaskCompletion(
         context: Context,
         preferences: UserPreferences,
         taskDao: TaskDao,
+        taskId: String = "N/A",
         zoneId: ZoneId = ZoneId.systemDefault()
     ): StreakData {
         val current = loadFromPreferences(preferences)
         val today = todayDateKey(zoneId)
-        val updated = onTaskCompleted(current, today, today)
+
+        // Union with all completed tasks in Room to ensure absolute reliability
+        val roomDoneDays = taskDao.getAllTasksRaw().filter { it.done && !it.deleted }.mapNotNull { taskToDateKey(it, zoneId) }.toSet()
+        val combinedDays = current.streakDays + roomDoneDays + today
+
+        val updated = computeStreak(
+            streakDays = combinedDays,
+            todayKey = today,
+            existingLongest = current.longestStreak
+        )
+
+        Log.d(
+            TAG,
+            "taskId=$taskId, todayKey=$today, lastCompletedDay before=${current.lastCompletedDay}, after=${updated.lastCompletedDay}, currentStreak before=${current.currentStreak}, after=${updated.currentStreak}, writtenPrefs=$updated"
+        )
+
         saveToPreferences(preferences, updated)
-        syncToFirestoreAsync(preferences, updated)
+        syncToFirestoreAsync(preferences, updated, taskId)
         return updated
     }
 
-    /**
-     * Called whenever a task is uncompleted or deleted.
-     */
     suspend fun recordTaskUndoneOrDeleted(
         context: Context,
         preferences: UserPreferences,
         taskDao: TaskDao,
+        taskId: String = "N/A",
         zoneId: ZoneId = ZoneId.systemDefault()
     ): StreakData {
         val current = loadFromPreferences(preferences)
         val today = todayDateKey(zoneId)
         val remainingTasks = taskDao.getAllTasksRaw().filter { it.done && !it.deleted }
         val updated = onTaskUndoneOrDeleted(current, remainingTasks, today, zoneId)
+
+        Log.d(
+            TAG,
+            "taskId=$taskId (undone/deleted), todayKey=$today, lastCompletedDay before=${current.lastCompletedDay}, after=${updated.lastCompletedDay}, currentStreak before=${current.currentStreak}, after=${updated.currentStreak}, writtenPrefs=$updated"
+        )
+
         saveToPreferences(preferences, updated)
-        syncToFirestoreAsync(preferences, updated)
+        syncToFirestoreAsync(preferences, updated, taskId)
         return updated
     }
 
-    /**
-     * Called on app launch, activity onResume, or screen entry to verify streak validity.
-     */
     suspend fun recalculateOnAppOpen(
         context: Context,
         preferences: UserPreferences,
@@ -342,31 +328,30 @@ object StreakManager {
         val current = loadFromPreferences(preferences)
         val today = todayDateKey(zoneId)
 
-        // Seed with remaining done tasks if preferences are empty
-        val streakDays = if (current.streakDays.isEmpty()) {
-            val tasks = taskDao.getAllTasksRaw().filter { it.done && !it.deleted }
-            tasks.mapNotNull { taskToDateKey(it, zoneId) }.toSet()
-        } else {
-            current.streakDays
-        }
+        // Always unionize stored streakDays with all current done tasks in Room
+        val roomDoneDays = taskDao.getAllTasksRaw().filter { it.done && !it.deleted }.mapNotNull { taskToDateKey(it, zoneId) }.toSet()
+        val combinedDays = current.streakDays + roomDoneDays
 
         val updated = computeStreak(
-            streakDays = streakDays,
+            streakDays = combinedDays,
             todayKey = today,
             existingLongest = current.longestStreak
         )
 
+        Log.d(
+            TAG,
+            "taskId=N/A (launch/resume/sync), todayKey=$today, lastCompletedDay before=${current.lastCompletedDay}, after=${updated.lastCompletedDay}, currentStreak before=${current.currentStreak}, after=${updated.currentStreak}, writtenPrefs=$updated"
+        )
+
         saveToPreferences(preferences, updated)
-        syncToFirestoreAsync(preferences, updated)
+        syncToFirestoreAsync(preferences, updated, "launch-recalculate")
         return updated
     }
 
-    /**
-     * Non-blocking write to Firestore `users/{uid}`.
-     */
     fun syncToFirestoreAsync(
         preferences: UserPreferences,
         streakData: StreakData,
+        taskId: String = "N/A",
         firestoreProvider: () -> FirebaseFirestore? = {
             try { FirebaseFirestore.getInstance() } catch (_: Throwable) { null }
         }
@@ -391,18 +376,17 @@ object StreakManager {
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
                 userDocRef.set(mapOf("streak" to streakMap), SetOptions.merge()).await()
-                Log.d(TAG, "Synced streak data to Firestore: $streakMap")
+                Log.d(TAG, "taskId=$taskId, writtenFirestore=$streakMap")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to sync streak to Firestore: ${e.message}")
             }
         }
     }
 
-    /**
-     * Handles streak map received from remote Firestore doc snapshot.
-     */
-    fun mergeFromFirestore(
+    suspend fun mergeFromFirestore(
+        context: Context,
         preferences: UserPreferences,
+        taskDao: TaskDao,
         remoteMap: Map<String, Any?>?,
         zoneId: ZoneId = ZoneId.systemDefault()
     ): StreakData {
@@ -421,7 +405,11 @@ object StreakManager {
             streakDays = remoteDaysList.toSet()
         )
 
-        val merged = mergeRemoteStreak(local, remoteData, todayDateKey(zoneId))
+        val roomDoneDays = taskDao.getAllTasksRaw().filter { it.done && !it.deleted }.mapNotNull { taskToDateKey(it, zoneId) }.toSet()
+        val localWithRoom = local.copy(streakDays = local.streakDays + roomDoneDays)
+
+        val merged = mergeRemoteStreak(localWithRoom, remoteData, todayDateKey(zoneId))
+        Log.d(TAG, "Merged remote streak from Firestore: remote=$remoteData, merged=$merged")
         saveToPreferences(preferences, merged)
         return merged
     }

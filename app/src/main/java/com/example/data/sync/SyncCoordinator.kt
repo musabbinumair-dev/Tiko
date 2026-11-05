@@ -191,7 +191,8 @@ class SyncCoordinator(
 
             if (snapshot != null && snapshot.exists() && snapshot.contains("streak")) {
                 val remoteStreak = snapshot.get("streak") as? Map<String, Any?>
-                com.example.data.streak.StreakManager.mergeFromFirestore(preferences, remoteStreak)
+                val taskDao = TikoDatabase.getInstance(context).taskDao()
+                com.example.data.streak.StreakManager.mergeFromFirestore(context, preferences, taskDao, remoteStreak)
             }
 
             val currentStreakData = com.example.data.streak.StreakManager.loadFromPreferences(preferences)

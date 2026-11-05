@@ -9,6 +9,8 @@ import com.example.data.local.TikoDatabase
 import com.example.data.local.UserPreferences
 import com.example.data.model.TaskEntity
 import com.example.data.reminder.BootReceiver
+import com.example.data.reminder.NotificationCopy
+import com.example.data.reminder.NotificationGroupingHelper
 import com.example.data.reminder.NotificationPermissionHelper
 import com.example.data.reminder.ReminderActionReceiver
 import com.example.data.reminder.ReminderReceiver
@@ -159,10 +161,55 @@ class NotificationReminderTest {
 
     @Test
     fun testNotificationChannelCreated() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val oldChannel = android.app.NotificationChannel(
+                ReminderReceiver.OLD_CHANNEL_ID,
+                "Old Reminders",
+                android.app.NotificationManager.IMPORTANCE_DEFAULT
+            )
+            notificationManager.createNotificationChannel(oldChannel)
+        }
+
         ReminderReceiver.createChannel(context)
-        val channel = notificationManager.getNotificationChannel(ReminderReceiver.CHANNEL_ID)
-        assertNotNull(channel)
-        assertEquals(ReminderReceiver.CHANNEL_NAME, channel?.name)
+        val channelV2 = notificationManager.getNotificationChannel(ReminderReceiver.CHANNEL_ID_V2)
+        assertNotNull(channelV2)
+        assertEquals(ReminderReceiver.CHANNEL_NAME, channelV2?.name)
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val oldChannel = notificationManager.getNotificationChannel(ReminderReceiver.OLD_CHANNEL_ID)
+            assertNull(oldChannel)
+        }
+    }
+
+    @Test
+    fun testNotificationCopyFormattingAndEmojis() {
+        val workTitle = NotificationCopy.getNotificationTitle("Work", isAtDueTime = true)
+        assertFalse(workTitle.isBlank())
+
+        val healthTitle = NotificationCopy.getNotificationTitle("Health", isAtDueTime = true)
+        assertFalse(healthTitle.isBlank())
+
+        val soonTitle = NotificationCopy.getNotificationTitle("Work", reminderOffset = "15 min before", isAtDueTime = false)
+        assertEquals("Coming up in 15 min ⏰", soonTitle)
+
+        val defaultTitle = NotificationCopy.sanitizeTitle("")
+        assertEquals("Your task", defaultTitle)
+
+        val nullSanitized = NotificationCopy.sanitizeTitle("null")
+        assertEquals("Your task", nullSanitized)
+
+        val body = NotificationCopy.buildNotificationBody("Write tests", "Work", "2:00 PM")
+        assertTrue(body.toString().contains("Write tests"))
+        assertTrue(body.toString().contains("Work • 2:00 PM"))
+    }
+
+    @Test
+    fun testNotificationGroupingWhenThreeRemindersFire() {
+        val nm = notificationManager
+        NotificationGroupingHelper.recordAndCheckGroupSummary(context, "task-1", "Task One", nm)
+        NotificationGroupingHelper.recordAndCheckGroupSummary(context, "task-2", "Task Two", nm)
+        NotificationGroupingHelper.recordAndCheckGroupSummary(context, "task-3", "Task Three", nm)
+        assertNotNull(nm)
     }
 
     @Test

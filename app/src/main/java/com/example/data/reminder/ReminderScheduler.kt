@@ -89,7 +89,10 @@ object ReminderScheduler {
         } catch (_: Exception) {}
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        notificationManager?.cancel(taskId.hashCode())
+        if (notificationManager != null) {
+            notificationManager.cancel(taskId.hashCode())
+            NotificationGroupingHelper.onTaskDismissedOrDone(context, taskId, notificationManager)
+        }
     }
 
     fun cancelAll(context: Context, tasks: List<TaskEntity>) {

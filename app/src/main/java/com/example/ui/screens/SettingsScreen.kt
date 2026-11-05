@@ -1077,11 +1077,24 @@ fun SettingsScreen(
                 }
             },
             actions = {
-                TikoPrimaryButton(
-                    text = "Close",
-                    onClick = { showDiagnosticsDialog = false },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TikoPrimaryButton(
+                        text = "Send test reminder",
+                        onClick = {
+                            com.example.data.reminder.ReminderReceiver.sendTestReminder(context)
+                            AppToastController.show("Test reminder sent", ToastType.Success)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TikoSecondaryButton(
+                        text = "Close",
+                        onClick = { showDiagnosticsDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         )
     }

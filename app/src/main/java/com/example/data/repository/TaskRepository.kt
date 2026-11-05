@@ -44,6 +44,10 @@ class TaskRepository(
         finalTask.id
     }
 
+    private val preferences: com.example.data.local.UserPreferences by lazy {
+        com.example.data.local.UserPreferences(context)
+    }
+
     suspend fun updateTask(task: TaskEntity) = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val updated = task.copy(updatedAt = now, synced = false)
@@ -53,6 +57,12 @@ class TaskRepository(
         } else {
             ReminderScheduler.cancel(context, updated.id)
         }
+        if (updated.done) {
+            com.example.data.streak.StreakManager.recordTaskCompletion(context, preferences, taskDao)
+        } else {
+            com.example.data.streak.StreakManager.recordTaskUndoneOrDeleted(context, preferences, taskDao)
+        }
+        com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
     }
 
     suspend fun toggleTaskDone(task: TaskEntity) = withContext(Dispatchers.IO) {
@@ -62,16 +72,21 @@ class TaskRepository(
         taskDao.setTaskDone(task.id, newDone, completedAt, now)
         if (newDone) {
             ReminderScheduler.cancel(context, task.id)
+            com.example.data.streak.StreakManager.recordTaskCompletion(context, preferences, taskDao)
         } else {
             val uncompleted = task.copy(done = false, completedAt = null, updatedAt = now)
             ReminderScheduler.schedule(context, uncompleted)
+            com.example.data.streak.StreakManager.recordTaskUndoneOrDeleted(context, preferences, taskDao)
         }
+        com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
     }
 
     suspend fun completeTask(taskId: String) = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         taskDao.setTaskDone(taskId, true, now, now)
         ReminderScheduler.cancel(context, taskId)
+        com.example.data.streak.StreakManager.recordTaskCompletion(context, preferences, taskDao)
+        com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
     }
 
     suspend fun toggleSubtask(taskId: String, subtaskId: String) = withContext(Dispatchers.IO) {
@@ -95,15 +110,22 @@ class TaskRepository(
     suspend fun deleteTask(task: TaskEntity) = withContext(Dispatchers.IO) {
         taskDao.softDeleteById(task.id, System.currentTimeMillis())
         ReminderScheduler.cancel(context, task.id)
+        com.example.data.streak.StreakManager.recordTaskUndoneOrDeleted(context, preferences, taskDao)
+        com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
     }
 
     suspend fun deleteTaskById(id: String) = withContext(Dispatchers.IO) {
         taskDao.softDeleteById(id, System.currentTimeMillis())
         ReminderScheduler.cancel(context, id)
+        com.example.data.streak.StreakManager.recordTaskUndoneOrDeleted(context, preferences, taskDao)
+        com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
     }
 
     suspend fun deleteCompletedTasks(): Int = withContext(Dispatchers.IO) {
-        taskDao.softDeleteCompletedTasks(System.currentTimeMillis())
+        val count = taskDao.softDeleteCompletedTasks(System.currentTimeMillis())
+        com.example.data.streak.StreakManager.recordTaskUndoneOrDeleted(context, preferences, taskDao)
+        com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
+        count
     }
 
     suspend fun clearAllTasks() = withContext(Dispatchers.IO) {

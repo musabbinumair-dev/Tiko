@@ -155,6 +155,7 @@ fun TikoApp(viewModel: TikoViewModel = viewModel(factory = TikoViewModel.Factory
                     viewModel.preferences.setNotificationsEnabled(false)
                     viewModel.cancelAllReminders()
                 }
+                viewModel.checkAndRecalculateStreak()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

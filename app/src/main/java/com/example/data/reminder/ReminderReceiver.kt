@@ -26,6 +26,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == com.example.data.streak.StreakReminderScheduler.ACTION_STREAK_REMINDER) {
+            handleStreakReminder(context)
+            return
+        }
+
         val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return
         val scheduledTime = intent.getLongExtra(EXTRA_SCHEDULED_TIME, -1L)
         val now = System.currentTimeMillis()
@@ -287,6 +292,64 @@ class ReminderReceiver : BroadcastReceiver() {
             )
 
             showNotification(context, testTask, System.currentTimeMillis())
+        }
+
+        fun handleStreakReminder(context: Context) {
+            val preferences = com.example.data.local.UserPreferences(context)
+            val enabled = preferences.streakRemindersEnabled.value
+            val streak = preferences.currentStreak.value
+            val lastCompleted = preferences.lastCompletedDay.value
+            val todayKey = com.example.data.streak.StreakManager.todayDateKey()
+
+            if (!enabled || streak < 2 || lastCompleted == todayKey) {
+                Log.d("TikoStreakReminder", "Streak reminder dropped at fire time (enabled=$enabled, streak=$streak, lastCompleted=$lastCompleted, today=$todayKey)")
+                if (enabled && streak >= 2) {
+                    com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
+                }
+                return
+            }
+
+            if (!NotificationPermissionHelper.hasNotificationPermission(context)) {
+                return
+            }
+
+            createChannel(context)
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                ?: return
+
+            val intent = Intent(context, com.example.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                999992,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val largeIcon = NotificationIconHelper.createCategoryLargeIcon(context, "Streak")
+            val colorStreak = NotificationIconHelper.getCategoryColor("Streak")
+
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID_V2)
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
+                .setLargeIcon(largeIcon)
+                .setColor(colorStreak)
+                .setContentTitle("Protect your streak")
+                .setContentText("Your $streak-day streak is waiting 🔥 Finish one task to keep it going.")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("Your $streak-day streak is waiting 🔥 Finish one task to keep it going."))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setOnlyAlertOnce(false)
+                .setShowWhen(true)
+                .setWhen(System.currentTimeMillis())
+                .build()
+
+            notificationManager.notify(999991, notification)
+            Log.d("TikoStreakReminder", "Posted streak reminder notification for streak=$streak")
+
+            com.example.data.streak.StreakReminderScheduler.schedule(context, preferences)
         }
     }
 }

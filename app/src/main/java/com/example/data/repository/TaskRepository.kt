@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.data.local.TaskDao
 import com.example.data.model.TaskEntity
 import com.example.data.reminder.ReminderScheduler
+import com.example.data.reminder.StreakReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -41,6 +42,7 @@ class TaskRepository(
         } else {
             ReminderScheduler.cancel(context, finalTask.id)
         }
+        StreakReminderScheduler.reschedule(context)
         finalTask.id
     }
 
@@ -53,6 +55,7 @@ class TaskRepository(
         } else {
             ReminderScheduler.cancel(context, updated.id)
         }
+        StreakReminderScheduler.reschedule(context)
     }
 
     suspend fun toggleTaskDone(task: TaskEntity) = withContext(Dispatchers.IO) {
@@ -66,12 +69,14 @@ class TaskRepository(
             val uncompleted = task.copy(done = false, completedAt = null, updatedAt = now)
             ReminderScheduler.schedule(context, uncompleted)
         }
+        StreakReminderScheduler.reschedule(context)
     }
 
     suspend fun completeTask(taskId: String) = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         taskDao.setTaskDone(taskId, true, now, now)
         ReminderScheduler.cancel(context, taskId)
+        StreakReminderScheduler.reschedule(context)
     }
 
     suspend fun toggleSubtask(taskId: String, subtaskId: String) = withContext(Dispatchers.IO) {
@@ -95,20 +100,25 @@ class TaskRepository(
     suspend fun deleteTask(task: TaskEntity) = withContext(Dispatchers.IO) {
         taskDao.softDeleteById(task.id, System.currentTimeMillis())
         ReminderScheduler.cancel(context, task.id)
+        StreakReminderScheduler.reschedule(context)
     }
 
     suspend fun deleteTaskById(id: String) = withContext(Dispatchers.IO) {
         taskDao.softDeleteById(id, System.currentTimeMillis())
         ReminderScheduler.cancel(context, id)
+        StreakReminderScheduler.reschedule(context)
     }
 
     suspend fun deleteCompletedTasks(): Int = withContext(Dispatchers.IO) {
-        taskDao.softDeleteCompletedTasks(System.currentTimeMillis())
+        val count = taskDao.softDeleteCompletedTasks(System.currentTimeMillis())
+        StreakReminderScheduler.reschedule(context)
+        count
     }
 
     suspend fun clearAllTasks() = withContext(Dispatchers.IO) {
         val allTasks = taskDao.getAllTasksRaw()
         taskDao.clearAll()
         ReminderScheduler.cancelAll(context, allTasks)
+        StreakReminderScheduler.cancel(context)
     }
 }

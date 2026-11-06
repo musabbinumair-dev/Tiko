@@ -37,6 +37,20 @@ object NotificationCopy {
         "Keep the streak alive 🔥"
     )
 
+    // Dedicated streak reminder copy pool: 3 friendly variants with real streak count and at most 1 emoji
+    val STREAK_REMINDER_TITLES = listOf(
+        "Your %d-day streak is waiting 🔥",
+        "Keep your %d-day streak alive ✨",
+        "Don't lose your %d-day streak 🌟"
+    )
+
+    const val STREAK_REMINDER_BODY = "Finish one task to keep it going."
+
+    fun getStreakReminderTitle(streak: Int, random: Random = Random.Default): String {
+        val template = STREAK_REMINDER_TITLES[random.nextInt(STREAK_REMINDER_TITLES.size)]
+        return String.format(Locale.US, template, streak)
+    }
+
     val DEFAULT_TITLES = listOf(
         "Friendly reminder 🌟",
         "A quick nudge for you ✨",

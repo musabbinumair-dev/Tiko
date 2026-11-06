@@ -38,7 +38,8 @@ class BootReceiver : BroadcastReceiver() {
                     val tasks = database.taskDao().getAllTasksRaw()
                     val activeTasks = tasks.filter { !it.done && !it.deleted }
                     ReminderScheduler.rescheduleAllFutureReminders(context, activeTasks)
-                    Log.d("TikoReminder", "BootReceiver rescheduled ${activeTasks.size} active tasks.")
+                    StreakReminderScheduler.reschedule(context)
+                    Log.d("TikoReminder", "BootReceiver rescheduled ${activeTasks.size} active tasks and streak reminder.")
                 } catch (e: Exception) {
                     Log.w("TikoReminder", "Error rescheduling in BootReceiver: ${e.message}")
                 } finally {

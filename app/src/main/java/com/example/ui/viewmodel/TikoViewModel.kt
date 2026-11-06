@@ -9,6 +9,8 @@ import com.example.data.model.DefaultCategories
 import com.example.data.model.SubtaskItem
 import com.example.data.model.TaskEntity
 import com.example.data.reminder.ReminderScheduler
+import com.example.data.reminder.StreakManager
+import com.example.data.reminder.StreakReminderScheduler
 import com.example.data.repository.TaskRepository
 import com.example.data.update.UpdateChecker
 import com.example.data.update.UpdateResult
@@ -118,13 +120,19 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val activeTasks = database.taskDao().getAllTasksRaw().filter { !it.done && !it.deleted }
             ReminderScheduler.rescheduleAllFutureReminders(getApplication(), activeTasks)
+            StreakReminderScheduler.reschedule(getApplication())
         }
+    }
+
+    fun checkAndRecalculateStreak() {
+        rescheduleAllReminders()
     }
 
     fun cancelAllReminders() {
         viewModelScope.launch(Dispatchers.IO) {
             val allTasks = database.taskDao().getAllTasksRaw()
             ReminderScheduler.cancelAll(getApplication(), allTasks)
+            StreakReminderScheduler.cancel(getApplication())
         }
     }
 
@@ -218,10 +226,7 @@ class TikoViewModel(application: Application) : AndroidViewModel(application) {
     val todayStats: StateFlow<TodayStats> = allTasks.combine(MutableStateFlow(Unit)) { tasks, _ ->
         val doneCount = tasks.count { it.done }
         val pendingCount = tasks.count { !it.done }
-        val completedDates = tasks.filter { it.done && it.dueDate.isNotBlank() }
-            .map { it.dueDate }
-            .distinct()
-        val streak = if (doneCount > 0) completedDates.size.coerceAtLeast(1) else 0
+        val streak = StreakManager.computeCurrentStreak(tasks)
         TodayStats(
             done = doneCount,
             pending = pendingCount,

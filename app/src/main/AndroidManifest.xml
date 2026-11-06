@@ -47,6 +47,10 @@
             android:exported="false" />
 
         <receiver
+            android:name="com.example.data.reminder.StreakReminderReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name="com.example.data.reminder.BootReceiver"
             android:exported="false">
             <intent-filter>

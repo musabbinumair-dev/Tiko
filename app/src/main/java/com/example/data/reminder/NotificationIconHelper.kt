@@ -75,4 +75,36 @@ object NotificationIconHelper {
 
         return bitmap
     }
+
+    /**
+     * Large icon for Streak Reminders:
+     * Flame icon on the lime #BAE136 circle with #151515 tint.
+     */
+    fun createStreakLargeIcon(context: Context): Bitmap {
+        val size = 128
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val circleColor = Color.parseColor("#BAE136")
+        val iconTint = Color.parseColor("#151515")
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = circleColor
+            style = Paint.Style.FILL
+        }
+        val radius = size / 2f
+        canvas.drawCircle(radius, radius, radius, paint)
+
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_category_streak)
+        if (drawable != null) {
+            val iconSize = (size * 0.52f).toInt()
+            val left = (size - iconSize) / 2
+            val top = (size - iconSize) / 2
+            drawable.setBounds(left, top, left + iconSize, top + iconSize)
+            drawable.colorFilter = PorterDuffColorFilter(iconTint, PorterDuff.Mode.SRC_IN)
+            drawable.draw(canvas)
+        }
+
+        return bitmap
+    }
 }

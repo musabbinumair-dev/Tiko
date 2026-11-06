@@ -189,6 +189,19 @@ class SyncCoordinator(
                 }
             }
 
+            if (snapshot != null && snapshot.exists()) {
+                if (snapshot.contains("streakRemindersEnabled")) {
+                    snapshot.getBoolean("streakRemindersEnabled")?.let {
+                        preferences.setStreakRemindersEnabled(it)
+                    }
+                }
+                if (snapshot.contains("streakReminderTime")) {
+                    snapshot.getString("streakReminderTime")?.let {
+                        preferences.setStreakReminderTime(it)
+                    }
+                }
+            }
+
             if (BuildConfig.DEBUG) {
                 Log.d("TikoSync", "Writing profile doc for uid: $uid (excluding avatarId)")
             }
@@ -228,6 +241,36 @@ class SyncCoordinator(
                 Log.d("TikoProfile", "Successfully saved avatarId '$avatarId' to users/$uid")
             } catch (e: Exception) {
                 Log.w("TikoProfile", "Failed to write avatarId to Firestore: ${e.message}", e)
+            }
+        }
+    }
+
+    fun syncStreakReminderPreferences(enabled: Boolean? = null, time: String? = null) {
+        val uid = try {
+            FirebaseAuth.getInstance().currentUser?.uid
+        } catch (_: Throwable) {
+            null
+        } ?: activeUserId ?: try { authProvider()?.currentUser?.uid } catch (_: Throwable) { null } ?: return
+
+        if (uid.isBlank()) return
+
+        scope.launch {
+            try {
+                val firestore = firestoreProvider() ?: return@launch
+                val userDocRef = firestore.collection("users").document(uid)
+                val data = mutableMapOf<String, Any>(
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                if (enabled != null) {
+                    data["streakRemindersEnabled"] = enabled
+                }
+                if (time != null) {
+                    data["streakReminderTime"] = time
+                }
+                userDocRef.set(data, SetOptions.merge()).await()
+                Log.d("TikoStreakReminder", "Successfully synced streak reminder settings to users/$uid")
+            } catch (e: Exception) {
+                Log.w("TikoStreakReminder", "Failed to sync streak reminder preferences to Firestore: ${e.message}", e)
             }
         }
     }

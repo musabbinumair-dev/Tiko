@@ -62,9 +62,11 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -191,6 +193,7 @@ fun SettingsScreen(
                     viewModel.rescheduleAllReminders()
                     NotificationPermissionHelper.checkAndShowExactAlarmNotice(context, preferences)
                 }
+                viewModel.checkAndRecalculateStreak()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -230,6 +233,7 @@ fun SettingsScreen(
     var editNameInput by remember { mutableStateOf(userName) }
     var editEmailInput by remember { mutableStateOf(userEmail) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showStreakTimePicker by remember { mutableStateOf(false) }
 
     // Inline update-check status — drives the version line text, no toasts
     var updateCheckStatus by remember { mutableStateOf<String?>(null) }
@@ -238,10 +242,7 @@ fun SettingsScreen(
     // Dynamic stats calculation from real data only
     val completedCount = remember(tasks) { tasks.count { it.done } }
     val doneCount = completedCount.toString()
-    val streakText = remember(tasks) {
-        val completedDates = tasks.filter { it.done && it.dueDate.isNotBlank() }.map { it.dueDate }.distinct()
-        completedDates.size.toString()
-    }
+    val streakText = remember(tasks) { com.example.data.reminder.StreakManager.computeCurrentStreak(tasks).toString() }
     val onTimeText = remember(tasks) {
         val total = tasks.size
         if (total > 0) {
@@ -253,47 +254,50 @@ fun SettingsScreen(
         }
     }
 
-    // Weekly completion distribution from real data
+    // Weekly completion distribution from real task data (Mon..Sun of current week)
     val weeklyData = remember(tasks) {
         val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        val cal = Calendar.getInstance()
-        cal.firstDayOfWeek = Calendar.MONDAY
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        val startOfWeek = cal.timeInMillis
-        cal.add(Calendar.DAY_OF_WEEK, 7)
-        val endOfWeek = cal.timeInMillis
-
-        val counts = IntArray(7)
+        val cal = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
+        val currentDayOfWeek = when (cal.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> 0
+            Calendar.TUESDAY -> 1
+            Calendar.WEDNESDAY -> 2
+            Calendar.THURSDAY -> 3
+            Calendar.FRIDAY -> 4
+            Calendar.SATURDAY -> 5
+            Calendar.SUNDAY -> 6
+            else -> 0
+        }
+        val dayCounts = IntArray(7)
         val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-
-        for (task in tasks) {
-            if (task.done) {
-                val taskTime = task.completedAt ?: try {
-                    if (task.dueDate.isNotBlank()) sdfDate.parse(task.dueDate)?.time else null
-                } catch (_: Exception) {
-                    null
+        val doneTasks = tasks.filter { it.done && !it.deleted }
+        for (t in doneTasks) {
+            val taskCal = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
+            val time = t.completedAt ?: run {
+                try { sdfDate.parse(t.dueDate)?.time } catch (_: Exception) { null }
+            } ?: continue
+            taskCal.timeInMillis = time
+            if (taskCal.get(Calendar.WEEK_OF_YEAR) == cal.get(Calendar.WEEK_OF_YEAR) &&
+                taskCal.get(Calendar.YEAR) == cal.get(Calendar.YEAR)) {
+                val dayIdx = when (taskCal.get(Calendar.DAY_OF_WEEK)) {
+                    Calendar.MONDAY -> 0
+                    Calendar.TUESDAY -> 1
+                    Calendar.WEDNESDAY -> 2
+                    Calendar.THURSDAY -> 3
+                    Calendar.FRIDAY -> 4
+                    Calendar.SATURDAY -> 5
+                    Calendar.SUNDAY -> 6
+                    else -> 0
                 }
-                if (taskTime != null && taskTime >= startOfWeek && taskTime < endOfWeek) {
-                    val taskCal = Calendar.getInstance().apply { timeInMillis = taskTime }
-                    val dayOfWeek = taskCal.get(Calendar.DAY_OF_WEEK)
-                    val index = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - 2
-                    if (index in 0..6) {
-                        counts[index]++
-                    }
-                }
+                dayCounts[dayIdx]++
             }
         }
-
-        val todayCal = Calendar.getInstance()
-        val todayDayOfWeek = todayCal.get(Calendar.DAY_OF_WEEK)
-        val todayIndex = if (todayDayOfWeek == Calendar.SUNDAY) 6 else todayDayOfWeek - 2
-
-        days.mapIndexed { index, day ->
-            WeeklyBarData(day, counts[index], isHighlight = (index == todayIndex))
+        days.mapIndexed { idx, dayName ->
+            WeeklyBarData(
+                day = dayName,
+                value = dayCounts[idx],
+                isHighlight = (idx == currentDayOfWeek)
+            )
         }
     }
 
@@ -799,6 +803,72 @@ fun SettingsScreen(
 
                         SettingsDivider(isDark = darkModeOn)
 
+                        // 2b. Streak reminders (default ON, 8:00 PM)
+                        val streakRemindersOn by preferences.streakRemindersEnabled.collectAsState()
+                        val streakReminderTime by preferences.streakReminderTime.collectAsState()
+                        SettingsRow(
+                            icon = Icons.Outlined.LocalFireDepartment,
+                            label = "Streak reminders",
+                            isDark = darkModeOn,
+                            trailing = {
+                                ProfileSwitch(
+                                    checked = streakRemindersOn && systemNotifGranted,
+                                    onCheckedChange = { checked ->
+                                        if (!systemNotifGranted && checked) {
+                                            AppToastController.show("Allow notifications first", ToastType.Warning)
+                                            return@ProfileSwitch
+                                        }
+                                        preferences.setStreakRemindersEnabled(checked)
+                                        viewModel.syncCoordinator.syncStreakReminderPreferences(enabled = checked)
+                                        if (checked) {
+                                            com.example.data.reminder.StreakReminderScheduler.reschedule(context)
+                                            AppToastController.show("Streak reminders enabled", ToastType.Success)
+                                        } else {
+                                            com.example.data.reminder.StreakReminderScheduler.cancel(context)
+                                            AppToastController.show("Streak reminders disabled", ToastType.Info)
+                                        }
+                                    },
+                                    isDark = darkModeOn,
+                                    testTag = "switch_streak_reminders"
+                                )
+                            }
+                        )
+
+                        if (streakRemindersOn) {
+                            SettingsDivider(isDark = darkModeOn)
+
+                            SettingsRow(
+                                icon = Icons.Outlined.Schedule,
+                                label = "Streak reminder time",
+                                isDark = darkModeOn,
+                                onClick = {
+                                    showStreakTimePicker = true
+                                },
+                                trailing = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = streakReminderTime,
+                                            fontFamily = OutfitFontFamily,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 14.sp,
+                                            color = if (darkModeOn) Color(0xFFC8DB6A) else Color(0xFF6B4EFF)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = "Change streak reminder time",
+                                            tint = if (darkModeOn) Color(0xFFF5F1E6) else AppBlack,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+
+                        SettingsDivider(isDark = darkModeOn)
+
                         // 3. Theme selection — capsule with Light / System / Dark
                         SettingsRow(
                             icon = Icons.Outlined.DarkMode,
@@ -1074,6 +1144,15 @@ fun SettingsScreen(
                     DiagnosticItem("Pending Reminders", "${pendingReminders.size} active", isGood = true)
                     DiagnosticItem("Next Trigger (Local)", nextTriggerStr, isGood = true)
                     DiagnosticItem("Last Fired Delay", lastDelayStr, isGood = true)
+                    val streakRemindersOn by preferences.streakRemindersEnabled.collectAsState()
+                    val streakReminderTime by preferences.streakReminderTime.collectAsState()
+                    val currentStreakVal = remember(tasks) { com.example.data.reminder.StreakManager.computeCurrentStreak(tasks) }
+                    val taskDoneTodayVal = remember(tasks) { com.example.data.reminder.StreakManager.hasCompletedTaskToday(tasks) }
+                    val todayKeyVal = com.example.data.reminder.StreakManager.getTodayDateKey()
+
+                    DiagnosticItem("Streak Reminders", if (streakRemindersOn) "ON ($streakReminderTime)" else "OFF", isGood = streakRemindersOn)
+                    DiagnosticItem("Current Streak", "$currentStreakVal days", isGood = currentStreakVal >= 2)
+                    DiagnosticItem("Task Done Today", if (taskDoneTodayVal) "Yes ($todayKeyVal)" else "No ($todayKeyVal)", isGood = true)
                 }
             },
             actions = {
@@ -1086,6 +1165,13 @@ fun SettingsScreen(
                         onClick = {
                             com.example.data.reminder.ReminderReceiver.sendTestReminder(context)
                             AppToastController.show("Test reminder sent", ToastType.Success)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TikoSecondaryButton(
+                        text = "Send test streak reminder",
+                        onClick = {
+                            com.example.data.reminder.StreakReminderScheduler.sendTestReminder(context)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1222,6 +1308,28 @@ fun SettingsScreen(
                 )
             }
         )
+    }
+
+    if (showStreakTimePicker) {
+        val streakReminderTime by preferences.streakReminderTime.collectAsState()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(100f),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            TikoFloatingTimePickerModal(
+                initialTime = streakReminderTime,
+                onTimeSelected = { newTime ->
+                    preferences.setStreakReminderTime(newTime)
+                    com.example.data.reminder.StreakReminderScheduler.reschedule(context)
+                    viewModel.syncCoordinator.syncStreakReminderPreferences(time = newTime)
+                    showStreakTimePicker = false
+                },
+                onDismiss = { showStreakTimePicker = false },
+                isDark = darkModeOn
+            )
+        }
     }
 }
 

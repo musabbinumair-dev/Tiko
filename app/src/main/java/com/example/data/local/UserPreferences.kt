@@ -65,6 +65,35 @@ class UserPreferences(context: Context) {
     private val _updateExpectedVersionCode = MutableStateFlow(prefs.getLong("update_expected_version_code", -1L))
     val updateExpectedVersionCode: StateFlow<Long> = _updateExpectedVersionCode.asStateFlow()
 
+    private val _streakRemindersEnabled = MutableStateFlow(prefs.getBoolean("streak_reminders_enabled", true))
+    val streakRemindersEnabled: StateFlow<Boolean> = _streakRemindersEnabled.asStateFlow()
+
+    private val _streakReminderTime = MutableStateFlow(prefs.getString("streak_reminder_time", "8:00 PM") ?: "8:00 PM")
+    val streakReminderTime: StateFlow<String> = _streakReminderTime.asStateFlow()
+
+    private val _lastStreakReminderSentDateKey = MutableStateFlow(prefs.getString("last_streak_reminder_date_key", null))
+    val lastStreakReminderSentDateKey: StateFlow<String?> = _lastStreakReminderSentDateKey.asStateFlow()
+
+    fun setStreakRemindersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("streak_reminders_enabled", enabled).apply()
+        _streakRemindersEnabled.value = enabled
+    }
+
+    fun setStreakReminderTime(time: String) {
+        val trimmed = time.trim().ifBlank { "8:00 PM" }
+        prefs.edit().putString("streak_reminder_time", trimmed).apply()
+        _streakReminderTime.value = trimmed
+    }
+
+    fun setLastStreakReminderSentDateKey(dateKey: String?) {
+        if (dateKey != null) {
+            prefs.edit().putString("last_streak_reminder_date_key", dateKey).apply()
+        } else {
+            prefs.edit().remove("last_streak_reminder_date_key").apply()
+        }
+        _lastStreakReminderSentDateKey.value = dateKey
+    }
+
     fun setAvatarId(id: String?) {
         if (id != null) {
             prefs.edit().putString("avatar_id", id).apply()

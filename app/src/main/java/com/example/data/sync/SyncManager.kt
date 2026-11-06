@@ -345,6 +345,9 @@ class SyncManager(
 
                 // Clean up synced tombstones
                 taskDao.deleteSyncedTombstones()
+                try {
+                    com.example.data.reminder.StreakReminderScheduler.reschedule(context)
+                } catch (_: Exception) {}
             }
         }
     }
